@@ -1,0 +1,413 @@
+module ShardTools.PathTools;
+import std.algorithm;
+import ShardTools.StringTools;
+import std.exception;
+import std.conv;
+import std.string;
+import std.file;
+import std.path;
+import std.process;
+import ShardTools.Enforce;
+import ShardTools.ArrayOps;
+
+/+
+/// An enum describing on how to handle a relative path.
+enum PathStyle {
+	/// The path should be relative to the application exe directory (may or may not be the same as the CurrentDirectory).
+	ApplicationDirectory,
+	/// The path should be relative to the current directory.
+	CurrentDirectory
+}+/
+
+version(Windows) { 
+	import std.c.windows.windows;		
+	static const ushort MAX_PATH = 260;	
+	extern(Windows) {						
+		BOOL PathRemoveFileSpecA(LPTSTR);
+		LPTSTR PathAddBackslashA(LPTSTR);
+		BOOL PathIsRelativeA(LPCTSTR);	
+		BOOL PathIsDirectoryA(LPCTSTR);
+		BOOL PathRelativePathToA(LPTSTR, LPCTSTR, DWORD, LPCTSTR, DWORD);		
+		BOOL PathStripToRootA(LPTSTR);
+		LPTSTR PathRemoveBackslashA(LPTSTR);
+	}			
+	extern(Windows) {
+		DWORD GetCurrentDirectoryA(DWORD, LPTSTR);
+		BOOL SetCurrentDirectoryA(LPCTSTR);
+		DWORD GetFullPathNameA(LPCTSTR, DWORD, LPTSTR, LPTSTR*);
+		DWORD GetModuleFileName(HMODULE, LPTSTR, DWORD);
+	}
+} else {
+	import core.sys.posix.unistd : readLinkPosix = readlink;
+}
+
+/// Static helper class used to manage paths.
+static class PathTools {
+public:	
+	
+	/// Returns the FilePath without the filename or extension. Does not include a trailing backslash, unless in a root directory.
+	/// Assumes that the filename would have an extension.
+	static inout(char[]) GetDirectoryPath(inout(char[]) FilePath) {	
+	/+	int indexDot = IndexOf(FilePath, '.');
+		if(indexDot != -1)
+			return MakeAbsolute(FilePath);
+		for(int i = indexDot; i >= 0; i--) {
+			if(i == '\\' || i == '/')
+				if(i - 1 == ':')
+					return FilePath[0..i + 1].dup;
+				else
+					return FilePath[0..i].dup;
+		}		
+		throw new Exception("GetDirectoryPath failed for \'" ~ FilePath ~ "\'.");+/										
+		version(Windows) {									
+			char[] Copy = Terminate(MakeAbsolute(FilePath));
+			uint Result = PathRemoveFileSpecA(Copy.ptr);
+			char[] Trimmed = Copy.TrimReturn;
+			if(Trimmed.length > 3) // Not .:\
+				return RemoveTrailingSeparator(cast(inout)Trimmed);
+			else if(Trimmed.length == 2)
+				return cast(inout)(Trimmed ~ '\\');
+			return cast(inout)Trimmed;
+		} else {
+			char[] Result = dirname(MakeAbsolute(FilePath).dup);
+			if(cmp(Result, ".") == 0)
+				return cast(inout)"/".dup;
+			return cast(inout)Result;
+		}			
+	}
+
+
+	shared static this() {
+		SyncLock = new Object();
+	}
+	
+	unittest {
+		version(Windows) {		
+			// TODO: Fix this stuff.
+			EnforceEqual(GetDirectoryPath("D:\\Test\\Test.exe"), "D:\\Test");			
+			assert(Equals(GetDirectoryPath("D:\\Test\\Test.exe"), "D:\\Test"));
+			assert(Equals(GetDirectoryPath("D:\\Test\\"), "D:\\Test"));
+			string TestExe = "D:\\Test\\Test.exe";
+			string Path = GetDirectoryPath(TestExe);
+			assert(Path[Path.length - 1] != '\\' && Path[Path.length - 1] != '/');
+			string DirPath = GetDirectoryPath("D:\\Test.exe");
+			EnforceEqual(DirPath, "D:\\");			
+		}
+	}
+	
+	/// Adds a trailing slash on Posix, or backslash on Windows to the specified path if it does not already contain one.
+	static inout(char[]) AddTrailingSlash(inout char[] FilePath) {
+		version(Windows) {
+			char[] Result = Terminate(FilePath);
+			PathAddBackslashA(Result.ptr);
+			return cast(inout)Result.TrimReturn;			
+		} else {
+			char[] Copy = FilePath.dup;
+			if(Copy[Copy.length - 1] != '/')
+				Copy ~= '/';
+			return cast(inout)Copy;
+		}
+	}
+	
+	unittest {
+		version(Windows) {
+			EnforceEqual(AddTrailingSlash("D:\\Test"), "D:\\Test\\".dup);
+		} else {
+			EnforceEqual(AddTrailingSlash("/test"), "/test/".dup);
+			EnforceEqual(AddTrailingSlash("/test/"), "/test/".dup);
+		}
+	}
+	
+	/// Returns a value indicating whether the CurrentDirectory is the same as the directory containing the .exe file used to launch this application.
+	static bool CurrentEqualsApplicationDir() {
+		return Equals(ApplicationDirectory, CurrentDirectory);
+	}
+
+	/// Gets the extension for the given path, including the leading dot, or an empty string if no extension was present.
+	static inout(char[]) GetExtension(inout char[] FilePath) {
+		char[] Result = extension(FilePath.dup);
+		if(Result is null)
+			Result = new char[0];
+		return cast(inout)Result;
+	}
+
+	/// Returns whether Path is located within the given Directory or any of it's subfolders.
+	/// Params:
+	/// 	Path = The path to check if within Directory.
+	/// 	Directory = The path to check if Path is within.
+	static bool IsPathWithinDirectory(in char[] Path, in char[] Directory) {
+		const(char[]) Relative = GetRelativePath(Path, Directory);
+		if(Relative is null || Relative.length == 0)
+			return false;
+		return std.string.indexOf(Relative, "..") == -1;		
+		//return (First > 'A' && First < 'Z') || (First > 'a' && First < 'z') || (First == '\\' || First == '/');
+	}
+
+	unittest {
+		version(Windows) {
+			assert(IsPathWithinDirectory("D:\\Test\\test.exe", "D:\\Test\\"));
+		} else {
+			assert(IsPathWithinDirectory("/Test/Test.exe", "/Test/"));
+		}		
+	}
+	
+	/// Returns the absolute path of the specified path.
+	/// Params: 
+	///		Path = The path to make absolute.
+	///		Base = Determines the base path to use when making the path absolute.
+	static inout(char[]) MakeAbsolute(inout char[] Path) {		 // TODO: Make thread safe.
+		version(Windows) {
+			char[] Copy = Terminate(Path);
+			char[] Result = new char[MAX_PATH];
+			uint ResultLen = GetFullPathNameA(Copy.ptr, MAX_PATH, Result.ptr, null);			
+			enforce(ResultLen <= MAX_PATH && ResultLen != 0);
+			Result = Result.TrimReturn;						
+			return cast(inout)Result.TrimReturn;
+		} else {
+			char[] Result;
+			if(isabs(Path))
+				Result = Path.dup;
+			Result = rel2abs(cast(immutable)Path).dup;
+			Result = buildNormalizedPath(Result).dup;
+			//if(IsDirectory(Result))
+				//Result = AddTrailingSlash(Result);
+			return cast(inout)Result;			
+		}
+	}
+	
+	unittest {
+		version(Windows) {
+			//EnforceEqual(MakeAbsolute("Test.exe"), CurrentDirectory() ~ "\\Test.exe");
+			assert(Equals(MakeAbsolute("Test.exe"), CurrentDirectory() ~ "\\Test.exe"));	
+		} else {
+			assert(Equals(MakeAbsolute("Test.exe"), CurrentDirectory() ~ "/Test.exe"));
+		}
+	}
+	
+	/// Returns whether the specified path is an absolute path.
+	/// Params: Path = The path to check if absolute.
+	static bool IsAbsolute(in char[] Path) {
+		version(Windows) {
+			char[] Copy = Terminate(Path);
+			return !PathIsRelativeA(Copy.ptr);			
+		} else
+			return isabs(Path);
+	}
+	
+	unittest {
+		version(Windows)
+			assert(IsAbsolute("D:/Test/Test.exe"));
+		else
+			assert(IsAbsolute("/Test/Test.exe"));
+		assert(!IsAbsolute("Test.exe"));
+	}
+	
+	/// Returns whether the specified path is located in the current working directory, either directly or as a sub-folder.
+	/// Params: Path = The path to check.
+	static bool IsInWorkingDirectory(in char[] Path) {		
+		return IsPathWithinDirectory(cast(immutable)Path, cast(immutable)CurrentDirectory);		
+	}
+	
+	unittest {
+		assert(IsInWorkingDirectory("Test.exe"));
+		assert(IsInWorkingDirectory(CurrentDirectory ~ "/Test.exe"));
+		version(Windows)
+			assert(!IsInWorkingDirectory("D:/toesasdojadoasjd/Test.exe"));
+		else
+			assert(!IsInWorkingDirectory("/toesasdojadoasjd/Test.exe"));
+		assert(!IsInWorkingDirectory(CurrentDirectory ~ "/..//Test.exe"));
+	}
+	
+	/// Returns whether the specified path points to a valid directory.	
+	/// If the directory exists, and is a directory, both Windows and Posix return true. If it exists and is not a directory, both Windows and Posix returns false.
+	/// If it does not exist, Windows returns if the path contains a dot. Posix returns if the path ends with a slash.
+	static bool IsDirectory(in char[] Path, bool DirectoryMustExist = false) {
+		bool Exists = exists(Path);
+		if(DirectoryMustExist && !Exists)
+			return false;
+		version(Windows) {
+			char[] Copy = Terminate(Path);
+			int result = PathIsDirectoryA(Path.ptr);
+			if(result == FILE_ATTRIBUTE_DIRECTORY)
+				return true;
+			if(DirectoryMustExist)
+				return false;
+			if(Exists)
+				return false;
+			return !Path.Contains('.');
+		} else {
+			if(!Exists)
+				return Path[$-1] == '/';
+			return isDir(Path);
+		}
+	}
+	
+	unittest {
+		assert(!IsDirectory("D:/Test/Test.exe"));
+		assert(IsDirectory("C:/Windows/"));
+		assert(IsDirectory("D:/TestageDir/"));
+	}	
+	
+	/// Returns the relative path required to reach EndPath from StartPath.
+	/// Does not include a trailing separator.
+	/// Params:
+	///		EndPath = The target path to reach.
+	///		StartPath = The path to start from.	
+	/// Returns: Null if the paths were not able to have a relative path formed.
+	static inout(char[]) GetRelativePath(inout char[] EndPath, inout char[] StartPath) {
+		/*version(Windows) {
+			char[] Buffer = new char[MAX_PATH];	
+			char[] startCopy = Terminate(StartPath);
+			char[] endCopy = Terminate(EndPath);
+			if(PathRelativePathToA(Buffer.ptr, startCopy.ptr, !IsDirectory(startCopy) ? 0 : FILE_ATTRIBUTE_DIRECTORY, endCopy.ptr, !IsDirectory(endCopy) ? 0 : FILE_ATTRIBUTE_DIRECTORY))
+				return TrimReturn(Buffer);
+			return null;				
+		} else {			*/			
+			if(!IsAbsolute(EndPath))
+				return cast(inout)EndPath.dup;			
+			string Relative = relativePath(cast(immutable)EndPath, cast(immutable)MakeAbsolute(StartPath));
+			if(Relative.length == 0 || Relative == EndPath)
+				return null;					
+			while(Relative[$-1] == '\\' || Relative[$-1] == '/')
+				Relative = Relative[0..$-1];
+			return cast(inout)Relative.dup;
+		//}
+	}	
+
+	unittest {		
+		/*version(Windows) {
+			EnforceEqual(GetRelativePath("D:\\Testing\\Test.exe", "D:\\testing"), "Test.exe");			
+			EnforceEqual(GetRelativePath("D:\\Testing\\Test.exe", "C:\\Test"), cast(char[])null);
+			EnforceEqual(GetRelativePath("D:\\RandomTest.exe", "D:\\Testing\\SomeTest\\RandomTest.exe"), "..\\..\\..\\RandomTest.exe");
+		} else {
+			EnforceEqual(GetRelativePath("/Testing/Test.exe", "/testing"), "Test.exe");
+			EnforceEqual(GetRelativePath("/Testing/Test.exe", "/Test"), cast(char[])null);
+			EnforceEqual(GetRelativePath("/RandomTest.exe", "/Testing/SomeTest/RandomTest.exe"), "../../../RandomTest.exe");
+		}*/
+		// Above don't work since not real files.
+	}
+		
+	/// Returns the current working directory.
+	@property static char[] CurrentDirectory() { // TODO: Make thread safe.
+		version(Windows) {
+			synchronized(SyncLock) {
+				char[] Result = new char[MAX_PATH];			
+				uint Length = enforce(GetCurrentDirectoryA(Result.length, Result.ptr));			
+				Result.length = Length;
+				return Result;			
+			}
+		} else {
+			return curdir.dup;
+		}
+	}
+	
+	/// Returns the full path to the application executable file.
+	@property static string ApplicationPath() {	
+		if(_ApplicationPath)
+			return _ApplicationPath;		
+		synchronized(SyncLock) {
+			version(Windows) {																		
+				char[MAX_PATH] Buffer;
+				int ReturnSize = GetModuleFileNameA(null, Buffer.ptr, MAX_PATH);
+				enforce(ReturnSize > 0, "GetModuleFileNameA failed!");					
+				_ApplicationPath = Buffer[0..ReturnSize].idup;																		
+			}  else version(linux) {				
+				char[2048] Buffer;				
+				size_t NumChars = readLinkPosix("/proc/self/exe", Buffer.ptr, Buffer.length);
+				if(NumChars >= Buffer.length) {
+					char[] BiggerBuffer = new char[NumChars + 1];
+					size_t BiggerChars = readLinkPosix("/proc/self/exe", BiggerBuffer.ptr, BiggerBuffer.length);
+					enforce(BiggerChars < BiggerBuffer.length, "Error in getting application path. Your path may be too long.");
+					_ApplicationPath = BiggerBuffer[0..BiggerChars].idup;
+				} else
+					_ApplicationPath = Buffer[0..NumChars].idup;
+				if(_ApplicationPath[$-1] == '\0')
+					_ApplicationPath = _ApplicationDir[0..$-1];				
+				_ApplicationPath = MakeAbsolute(_ApplicationPath);
+			} else {
+				assert(0, "ApplicationPath not yet supported on platforms besides Linux and Windows.");
+			}
+		}
+		return _ApplicationPath;
+	}
+
+	/// Returns the full path to just the directory of the application executable file.
+	@property static string ApplicationDirectory() {		
+		if(_ApplicationDir)
+			return _ApplicationDir;	
+		string AppPath = ApplicationPath;		
+		string DirPath = GetDirectoryPath(AppPath);		
+		_ApplicationDir = DirPath;
+		return _ApplicationDir;
+	}
+	
+	
+	/// Sets the current working directory to the specified value.
+	static void SetWorkingDirectory(in char[] Path) {
+		synchronized(SyncLock) {
+			version(Windows) {				
+				char[] Copy = Terminate(Path);				
+				int Result = SetCurrentDirectoryA(Copy.ptr);				
+				enforce(Result != 0, "Result was " ~ to!string(Result) ~ " for SetWorkingDirectory with Path of \'" ~ to!string(Path) ~ "\'.");
+			} else {
+				chdir(Path);				
+			}
+		}
+	}
+
+	/// Gets the root drive for the specified path. On windows, this would return a result such as 'C:\' from 'C:\Test\Test2\Test.exe'.
+	/// Params: Path = The path to get the root directory for.
+	/// Returns: The root directory for the specified path, or null if the path did not contain a root directory (a relative path).	Always returns "/" on non-Windows systems.
+	static inout(char[]) GetRoot(inout char[] Path) {		
+		version(Windows) {
+			return cast(inout)driveName(Path.dup);
+		} else {
+			return cast(inout)"/".dup;
+		}
+	}	
+
+	/// Determines whether the two paths point to the same file or directory.
+	static bool Equals(in char[] First, in char[] Second) {		
+		version(Windows) {
+			return icmp(MakeAbsolute(First), MakeAbsolute(Second)) == 0;
+		} else {
+			return cmp(MakeAbsolute(First), MakeAbsolute(Second)) == 0;
+		}
+	}
+
+	unittest {
+		version(Windows) {
+			string abs = "D:/Test/Test.txt";		
+			assert(!Equals(MakeAbsolute("D:/Test/Test/OtherTest/../Test"), abs));
+			//assert(Equals(MakeAbsolute("Test.exe"), GetWorkingDirectory() ~ "\\Test.exe"));		
+			assert(Equals(MakeAbsolute("D:/Test/Test/../Test.txt"), abs));
+		} else {
+			EnforceEqual(MakeAbsolute("/Test/Test/OtherTest/../Test"), "/Test/Test/Test");
+			EnforceEqual(MakeAbsolute("/Test/OtherTest/../Test.txt"), "/Test/Test.txt");
+		}			
+	}
+
+	/// Returns the specified path minus any trailing separators, such as backslashes.
+	/// Params: Path = The path to remove trailing separators from.
+	static inout(char[]) RemoveTrailingSeparator(inout char[] Path) {
+		char[] Result = Path.dup;
+		version(Windows) {
+			while(Result.length > 0 && (Result[Result.length - 1] == '/' || Result[Result.length - 1] == '\\'))
+				Result = Result[0..$-1];
+		} else {			
+			while(Result.length > 0 && Result[Result.length - 1] == '/')
+				Result = Result[0..$-1];			
+		}
+		return cast(inout)Result;
+	}
+
+	unittest {
+		EnforceEqual(RemoveTrailingSeparator("D:/Test/"), "D:/Test");
+		EnforceEqual(RemoveTrailingSeparator("D:/Test"), "D:/Test");
+	}
+
+private:
+	static __gshared Object SyncLock;
+	static __gshared string _ApplicationPath = null;
+	static __gshared string _ApplicationDir = null;
+}

@@ -1,0 +1,206 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x86">
+      <Configuration>Debug</Configuration>
+      <Platform>x86</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x86">
+      <Configuration>Release</Configuration>
+      <Platform>x86</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="ShardTools\ArrayOps.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\Color.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\Compressor.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\ConcurrentStack.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\CSList.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\DataTransformerCollection.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\DateParse.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\DeflateTransform.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\ICollection.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\IList.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\ImageSaver.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\IPoolable.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\Library.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\List.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\ManagedList.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\Map.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\Event.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\ExceptionTools.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\MemoryStream.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\Mixins.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\Pool.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\PrioritizedEvent.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\ReadOnlyCollection.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\Reflection.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\SortedList.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\Stack.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\Stream.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\StreamReader.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\DataTransformer.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\StreamWriter.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\TimeSpan.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\Timer.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\Logger.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\FileLogger.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\PathTools.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\StringTools.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\IDisposable.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\Disposable.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\Enforce.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\UnmanagedBuffer.d">
+      <SubType>Code</SubType>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="ShardTools\" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ShardMath\ShardMath.vsdproj">
+      <Name>ShardMath</Name>
+      <Project>{e7f11097-01cb-46f8-bdfa-077747169bbf}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{b4b4a7d7-80ca-4a81-875d-406c1952562a}</ProjectGuid>
+    <AssemblyName>ShardTools</AssemblyName>
+    <SchemaVersion>2.0</SchemaVersion>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
+    <GenerateDocumentation>True</GenerateDocumentation>
+    <OutputPath>bin\x86\Debug</OutputPath>
+    <BuildType>Library</BuildType>
+    <OutputType>Lib</OutputType>
+    <LastBuilt>13/07/2011 10:52:25 PM</LastBuilt>
+    <AdditionalParameters />
+    <SkipLibraryStage>True</SkipLibraryStage>
+    <DefaultImports />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <OptimizeCode>False</OptimizeCode>
+    <AllowInlining>False</AllowInlining>
+    <RemoveBoundaryChecks>False</RemoveBoundaryChecks>
+    <DisplayThreadLocal>True</DisplayThreadLocal>
+    <CompileUnitTests>True</CompileUnitTests>
+    <ImportPaths>
+    </ImportPaths>
+    <LibraryIncludes>..\..\Libraries\shlwapi.lib</LibraryIncludes>
+    <AdditionalParameters />
+    <GenerateCodeCoverage>False</GenerateCodeCoverage>
+    <AddSymbolicDebugInfo>True</AddSymbolicDebugInfo>
+    <CompileDebug>True</CompileDebug>
+    <ReleaseMode>False</ReleaseMode>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <OptimizeCode>True</OptimizeCode>
+    <AllowInlining>True</AllowInlining>
+    <RemoveBoundaryChecks>True</RemoveBoundaryChecks>
+    <DisplayThreadLocal>False</DisplayThreadLocal>
+    <CompileUnitTests>False</CompileUnitTests>
+    <ImportPaths>
+    </ImportPaths>
+    <LibraryIncludes>..\..\Libraries\shlwapi.lib</LibraryIncludes>
+    <AdditionalParameters />
+    <GenerateCodeCoverage>False</GenerateCodeCoverage>
+    <AddSymbolicDebugInfo>False</AddSymbolicDebugInfo>
+    <CompileDebug>False</CompileDebug>
+    <ReleaseMode>True</ReleaseMode>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Test' ">
+    <OptimizeCode>True</OptimizeCode>
+    <AllowInlining>True</AllowInlining>
+    <RemoveBoundaryChecks>True</RemoveBoundaryChecks>
+    <DisplayThreadLocal>True</DisplayThreadLocal>
+    <CompileUnitTests>False</CompileUnitTests>
+    <ImportPaths />
+    <LibraryIncludes />
+    <AdditionalParameters />
+    <GenerateCodeCoverage>False</GenerateCodeCoverage>
+    <AddSymbolicDebugInfo>False</AddSymbolicDebugInfo>
+    <CompileDebug>False</CompileDebug>
+    <ReleaseMode>True</ReleaseMode>
+    <OutputPath>bin\Test\</OutputPath>
+  </PropertyGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />
+</Project>
