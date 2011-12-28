@@ -1,0 +1,1 @@
+-of"bin/x86/Release/ShardMath.lib" -Dd"bin/x86/Release/docs" "-O" "-noboundscheck" "-inline" "-D" "-release" "-lib" "-w" "ShardMath/BoundingBox.d" "ShardMath/BoundingFrustum.d" "ShardMath/Matrix.d" "ShardMath/Quaternion.d" "ShardMath/Rectangle.d" "ShardMath/Vector.d" 
