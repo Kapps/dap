@@ -317,7 +317,8 @@ public:
 		}
 
 		unittest {
-			assert(Matrix2f(-5, 1, 1, 3).InvertInline() == Matrix2f(-3/16f, 1/16f, 1/16f, 5/16f));
+			Matrix2f Inverted = Matrix2f(-5, 1, 1, 3).InvertInline();
+			assert(Inverted == Matrix2f(-3/16f, 1/16f, 1/16f, 5/16f));
 		}
 
 		/// Inverts this Matrix by altering it's own elements, returning the same instance of the Matrix.
@@ -407,11 +408,11 @@ public:
 		for(int y = 1; y <= N; y++) {
 			Result ~= '[';
 			for(int x = 1; x <= N; x++) {
-				Result ~= to!string(Elements[(y - 1) * N + (x - 1)]);
+				Result ~= to!string(ElementsSingleDim[(y - 1) * N + (x - 1)]);
 				if(x != N)
 					Result ~= ", ";
 			}
-			Result ~= "];";
+			Result ~= ']';
 			if(y != N)
 				Result ~= linesep;
 		}

@@ -24,6 +24,7 @@ public:
 	this(Vector3f Min, Vector3f Max) {
 		this.Min = Min;
 		this.Max = Max;
+		assert(Min.X <= Max.X && Min.Y <= Max.Y && Min.Z <= Max.Z);
 	}
 	
 	/// Checks whether the two BoundingBoxes collide with each other.
@@ -54,6 +55,11 @@ public:
 
 	bool opEquals(const ref BoundingBox Other) const {
 		return Min == Other.Min && Max == Other.Max;
+	}
+
+	/// Returns the difference between the maximum and minimum boundaries of this BoundingBox.
+	@property Vector3f Difference() const {
+		return Max - Min;
 	}
 
 private:
