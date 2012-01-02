@@ -5,12 +5,8 @@ string MakeException(string ExceptionName, string ExceptionDetails) {
 	//const char[] MakeException = 
 	return
 		"class " ~ ExceptionName ~ " : Exception {
-			public:
-				this() {
-					super(\"" ~ ExceptionDetails ~ "\");
-				}
-			
-				this(string ExceptionDetails) {
+			public:				
+				this(string ExceptionDetails = \"" ~ ExceptionDetails ~ "\", string File = __FILE__, size_t Line = __LINE__) {
 					super(ExceptionDetails);
 				}
 		}";
@@ -21,7 +17,7 @@ string MakeException(string ExceptionName) {
 	return
 		"class " ~ ExceptionName ~ " : Exception {
 			public:				
-				this(string ExceptionDetails) {
+				this(string ExceptionDetails, string File = __FILE__, size_t Line = __LINE__) {
 					super(ExceptionDetails);
 				}
 		}";

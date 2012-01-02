@@ -270,7 +270,7 @@ public:
 	}
 
 	~this() {
-		Close();
+		//Close();
 	}
 
 protected:	

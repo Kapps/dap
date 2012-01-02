@@ -131,6 +131,9 @@
     <Compile Include="ShardTools\UnmanagedBuffer.d">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ShardTools\WeakReference.d">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="ShardTools\" />

@@ -95,4 +95,11 @@ public:
 	
 private:
 	Value[Key] Elements;
+	
+	// TODO: Allow using a custom comparer.
+	// Either make two delegates (int Compare and hash_t HashCode), or make an IComparer struct.
+	/+	
+		IComparer!Value Comparer;
+		Map!(Key, Value) Parent;
+	}+/
 }
