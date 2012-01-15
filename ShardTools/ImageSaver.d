@@ -109,7 +109,7 @@ public:
 		};
 		chunks ~= PNGChunk("IHDR", cast(void[])[header]);
 	
-		uint idatStride = w*Color.sizeof+1;
+		uint idatStride = cast(uint)(w*Color.sizeof+1);
 		ubyte[] idatData = new ubyte[h*idatStride];
 		for (uint y=0; y<h; y++) {
 			idatData[y*idatStride] = PNGFilterAdaptive.NONE;
@@ -131,7 +131,7 @@ public:
 		uint pos = 8;
 		foreach(chunk;chunks) {
 			uint i = pos;
-			uint chunkLength = chunk.data.length;
+			uint chunkLength = cast(uint)chunk.data.length;
 			pos += 12 + chunkLength;
 			*cast(uint*)&data[i] = bswap(chunkLength);
 			(cast(char[])data[i+4 .. i+8])[] = chunk.type;

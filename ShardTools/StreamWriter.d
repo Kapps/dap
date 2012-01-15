@@ -2,7 +2,7 @@
 
 
 /// A helper class used to write to a stream.
-class StreamWriter  {
+@disable class StreamWriter  {
 
 public:
 	/// Initializes a new instance of the StreamWriter object.

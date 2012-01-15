@@ -36,6 +36,9 @@ version(Windows) {
 		BOOL SetCurrentDirectoryA(LPCTSTR);
 		DWORD GetFullPathNameA(LPCTSTR, DWORD, LPTSTR, LPTSTR*);
 		DWORD GetModuleFileName(HMODULE, LPTSTR, DWORD);
+		/+DWORD GetFileAttributesA(LPCTSTR);
+		enum DWORD INVALID_FILE_ATTRIBUTES = -1;
+		enum DWORD FILE_ATTRIBUTE_HIDDEN = 2;+/
 	}
 } else {
 	import core.sys.posix.unistd : readLinkPosix = readlink;
@@ -216,6 +219,33 @@ public:
 		else
 			assert(!IsInWorkingDirectory("/toesasdojadoasjd/Test.exe"));
 		assert(!IsInWorkingDirectory(CurrentDirectory ~ "/..//Test.exe"));
+	}
+
+	/// Queries the file system to check if the file located at the given path is a hidden file or within a hidden folder.
+	/// An exception is thrown if the file does not exist.
+	/// Params:
+	/// 	FilePath = The path to the file.
+	static bool IsHidden(in char[] FilePath) {
+		string FullPath = cast(immutable)MakeAbsolute(FilePath);
+		enforce(exists(FullPath), "The file to check if hidden did not exist.");
+		version(Windows) {
+			// TODO: Check if in a hidden directory!
+			DWORD FileAttribs = GetFileAttributesA(toStringz(FilePath));
+			enforce(FileAttribs != -1, "Error getting the file attributes.");
+			if((FileAttribs & FILE_ATTRIBUTE_HIDDEN) != 0)
+				return true;
+			return false;
+		} else version(linux) {
+			foreach(const(char[]) Part; splitter(FilePath, '/')) {
+				string Trimmed = cast(string)strip(Part);
+				if(Trimmed.length == 0)
+					continue;
+				if(Trimmed[0] == '.')
+					return true;
+			}
+			return false;
+		} else
+			static assert(0, "Not yet implemented.");
 	}
 	
 	/// Returns whether the specified path points to a valid directory.	

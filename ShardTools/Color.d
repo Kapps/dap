@@ -40,12 +40,12 @@ struct Color {
 	}
 
 	/// Returns a Vector2 representation of this object, with components ranging from zero to one, where X is Red and W is Alpha.
-	const Vector3f ToVector3() {
+	Vector3f ToVector3() const {
 		return Vector3f(R / 255f, G / 255f, B / 255f);
 	}
 
 	/// Returns a Vector4 representation of this object, with components ranging from zero to one, where X is Red and W is Alpha.
-	const Vector4f ToVector4() {
+	Vector4f ToVector4() const {
 		return Vector4f(R / 255f, G / 255f, B / 255F, A / 255f);
 	}
 	
