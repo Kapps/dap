@@ -78,6 +78,7 @@
     <RootNamespace>ShardIO</RootNamespace>
     <SkipLibraryStage>True</SkipLibraryStage>
     <DefaultImports />
+    <LastBuilt>24/01/2012 3:58:39 AM</LastBuilt>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <OptimizeCode>False</OptimizeCode>

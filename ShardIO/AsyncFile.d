@@ -1,4 +1,8 @@
 ﻿module ShardIO.AsyncFile;
+import std.stdio : write;
+private import core.stdc.errno;
+import std.stdio : writeln;
+private import ShardTools.NativeReference;
 import std.file : exists;
 private import std.exception;
 private import ShardTools.PathTools;
@@ -16,7 +20,9 @@ version(Windows) {
 		ERROR_FILE_EXISTS = 80
 	}
 
-	HANDLE WriteFile(HANDLE, const void*, size_t, size_t*, OVERLAPPED*);
+	extern(Windows) {
+		HANDLE WriteFile(HANDLE, const void*, size_t, size_t*, OVERLAPPED*);
+	}
 }
 
 import ShardTools.ExceptionTools;
@@ -29,7 +35,7 @@ mixin(MakeException("FileException"));
 enum FileAccessMode {
 	Read = 1,
 	Write = 2,
-	Both = Read | Write;
+	Both = Read | Write
 }
 
 /// Determines how to open a file.
@@ -54,6 +60,18 @@ enum FileOperationsHint {
 	Sequential = 2
 }
 
+/// Indicates the way that async operations are performed.
+enum AsyncFileHandler {
+	/// The basic fopen and fwrite mechanisms are used.
+	Basic = 0,
+	/// Windows' IO Completion Ports are being used.
+	IOCP = 1,
+	/// Posix's Async IO is being used.
+	AIO = 2,
+	/// OSX's kqueue is being used.
+	KQueue = 3
+}
+
 alias void* AsyncFileHandle;
 
 /// Represents a file that uses asynchronous IO for reads and writes.
@@ -65,51 +83,141 @@ public:
 	/// Params:
 	/// 	FilePath = The path to the file.
 	/// 	Access = The way in which to access the file.
-	/// 	OpenMode = Determines how to open the file. Must be valid for the Access type (Open/OpenOrCreate for Read, CreateNew/CreateOrReplace for Write).
+	/// 	OpenMode = Determines how to open the file. Must be valid for the Access type (Open/OpenOrCreate for Read, CreateNew/CreateOrReplace/OpenOrCreate for Write).
 	/// 	Hint = An access hint for optimizing IO. Can be set to None for no specific hints.
 	this(string FilePath, FileAccessMode Access, FileOpenMode OpenMode, FileOperationsHint Hint = FileOperationsHint.None) {
 		FilePath = PathTools.MakeAbsolute(FilePath);
 		if(Access == FileAccessMode.Read && (OpenMode != FileOpenMode.Open && OpenMode != FileOpenMode.OpenOrCreate))
 			throw new FileException("Reading a file is only allowed with Open or OpenCreate file modes.");
-		if(Access == FileAccessMode.Write && (OpenMode != FileOpenMode.CreateNew && OpenMode != FileOpenMode.CreateOrReplace))
+		if(Access == FileAccessMode.Write && (OpenMode != FileOpenMode.CreateNew && OpenMode != FileOpenMode.CreateOrReplace && OpenMode != FileOpenMode.OpenOrCreate))
 			throw new FileException("Writing a file is only allowed with CreateNew or CreateOrReplace file modes.");
 		this._Handle = CreateHandle(FilePath, Access, OpenMode, Hint);
+		IsOpen = true;
+	}
+
+	/// Indicates the controller being used for handling files.
+	version(Windows) {
+		enum AsyncFileHandler Controller = AsyncFileHandler.IOCP;
+	} else {
+		enum AsyncFileHandler Controller = AsyncFileHandler.Basic;
 	}
 
 	/// Appends the given data to this file using asynchronous file IO.
 	/// Params:
-	/// 	Data = The data to append to the file. This array does not have a reference stored in memory known by the GC; thus, a reference to it must exist until Callback is called.
-	/// 	State = A user-defined object to pass into callback. IMPORTANT: This object MUST maintain a reference by the caller somewhere. Can be null.
-	/// 	Callback = A callback to invoke upon completion. For best performance, this callback should be light-weight and not queue more data itself. It should also be thread-safe.
-	void Append(ubyte[] Data, Object State, void delegate(Object) Callback) {
+	/// 	Data = The data to append to the file.
+	/// 	State = A user-defined object to pass into callback. Can be null.
+	/// 	Callback = A callback to invoke upon completion. For best performance, this callback should be light-weight and not queue more data itself. It must be thread-safe.
+	void Append(ubyte[] Data, void* State, void delegate(void*) Callback) {		
 		synchronized(this) {
-			version(Windows) {
-				// TODO: Find out if we can do something like GC.increaseCount here and GC.decreaseCount in callback.
-				OVERLAPPED* lpOverlap = CreateOverlap(State, _Handle, Callback);
+			enforce(IsOpen && !WaitingToClose, "Unable to write to a closed file.");
+			QueuedOperation* QueuedOp = new QueuedOperation();
+			QueuedOp.State = State;
+			QueuedOp.Data = Data;
+			QueuedOp.Callback = Callback;
+			NativeReference.AddReference(cast(void*)QueuedOp);
+			static if(Controller == AsyncFileHandler.IOCP) {																
+				OVERLAPPED* lpOverlap = CreateOverlap(cast(void*)QueuedOp, _Handle, &InitialCallback);				
+				lpOverlap.Offset = 0xFFFFFFFF;
+				lpOverlap.OffsetHigh = 0xFFFFFFFF;
 				WriteFile(cast(HANDLE)this._Handle, Data.ptr, Data.length, null, lpOverlap);
-			}/+ else version(Posix) {
-				// TODO: aio
-			}+/ else {
+			} else static if(Controller == AsyncFileHandler.Basic) {				
 				// Fall back to synchronous IO in a new thread.
-				taskPool.put(task(&PerformWriteSync, Data, State, Callback));
-			}	
+				taskPool.put(task(&PerformWriteSync, cast(void*)QueuedOp));
+			} else // TODO: AIO and KQueue
+				static assert(0, "Unknown controller " ~ to!string(Controller) ~ ".");
 		}
+	}
+
+	// TODO: Consider implementing below.
+	/+ /// Closes this file, preventing any further writes and releasing the memory associated with it.	
+	/// The actual close will not take effect until all queued writes are complete.
+	/// Params:
+	/// 	State = A user-defined object to pass into callback. IMPORTANT: This object MUST maintain a reference by the caller somewhere. Can be null.
+	/// 	Callback = A callback to invoke upon completion of the close. Can be null.
+	void Close(Object State, void delegate(Object) Callback) {
+		// Occurs in destructor, so try to avoid allocations.
+		if(!IsOpen || WaitingToClose)
+			throw new FileException("Unable to close an already closed file.");
+		PerformClose();
+	}+/
+
+	/// Closes this file, preventing any further writes and releasing the file handle.
+	/// The caller must take care to make sure all pending writes are completed.
+	/// If there are writes pending, the result is undefined.
+	void Close() {
+		synchronized(this) {
+			if(!IsOpen) {
+				debug writeln("Attempting to close a file failed; it was already closed.");
+				throw new FileException("Unable to close an already closed file.");
+			}
+			PerformClose();
+			IsOpen = false;
+		}
+	}
+
+	~this() {
+		if(IsOpen)
+			Close();
 	}
 	
 private:
-	AsyncFileHandle _Handle;
-	void PerformWriteSync(ubyte[] Data, Object State, void delegate(Object) Callback) {
-		fwrite(Data.ptr, 1, Data.length, File);
-		fflush(File);
-		Callback(State);
+
+	struct QueuedOperation {
+		void* State;
+		ubyte[] Data;
+		void delegate(void*) Callback;
 	}
 
-	version(Windows) {
+	AsyncFileHandle _Handle;
+	bool IsOpen;
+	bool WaitingToClose;
+	
+	void InitialCallback(void* State) {
+		QueuedOperation* Op = cast(QueuedOperation*)State;
+		scope(exit)
+			NativeReference.RemoveReference(cast(void*)Op);
+		Op.Callback(Op.State);
+	}	
+	
+	void PerformWriteSync(void* State) {			
+		QueuedOperation* Op = cast(QueuedOperation*)State;
+		scope(exit)
+			NativeReference.RemoveReference(Op);
+		FILE* File = cast(FILE*)_Handle;
+		size_t Result = fwrite(Op.Data.ptr, 1, Op.Data.length, File);							
+		if(Result != Op.Data.length) {			
+			string msg = "Writing to the file failed. Returned " ~ to!string(Result) ~ " when " ~ to!string(Op.Data.length) ~ " bytes were requested. Error: " ~ to!string(errno) ~ ".";
+			perror(null);
+			debug writeln(msg);
+			throw new FileException(msg);
+		}
+		fflush(File);
+		if(Op.Callback)
+			Op.Callback(State);				
+	}
+
+	void PerformClose() {		
+		static if(Controller == AsyncFileHandler.IOCP) {
+			int Result = CloseHandle(cast(HANDLE)_Handle);
+			if(Result == 0) {
+				string msg = "Unable to close a file. Returned error code " ~ to!string(GetLastError()) ~ ".";
+				debug writeln(msg);
+				throw new FileException(msg);
+			}
+		} else static if(Controller == AsyncFileHandler.Basic) {
+			int Result = fclose(cast(FILE*)_Handle);			
+			perror(null);
+			enforce(Result == 0, "Attempting to close the file returned error code " ~ to!string(Result) ~ ".");			
+		} else
+			static assert(0, "Unknown controller.");
+	}
+
+	static if(Controller == AsyncFileHandler.IOCP) {
 		AsyncFileHandle CreateHandle(string FilePath, FileAccessMode Access, FileOpenMode OpenMode, FileOperationsHint Hint) {
 			const char* FilePathPtr = toStringz(FilePath);
-			size_t Access = (Access == FileAccessMode.Read ? GENERIC_READ) : (Access == FileAccessMode.Write ? GENERIC_WRITE : GENERIC_READ | GENERIC_WRITE);
+			size_t AccessFlags = Access == FileAccessMode.Read ? GENERIC_READ : (Access == FileAccessMode.Write ? GENERIC_WRITE : GENERIC_READ | GENERIC_WRITE);
 			size_t ShareMode = 0;
-			if(Access == GENERIC_READ)
+			if(AccessFlags == GENERIC_READ)
 				ShareMode = FILE_SHARE_READ;
 			size_t CreateDisp;
 			final switch(OpenMode) {
@@ -133,7 +241,7 @@ private:
 			else if(Hint == FileOperationsHint.Sequential && Access == FileAccessMode.Read)
 				Flags |= FILE_FLAG_SEQUENTIAL_SCAN;
 
-			HANDLE Handle = CreateFileA(FilePathPtr, Access, ShareMode, null, CreateDisp, Flags, null);
+			HANDLE Handle = CreateFileA(FilePathPtr, AccessFlags, ShareMode, null, CreateDisp, Flags, null);
 			if(Handle == INVALID_HANDLE_VALUE) {
 				size_t LastErr = GetLastError();
 				switch(LastErr) {
@@ -143,12 +251,13 @@ private:
 					case ERROR_ACCESS_DENIED:
 						throw new AccessDeniedException("Unable to open the file at " ~ FilePath ~ " -- access was denied.");
 					case ERROR_ALREADY_EXISTS:
-						break; // That's okay, it's not an error.
+						ThrowAlreadyExists(FilePath);
+						break;
 					case ERROR_FILE_EXISTS:
 						ThrowAlreadyExists(FilePath);
 						break;
 					case ERROR_SUCCESS:
-						break;
+						throw new FileException("An unknown error occurred when opening a file. Error code was ERROR_SUCCESS."); // .. what?
 					default:
 						throw new FileException("Unable to access file at " ~ FilePath ~ ". Error code was " ~ to!string(LastErr) ~ ".");
 				}
@@ -163,27 +272,27 @@ private:
 				case FileAccessMode.Read:
 					if(OpenMode == FileOpenMode.OpenOrCreate && !exists(FilePath))
 						std.file.write(FilePath, null);
-					else if(OpenMode != FileOpenMode.Open)
+					if(OpenMode != FileOpenMode.Open && OpenMode != FileOpenMode.OpenOrCreate)
 						throw new FileException("Opening a file must be done with OpenOrCreate or Open file modes only.");
 					Flags ~= "r";
 					break;
 				case FileAccessMode.Write:
 					if(OpenMode == FileOpenMode.CreateNew && exists(FilePath))
 						ThrowAlreadyExists(FilePath);
-					else if(OpenMode != FileOpenMode.CreateOrReplace)
-						throw new FileException("Writing to a file is only allowed with the modes CreateOrReplace and CreateNew.");					
+					if(OpenMode != FileOpenMode.CreateOrReplace && OpenMode != FileOpenMode.CreateNew && OpenMode != FileOpenMode.OpenOrCreate)
+						throw new FileException("Writing to a file is only allowed with the modes CreateOrReplace, OpenOrCreate, or CreateNew.");					
 					Flags ~= "a";
 					break;
 				case FileAccessMode.Both:
 					if(OpenMode == FileOpenMode.CreateNew && exists(FilePath))
 						ThrowAlreadyExists(FilePath);
-					if(OpenMode != FileOpenMode.CreateNew || OpenMode != FileOpenMode.CreateOrReplace)
-						throw new FileException("Writing to a file, even with Read set as well, is only allowed wit hthe mdoes CreateOrReplace and CreateNew.");
+					if(OpenMode != FileOpenMode.CreateNew && OpenMode != FileOpenMode.CreateOrReplace && OpenMode != FileOpenMode.OpenOrCreate)
+						throw new FileException("Writing to a file, even with Read set as well, is only allowed with the mdoes CreateOrReplace, CreateNew, or OpenOrCreate.");
 					Flags ~= "a+";					
 			}		
 			Flags ~= "b";
 			FILE* Handle = fopen(toStringz(FilePath), toStringz(Flags));
-			if(HANDLE is null)
+			if(Handle is null)
 				throw new FileException("Opening the file at " ~ FilePath ~ " failed. No additional info is available.");
 			return cast(AsyncFileHandle)Handle;
 		}

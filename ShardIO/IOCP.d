@@ -9,13 +9,13 @@ import core.stdc.stdlib;
 import core.stdc.string;
 version(Windows){
 
-alias void function(size_t, size_t, void*) LPOVERLAPPED_COMPLETION_ROUTINE;
 alias size_t SOCKET;
 extern(Windows) {
 	struct WSABUF {
 		size_t len;
 		char* buf;
 	}
+	alias void function(size_t, size_t, OVERLAPPED*) LPOVERLAPPED_COMPLETION_ROUTINE;
 	alias WSABUF* LPWSABUF;
 	alias OVERLAPPED WSAOVERLAPPED;
 	alias WSAOVERLAPPED* LPWSAOVERLAPPED;
@@ -23,7 +23,7 @@ extern(Windows) {
 	HANDLE CreateIoCompletionPort(HANDLE, HANDLE, void*, size_t);
 	int BindIoCompletionCallback(HANDLE, LPOVERLAPPED_COMPLETION_ROUTINE, size_t);
 	int WSARecv(SOCKET, LPWSABUF, DWORD, LPDWORD, LPDWORD, LPWSAOVERLAPPED, LPWSAOVERLAPPED_COMPLETION_ROUTINE);            
-    int WSASend(SOCKET, LPWSABUF, DWORD, LPDWORD, DWORD, LPWSAOVERLAPPED, LPWSAOVERLAPPED_COMPLETION_ROUTINE);
+    int WSASend(SOCKET, LPWSABUF, DWORD, LPDWORD, DWORD, LPWSAOVERLAPPED, LPWSAOVERLAPPED_COMPLETION_ROUTINE);	
 }	
 extern(C) {	
 	HANDLE _get_osfhandle(int);	
@@ -40,9 +40,9 @@ private HANDLE FileToHandle(FILE* File) {
 /// Provides the implementation of OVERLAPPED that should be used for operations used by handles registered with the IOCP class.
 /// This struct should never have instances created manually; instead, use CreateOverlap.
 public struct OVERLAPPEDExtended {
-	OVERLAPPED Overlap;
+	OVERLAPPED Overlap;	
 	void* UserData;
-	void* Callback;
+	void delegate(void*) Callback;
 	HANDLE Handle;	
 }
 
@@ -52,14 +52,12 @@ public struct OVERLAPPEDExtended {
 /// 	UserData = Any user-defined data to store. It is passed into the callback. IMPORTANT: It must have at least one reference until the end of the callback!
 /// 	Handle = The handle for the object the operation is being performed on.
 ///		Callback = A callback to invoke upon completion.
-OVERLAPPED* CreateOverlap(Object UserData, HANDLE Handle, void delegate(Object) Callback) {
-	// TODO: Make an efficient LinkedList for this with easy add/remove so we can store the user data ourselves.
-	// TODO: Find out if we can do something like GC.increaseCount here and GC.decreaseCount in callback.
-	OVERLAPPEDExtended* Result = cast(OVERLAPPEDExtended*)malloc(OVERLAPPEDExtended.sizeof);
+OVERLAPPED* CreateOverlap(void* UserData, HANDLE Handle, void delegate(void*) Callback) {		
+	OVERLAPPEDExtended* Result = cast(OVERLAPPEDExtended*)malloc(OVERLAPPEDExtended.sizeof);	
 	memset(&Result.Overlap, 0, OVERLAPPED.sizeof);
 	Result.UserData = UserData;
 	Result.Handle = Handle;	
-	Result.Callback = cast(void*)Callback;	
+	Result.Callback = Callback;		
 	return cast(OVERLAPPED*)cast(void*)Result;
 }
 
@@ -68,7 +66,7 @@ OVERLAPPED* CreateOverlap(Object UserData, HANDLE Handle, void delegate(Object) 
 /// This class uses the default ThreadPool's IOCP instance, and thus is limited to a single instance.
 static class IOCP  {
 
-public:	
+public static:	
 
 	/+ /// Registers a handle to be owned by this completion port, and be notified of completions.
 	/// Params;
@@ -81,7 +79,10 @@ public:
 	/// Ditto
 	void RegisterHandle(HANDLE Handle) {
 		int Result = BindIoCompletionCallback(Handle, &CompletionCallback, 0);
-		enforce(Result == 0, "Unable to bind to IO Completion port. Returned result " ~ to!string(Result) ~ " and last error was ~ " GetLastError() ~ ".");
+		if(Result == 0) {
+			DWORD LastErr = GetLastError();
+			throw new Exception("Unable to bind to IO Completion port. Returned result " ~ to!string(Result) ~ " and last error was " ~ to!string(LastErr) ~ ".");			
+		}
 	}
 
 	/// Unregisters the given handle.
@@ -91,10 +92,10 @@ public:
 	
 private:	
 
-	static void CompletionCallback(size_t dwError, size_t cbTransfered, OVERLAPPED* lpOverlapped, size_t dwFlags) {
+	extern(Windows) static void CompletionCallback(size_t dwError, size_t cbTransfered, OVERLAPPED* lpOverlapped) {
 		OVERLAPPEDExtended* Extended = cast(OVERLAPPEDExtended*)cast(void*)lpOverlapped;		
-		Object State = cast(Object)Extended.UserData;
-		void delegate(Object) Callback = cast(void delegate(Object))Extended.Callback;
+		void* State = Extended.UserData;
+		void delegate(void*) Callback = Extended.Callback;
 		Callback(State);
 		free(Extended);
 	}
