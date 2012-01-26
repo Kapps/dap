@@ -139,16 +139,23 @@ public:
 	/// 	Path = The path to check if within Directory.
 	/// 	Directory = The path to check if Path is within.
 	static bool IsPathWithinDirectory(in char[] Path, in char[] Directory) {
+		/*auto AbsPath = MakeAbsolute(Path);
+		auto AbsDir = MakeAbsolute(Directory);
+		if(countUntil(AbsPath, "..") != -1)
+			return false;*/
 		const(char[]) Relative = GetRelativePath(Path, Directory);
 		if(Relative is null || Relative.length == 0)
 			return false;
-		return std.string.indexOf(Relative, "..") == -1;		
+		return countUntil(Relative, "..") == -1;
+		//return std.string.indexOf(Relative, "..") == -1;		
 		//return (First > 'A' && First < 'Z') || (First > 'a' && First < 'z') || (First == '\\' || First == '/');
 	}
 
 	unittest {
 		version(Windows) {
 			assert(IsPathWithinDirectory("D:\\Test\\test.exe", "D:\\Test\\"));
+			assert(!IsPathWithinDirectory("D:\\Test\\Test.exe", "D:\\Test\\SubTest"));
+			assert(!IsPathWithinDirectory("D:\\Test\\..\\Test.exe", "D:\\Test\\"));
 		} else {
 			assert(IsPathWithinDirectory("/Test/Test.exe", "/Test/"));
 		}		

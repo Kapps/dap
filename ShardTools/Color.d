@@ -1,5 +1,8 @@
 module ShardTools.Color;
-private import ShardMath.Vector;
+version=ShardMath;
+
+version(ShardMath)
+	private import ShardMath.Vector;
 
 /// Represents a color with four components ranging from 0 to 255.
 struct Color {
@@ -19,34 +22,38 @@ struct Color {
 		this.A = A;
 	}
 
-	/// Initializes a new instance of the Color struct.
-	///	Params:
-	///		Vector = The vector, with components ranging from 0 to 1, to create the Color from, where X is Red, and W is Alpha.
-	this(Vector4f Vector) {
-		this.R = cast(ubyte)(Vector.X * 255);
-		this.G = cast(ubyte)(Vector.Y * 255);
-		this.B = cast(ubyte)(Vector.Z * 255);
-		this.A = cast(ubyte)(Vector.W * 255);
-	}
+	version(ShardMath) {
 
-	/// Initializes a new instance of the Color struct.
-	///	Params:
-	///		Vector = The vector, with components ranging from 0 to 1, to create the Color from, where X is Red, and Z is Blue.
-	this(Vector3f Vector) {
-		this.R = cast(ubyte)(Vector.X * 255);
-		this.G = cast(ubyte)(Vector.Y * 255);
-		this.B = cast(ubyte)(Vector.Z * 255);
-		this.A = 255;
-	}
+		/// Initializes a new instance of the Color struct.
+		///	Params:
+		///		Vector = The vector, with components ranging from 0 to 1, to create the Color from, where X is Red, and W is Alpha.
+		this(Vector4f Vector) {
+			this.R = cast(ubyte)(Vector.X * 255);
+			this.G = cast(ubyte)(Vector.Y * 255);
+			this.B = cast(ubyte)(Vector.Z * 255);
+			this.A = cast(ubyte)(Vector.W * 255);
+		}
 
-	/// Returns a Vector2 representation of this object, with components ranging from zero to one, where X is Red and W is Alpha.
-	Vector3f ToVector3() const {
-		return Vector3f(R / 255f, G / 255f, B / 255f);
-	}
+		/// Initializes a new instance of the Color struct.
+		///	Params:
+		///		Vector = The vector, with components ranging from 0 to 1, to create the Color from, where X is Red, and Z is Blue.
+		this(Vector3f Vector) {
+			this.R = cast(ubyte)(Vector.X * 255);
+			this.G = cast(ubyte)(Vector.Y * 255);
+			this.B = cast(ubyte)(Vector.Z * 255);
+			this.A = 255;
+		}
+	
+		/// Returns a Vector2 representation of this object, with components ranging from zero to one, where X is Red and W is Alpha.
+		Vector3f ToVector3() const {
+			return Vector3f(R / 255f, G / 255f, B / 255f);
+		}
 
-	/// Returns a Vector4 representation of this object, with components ranging from zero to one, where X is Red and W is Alpha.
-	Vector4f ToVector4() const {
-		return Vector4f(R / 255f, G / 255f, B / 255F, A / 255f);
+		/// Returns a Vector4 representation of this object, with components ranging from zero to one, where X is Red and W is Alpha.
+		Vector4f ToVector4() const {
+			return Vector4f(R / 255f, G / 255f, B / 255F, A / 255f);
+		}
+
 	}
 	
 	/// Returns a pre-defined Color with this name.

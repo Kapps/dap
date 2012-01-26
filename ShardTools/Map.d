@@ -86,6 +86,10 @@ public:
 		return Get(Key);
 	}
 
+	int opApply(int delegate(ref Key, ref Value) dg) {
+		return Elements.opApply(dg);
+	}
+
 	/// Removes all of the elements in this collection.
 	void Clear() {
 		Key[] Keys = this.Keys();

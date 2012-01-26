@@ -1,4 +1,6 @@
 ﻿module ShardTools.Stream;
+
+version(None) {
 private import std.traits;
 private import std.conv;
 public import ShardTools.DataTransformer;
@@ -402,4 +404,6 @@ abstract class InputStream : Stream {
 	this() {
 		super(StreamMode.Read);
 	}
+}
+
 }

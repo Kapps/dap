@@ -14,6 +14,12 @@
     <Compile Include="ShardTools\ArrayOps.d">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ShardTools\Buffer.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\BufferPool.d">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ShardTools\Color.d">
       <SubType>Code</SubType>
     </Compile>
@@ -23,16 +29,7 @@
     <Compile Include="ShardTools\ConcurrentStack.d">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="ShardTools\CSList.d">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="ShardTools\DataTransformerCollection.d">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="ShardTools\DateParse.d">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="ShardTools\DeflateTransform.d">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ShardTools\ICollection.d">
@@ -71,6 +68,9 @@
     <Compile Include="ShardTools\Mixins.d">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ShardTools\NativeReference.d">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ShardTools\Pool.d">
       <SubType>Code</SubType>
     </Compile>
@@ -93,9 +93,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ShardTools\StreamReader.d">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="ShardTools\DataTransformer.d">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ShardTools\StreamWriter.d">
@@ -155,7 +152,7 @@
     <OutputPath>bin\x86\Debug</OutputPath>
     <BuildType>Library</BuildType>
     <OutputType>Lib</OutputType>
-    <LastBuilt>13/07/2011 10:52:25 PM</LastBuilt>
+    <LastBuilt>24/01/2012 3:58:25 AM</LastBuilt>
     <AdditionalParameters />
     <SkipLibraryStage>True</SkipLibraryStage>
     <DefaultImports />
@@ -168,7 +165,7 @@
     <CompileUnitTests>True</CompileUnitTests>
     <ImportPaths>
     </ImportPaths>
-    <LibraryIncludes>..\..\Libraries\shlwapi.lib</LibraryIncludes>
+    <LibraryIncludes>..\Libraries\shlwapi.lib</LibraryIncludes>
     <AdditionalParameters />
     <GenerateCodeCoverage>False</GenerateCodeCoverage>
     <AddSymbolicDebugInfo>True</AddSymbolicDebugInfo>
@@ -178,12 +175,12 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <OptimizeCode>True</OptimizeCode>
     <AllowInlining>True</AllowInlining>
-    <RemoveBoundaryChecks>True</RemoveBoundaryChecks>
+    <RemoveBoundaryChecks>False</RemoveBoundaryChecks>
     <DisplayThreadLocal>False</DisplayThreadLocal>
     <CompileUnitTests>False</CompileUnitTests>
     <ImportPaths>
     </ImportPaths>
-    <LibraryIncludes>..\..\Libraries\shlwapi.lib</LibraryIncludes>
+    <LibraryIncludes>..\Libraries\shlwapi.lib</LibraryIncludes>
     <AdditionalParameters />
     <GenerateCodeCoverage>False</GenerateCodeCoverage>
     <AddSymbolicDebugInfo>False</AddSymbolicDebugInfo>

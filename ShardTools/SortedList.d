@@ -39,15 +39,21 @@ class SortedList(T) {
 	}
 	
 	/// Returns the number of elements inside this SortedList.
-	size_t Count() {
+	@property size_t Count() {
 		return _Length;	
-	}
-	
-	/// Returns the element at the specified index.
-	/// Params: Index = The zero-based index to get the element at.
-	ref T At(size_t Index) {
+	}	
+
+	T opIndex(size_t Index) {
 		assert(Index < _Length && Index >= 0);
 		return Items[Index].Item;
+	}
+
+	int opApply(int delegate(ref T) dg) {
+		int Result;
+		foreach(ref Item; Items)
+			if((Result = dg(Item.Item)) != 0)
+				break;
+		return Result;
 	}
 	
 private:
