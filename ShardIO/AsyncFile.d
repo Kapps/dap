@@ -75,10 +75,16 @@ enum AsyncFileHandler {
 alias void* AsyncFileHandle;
 
 /// Represents a file that uses asynchronous IO for reads and writes.
+/// BUGS:
+///		At the moment when using the Basic AsyncFileHandler, it is easy to surpass the maximum number of file descriptors (roughly 70).
+///		Eventually, consider supporting this. But keep in mind Basic is meant to be a fallback anyways, so that may not be an issue.
 class AsyncFile  {
 
 public:
-	
+
+	alias void delegate(void*) WriteCallbackDelegate;
+	alias void delegate(void*, ubyte[]) ReadCallbackDelegate;
+
 	/// Creates a new AsyncFile that operates on the file at the given path.
 	/// Params:
 	/// 	FilePath = The path to the file.
@@ -102,21 +108,38 @@ public:
 		enum AsyncFileHandler Controller = AsyncFileHandler.Basic;
 	}
 
+	/// Indicates whether true asynchronous IO support is available, as opposed to synchronous operations in a new thread.
+	enum bool SupportsTrueAsync = Controller != AsyncFileHandler.Basic;
+	
+	// TODO: This shall be problematic because you never know the actual offset.
+	/+void Write(ulong Offset, ubyte[] Data, void* State, void delegate(void*) Callback) {
+		
+	}+/
+
+	private static QueuedOperation* CreateOp(T)(void* State, ubyte[] Data, T Callback) {
+		QueuedOperation* Op = new QueuedOperation();
+		Op.State = State;
+		Op.Data = Data;
+		static if(is(T : ReadCallbackDelegate))
+			Op.ReadCallback = Callback;
+		else static if(is(T : WriteCallbackDelegate))
+			Op.WriteCallback = Callback;
+		else static assert(0);
+		NativeReference.AddReference(cast(void*)Op);
+		return Op;
+	}
+
 	/// Appends the given data to this file using asynchronous file IO.
 	/// Params:
 	/// 	Data = The data to append to the file.
 	/// 	State = A user-defined object to pass into callback. Can be null.
 	/// 	Callback = A callback to invoke upon completion. For best performance, this callback should be light-weight and not queue more data itself. It must be thread-safe.
-	void Append(ubyte[] Data, void* State, void delegate(void*) Callback) {		
+	void Append(ubyte[] Data, void* State, WriteCallbackDelegate Callback) {		
 		synchronized(this) {
 			enforce(IsOpen && !WaitingToClose, "Unable to write to a closed file.");
-			QueuedOperation* QueuedOp = new QueuedOperation();
-			QueuedOp.State = State;
-			QueuedOp.Data = Data;
-			QueuedOp.Callback = Callback;
-			NativeReference.AddReference(cast(void*)QueuedOp);
+			QueuedOperation* QueuedOp = CreateOp(State, Data, Callback);			
 			static if(Controller == AsyncFileHandler.IOCP) {																
-				OVERLAPPED* lpOverlap = CreateOverlap(cast(void*)QueuedOp, _Handle, &InitialCallback);				
+				OVERLAPPED* lpOverlap = CreateOverlap(cast(void*)QueuedOp, _Handle, &InitialWriteCallback);				
 				lpOverlap.Offset = 0xFFFFFFFF;
 				lpOverlap.OffsetHigh = 0xFFFFFFFF;
 				WriteFile(cast(HANDLE)this._Handle, Data.ptr, Data.length, null, lpOverlap);
@@ -125,6 +148,28 @@ public:
 				taskPool.put(task(&PerformWriteSync, cast(void*)QueuedOp));
 			} else // TODO: AIO and KQueue
 				static assert(0, "Unknown controller " ~ to!string(Controller) ~ ".");
+		}
+	} 
+
+	/// Reads the given number of bytes from the file at the given offset using asynchronous file IO.
+	/// Params:
+	///		Buffer = A buffer to read in to. The size of the buffer is the number of bytes attempted to be read.
+	/// 	Offset = The offset within the file to read from.
+	/// 	State = A user-defined object to pass into callback. Can be null.
+	/// 	Callback = A callback to invoke upon completion. For best performance, this callback should be light-weight and not queue more data itself. It must be thread-safe. This is invoked with State and the same instance of Buffer, but sliced to the actual number of bytes read.
+	void Read(ubyte[] Buffer, size_t Offset, void* State, ReadCallbackDelegate Callback) {
+		synchronized(this) {
+			enforce(IsOpen && !WaitingToClose, "Unable to read from a closed file.");
+			QueuedOperation* Op = CreateOp(State, Buffer, Callback);
+			static if(Controller == AsyncFileHandler.IOCP) {
+				OVERLAPPED* lpOverlap = CreateOverlap(Op, _Handle, &InitialReadCallback);
+				lpOverlap.Offset = Offset;
+				static if(size_t.sizeof == 4)
+					lpOverlap.OffsetHigh = 0;
+				else
+					lpOverlap.OffsetHigh = Offset >>> 32;
+				ReadFile(cast(HANDLE)this._Handle, Buffer.ptr, Buffer.length, null, lpOverlap);
+			}
 		}
 	}
 
@@ -160,23 +205,35 @@ public:
 			Close();
 	}
 	
-private:
-
+private:	
 	struct QueuedOperation {
 		void* State;
 		ubyte[] Data;
-		void delegate(void*) Callback;
+		union {
+			ReadCallbackDelegate ReadCallback;
+			WriteCallbackDelegate WriteCallback;
+		}
 	}
 
 	AsyncFileHandle _Handle;
 	bool IsOpen;
 	bool WaitingToClose;
-	
-	void InitialCallback(void* State) {
+
+	void InitialReadCallback(void* State, size_t BytesRead) {
 		QueuedOperation* Op = cast(QueuedOperation*)State;
 		scope(exit)
-			NativeReference.RemoveReference(cast(void*)Op);
-		Op.Callback(Op.State);
+			NativeReference.RemoveReference(cast(void*)Op);		
+		ubyte[] Data = Op.Data[0 .. BytesRead];
+		if(Op.ReadCallback)
+			Op.ReadCallback(Op.State, Data);
+	}
+	
+	void InitialWriteCallback(void* State, size_t BytesRead) {
+		QueuedOperation* Op = cast(QueuedOperation*)State;
+		scope(exit)
+			NativeReference.RemoveReference(cast(void*)Op);		
+		if(Op.WriteCallback)
+			Op.WriteCallback(Op.State);
 	}	
 	
 	void PerformWriteSync(void* State) {			
@@ -191,9 +248,9 @@ private:
 			debug writeln(msg);
 			throw new FileException(msg);
 		}
-		fflush(File);
-		if(Op.Callback)
-			Op.Callback(State);				
+		fflush(File);		
+		if(Op.WriteCallback)
+			Op.WriteCallback(State);
 	}
 
 	void PerformClose() {		
@@ -206,8 +263,8 @@ private:
 			}
 		} else static if(Controller == AsyncFileHandler.Basic) {
 			int Result = fclose(cast(FILE*)_Handle);			
-			perror(null);
-			enforce(Result == 0, "Attempting to close the file returned error code " ~ to!string(Result) ~ ".");			
+			//perror(null);
+			//enforce(Result == 0, "Attempting to close the file returned error code " ~ to!string(Result) ~ ".");			
 		} else
 			static assert(0, "Unknown controller.");
 	}
@@ -266,7 +323,7 @@ private:
 			return cast(AsyncFileHandle)Handle;
 		}
 	} else {
-		AsyncFileHandle CreateHandle(string FilePath, FileAccessMode Access, FileOpenMode OpenMode, FileOperationsHint Hint) {
+		AsyncFileHandle CreateHandle(string FilePath, FileAccessMode Access, FileOpenMode OpenMode, FileOperationsHint Hint) {			
 			string Flags = "";
 			final switch(Access) {
 				case FileAccessMode.Read:
@@ -292,8 +349,12 @@ private:
 			}		
 			Flags ~= "b";
 			FILE* Handle = fopen(toStringz(FilePath), toStringz(Flags));
-			if(Handle is null)
-				throw new FileException("Opening the file at " ~ FilePath ~ " failed. No additional info is available.");
+			if(Handle is null) {
+				string msg = "Opening the file at " ~ FilePath ~ " failed. No additional info is available.";
+				debug writeln(msg);
+				perror(null);
+				throw new FileException(msg);
+			}
 			return cast(AsyncFileHandle)Handle;
 		}
 	}

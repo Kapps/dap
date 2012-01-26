@@ -350,6 +350,8 @@ private:
 				return Buffers.length > 0 && (WaitingOn & DataOperation.Write) == 0 && CompleteOnBreakType == CompletionType.Incomplete;				
 			}	
 			
+			scope(exit)
+				InDataOperation = false;
 			try {
 				while(CanRead() || CanWrite()) {
 					// Try to use buffers first as much as possible.				
@@ -386,12 +388,10 @@ private:
 					if(CheckCompletion())
 						return;				
 				}	
-			} catch (Error e) {
-				//CompleteFinish(CompletionType.Aborted);
+			} catch (Throwable e) {
+				CompleteFinish(CompletionType.Aborted);
 				throw e;
-			}		
-
-			InDataOperation = false;
+			}					
 		}
 	}	
 

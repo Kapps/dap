@@ -29,6 +29,9 @@
     <Compile Include="ShardIO\AsyncFile.d">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ShardIO\FileInput.d">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ShardIO\FileOutput.d">
       <SubType>Code</SubType>
     </Compile>

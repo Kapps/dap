@@ -28,24 +28,11 @@ public:
 	///		Callback = The callback to invoke with the data.
 	protected override DataRequestFlags GetNextChunk(size_t RequestedSize, scope void delegate(ubyte[], DataFlags) Callback) {
 		// We already have it all in memory, may as well let the IOAction buffer it all.
-		DataFlags Flags = ForceCopy ? DataFlags.None : DataFlags.AllowStorage;
-		size_t Size = min(Raw.length, 1234);
-		ubyte[] Chunk = this.Raw[0 .. Size];
-		Raw = Raw[Size..$];
-		Callback(Chunk, Flags);		
-		// TODO: DEBUG: REMEMBER TO UNCOMMENT
-		/+Callback(this.Raw, Flags);
+		DataFlags Flags = ForceCopy ? DataFlags.None : DataFlags.AllowStorage;		
+		Callback(this.Raw, Flags);
 		// Make sure this doesn't try to keep it in memory once IOAction is done with it.
-		this.Raw = null;+/
-		taskPool.put(task(&Notify));
-		if(Chunk.length == 0)
-			return DataRequestFlags.Complete;
-		else
-			return DataRequestFlags.Continue | DataRequestFlags.Waiting;		
-	}
-
-	private void Notify() {		
-		NotifyDataReady();
+		this.Raw = null;		
+		return DataRequestFlags.Complete;		
 	}
 	
 	

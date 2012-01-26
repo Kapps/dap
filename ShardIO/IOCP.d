@@ -42,7 +42,7 @@ private HANDLE FileToHandle(FILE* File) {
 public struct OVERLAPPEDExtended {
 	OVERLAPPED Overlap;	
 	void* UserData;
-	void delegate(void*) Callback;
+	void delegate(void*, size_t) Callback;
 	HANDLE Handle;	
 }
 
@@ -52,7 +52,7 @@ public struct OVERLAPPEDExtended {
 /// 	UserData = Any user-defined data to store. It is passed into the callback. IMPORTANT: It must have at least one reference until the end of the callback!
 /// 	Handle = The handle for the object the operation is being performed on.
 ///		Callback = A callback to invoke upon completion.
-OVERLAPPED* CreateOverlap(void* UserData, HANDLE Handle, void delegate(void*) Callback) {		
+OVERLAPPED* CreateOverlap(void* UserData, HANDLE Handle, void delegate(void*, size_t) Callback) {		
 	OVERLAPPEDExtended* Result = cast(OVERLAPPEDExtended*)malloc(OVERLAPPEDExtended.sizeof);	
 	memset(&Result.Overlap, 0, OVERLAPPED.sizeof);
 	Result.UserData = UserData;
@@ -94,9 +94,8 @@ private:
 
 	extern(Windows) static void CompletionCallback(size_t dwError, size_t cbTransfered, OVERLAPPED* lpOverlapped) {
 		OVERLAPPEDExtended* Extended = cast(OVERLAPPEDExtended*)cast(void*)lpOverlapped;		
-		void* State = Extended.UserData;
-		void delegate(void*) Callback = Extended.Callback;
-		Callback(State);
+		void* State = Extended.UserData;		
+		Extended.Callback(State, cbTransfered);
 		free(Extended);
 	}
 }
