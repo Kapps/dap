@@ -1,4 +1,6 @@
 ﻿module ShardIO.AsyncSocket;
+private import std.stdio;
+private import std.parallelism;
 private import ShardTools.NativeReference;
 private import ShardIO.AsyncFile;
 private import ShardIO.SocketPool;
@@ -233,25 +235,25 @@ private:
 		socket_t Socket;
 	}	
 
-	void Accept(void* State, AcceptCallbackDelegate Callback) {
-		socket_t Sock = Pool.Acquire();
+	void Accept(void* State, AcceptCallbackDelegate Callback) {		
+		socket_t Sock = Pool.Acquire();		
 		version(Windows) {			
 			enum BufferSize = 128;
 			ubyte[] InBuffer = cast(ubyte[])(malloc(BufferSize)[0 .. BufferSize]);
 			AcceptState* AS = cast(AcceptState*)malloc(AcceptState.sizeof);
 			AS.State = State;
 			AS.Socket = Sock;
-			QueuedOperation!(AcceptCallbackDelegate)* Op = CreateOp(cast(void*)AS, InBuffer, Callback);
-			OVERLAPPED* Overlap = CreateOverlap(Op, cast(HANDLE)_Handle, &OnAccept);
-			if(AcceptEx(cast(SOCKET)_Handle, Sock, InBuffer.ptr, 0, BufferSize / 2, BufferSize / 2, null, Overlap) == 0) {
+			QueuedOperation!(AcceptCallbackDelegate)* Op = CreateOp(cast(void*)AS, InBuffer, Callback);			
+			OVERLAPPED* Overlap = CreateOverlap(Op, cast(HANDLE)_Handle, &OnAccept);			
+			if(AcceptEx(cast(SOCKET)_Handle, Sock, InBuffer.ptr, 0, BufferSize / 2, BufferSize / 2, null, Overlap) == 0) {				
 				int LastErr = WSAGetLastError();
 				if(LastErr != ERROR_IO_PENDING)
 					throw new SocketOSException("Unable to start accepting a connection.", LastErr);
-			}
+			}			
 		}
 	}	
 
-	private void OnAccept(void* State, size_t Unused) {
+	private void OnAccept(void* State, size_t Unused) {		
 		QueuedOperation!AcceptCallbackDelegate* Op = cast(QueuedOperation!AcceptCallbackDelegate*)State;
 		NativeReference.RemoveReference(Op);
 		AcceptState* AS = cast(AcceptState*)Op.State;
@@ -262,6 +264,7 @@ private:
 		Op.Callback(State, NewSock);
 		// TODO: Check if we need to do this in a task thread.
 		// MSDN is not perfectly clear whether doing this in in this callback thread causes problems.
-		Accept(OrigState, Op.Callback);
+		taskPool.put(task(&Accept, OrigState, Op.Callback));
+		//Accept(OrigState, Op.Callback);
 	}
 }

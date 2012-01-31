@@ -1,3 +1,3 @@
 [submodule "ShardTools"]
 	path = ShardTools
-	url = git@bitbucket.org:Kapps/shardtools
+	url = https://bitbucket.org/Kapps/ShardTools

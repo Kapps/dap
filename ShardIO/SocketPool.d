@@ -1,4 +1,6 @@
 ﻿module ShardIO.SocketPool;
+private import std.parallelism;
+private import std.stdio;
 private import core.sync.mutex;
 private import std.socket;
 
@@ -18,6 +20,7 @@ public:
 		this._Protocol = Protocol;
 		this._Increment = Increment;
 		AcquireLock = new Mutex();
+		PerformGenerate();
 	}	
 	
 	/// Gets the number of sockets to generate when running low.
@@ -43,14 +46,19 @@ public:
 
 	/// Acquires an initialized socket from the pool.
 	/// If no sockets are available, a new one will be created while more are being generated.
-	socket_t Acquire() {
-		synchronized(AcquireLock) {
-			if(Sockets.length == 0)
+	socket_t Acquire() {		
+		synchronized(AcquireLock) {			
+			if(Sockets.length == 0 || IsGenerating) {
+				debug writeln("Returning new Socket.");
 				return CreateSocket();
+			}
 		}
-		synchronized(this, AcquireLock) {
+		synchronized(this, AcquireLock) {			
 			socket_t Result = Sockets[$-1];
-			Sockets = Sockets[0..$-1];			
+			Sockets = Sockets[0..$-1];		
+			debug writeln("Returning existing socket.");	
+			if(Sockets.length < Increment / 10)
+				PerformGenerate();
 			return Result;
 		}
 	}
@@ -91,8 +99,19 @@ private:
 		SocketPool Pool;
 	}
 
-	void GenerateSockets() {
+	private void PerformGenerate() {
 		synchronized {
+			debug writeln("-Queued generating-");
+			if(IsGenerating)
+				return;
+			IsGenerating = true;
+			taskPool.put(task(&GenerateSockets));
+		}
+	}
+
+	void GenerateSockets() {
+		debug writeln("---Started Generating---");
+		synchronized {			
 			reserve(Sockets, Sockets.length + Increment);
 			for(size_t i = 0; i < Increment; i++) {
 				socket_t sock = CreateSocket();
@@ -100,6 +119,7 @@ private:
 			}
 			IsGenerating = false;
 		}
+		debug writeln("---Done Generating---");
 	}
 
 	socket_t CreateSocket() {
