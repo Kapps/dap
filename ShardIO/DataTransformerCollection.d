@@ -38,7 +38,7 @@ public:
 		size_t Index = _Transformers.IndexOf(Transformer);
 		if(Index == -1)
 			return false;
-		_Transformers.remove(Index);
+		_Transformers = _Transformers[0..Index] ~ _Transformers[Index+1..$];		
 		return true;
 	}
 

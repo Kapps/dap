@@ -11,8 +11,7 @@ class IOManager  {
 public:
 	/// Initializes a new instance of the IOManager object.
 	this(size_t NumWorkers = 0) {
-		// TODO: DEBUG: REMEMBER TO REMOVE!
-		debug NumWorkers = 8;
+		NumWorkers = 8;		
 		if(NumWorkers == 0)
 			Pool = new TaskPool();
 		else

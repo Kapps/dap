@@ -11,6 +11,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ShardIO\AsyncSocket.d">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ShardIO\ChainedOutput.d">
       <SubType>Code</SubType>
     </Compile>
@@ -56,6 +59,15 @@
     <Compile Include="ShardIO\OutputSource.d">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ShardIO\SocketInput.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardIO\SocketOutput.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardIO\SocketPool.d">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ShardTools\ShardTools.vsdproj">
@@ -81,7 +93,7 @@
     <RootNamespace>ShardIO</RootNamespace>
     <SkipLibraryStage>True</SkipLibraryStage>
     <DefaultImports />
-    <LastBuilt>24/01/2012 3:58:39 AM</LastBuilt>
+    <LastBuilt>29/01/2012 2:49:45 AM</LastBuilt>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <OptimizeCode>False</OptimizeCode>

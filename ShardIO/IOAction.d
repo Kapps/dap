@@ -1,4 +1,5 @@
 ﻿module ShardIO.IOAction;
+private import std.conv;
 private import core.atomic;
 private import std.stdio;
 private import core.thread;
@@ -156,6 +157,8 @@ package:
 	void NotifyInputReady() {
 		// Called from: Non-Process Thread. Thread-safe: With Lock. Race Risk: None				
 		synchronized(this) {		
+			if(!HasBegun)
+				return;
 			WaitingOn &= ~DataOperation.Read;
 			if(IsInputComplete || (AreBuffersFull() && (WaitingOn & DataOperation.Write) == 0)) {				
 				return; // Waiting for output, so no need to do anything here.
@@ -167,6 +170,8 @@ package:
 	void NotifyOutputReady() {
 		// Called from: Non-Process Thread. Thread-safe: With Lock. Race Risk: None		
 		synchronized(this) {			
+			if(!HasBegun)
+				return;
 			WaitingOn &= ~DataOperation.Write;
 			if(Buffers.length == 0 && (WaitingOn & DataOperation.Read) == 0) {				
 				return; // We're just waiting for the input source to notify us we're ready.
@@ -202,7 +207,7 @@ protected:
 	}
 	
 private:
-	static __gshared size_t _DefaultChunkSize = 8192;
+	static __gshared size_t _DefaultChunkSize = 16384;
 	static __gshared size_t _DefaultMaxChunks = 4;
 
 	InputSource _Input;
@@ -274,7 +279,7 @@ private:
 		// This means we're limited to a certain number of threads, but it's not too big a deal. Remember that they're only used when data is actually moved.
 		// When we're just waiting for data, we don't need to waste a worker thread for it.
 		// The IOManager gets to take care of this. We just need to make sure we don't queue the same action multiple times at once.		
-		//debug writeln("PIF");
+		//debug writeln("PIF");		
 		synchronized(this) {			
 			//debug writeln("PIF lock received");
 			if(InDataOperation) {				
@@ -283,7 +288,7 @@ private:
 			InDataOperation = true;
 			Manager.QueueAction(this);
 			//debug writeln("Queued");
-		}
+		}		
 	}	
 
 	/// Processes the flags returned by a DataSource. Returns whether more data should be handled for this source.
@@ -362,15 +367,15 @@ private:
 						if(NumHandled > 0) {							
 							enforce(NumHandled <= BufferData.length);
 							BufferData = BufferData[NumHandled..$];								
-							if(BufferData.length == 0) {
-								// Seems this doesn't really remove. Causes memory leak.
-								//Buffers.remove(0);			
+							if(BufferData.length == 0) {		
 								Buffers = (Buffers.length == 1 ? null : Buffers[1..$].dup);
 							} else {
 								Buffer Remaining = Buffer.FromExistingData(BufferData);
 								Buffers[0] = Remaining;
 							}					
-						} // 0 bytes handled; nothing to do here. So, just break. They probably should return Complete or Waiting, but not necessarily.
+						} 
+						// 0 bytes handled; nothing to do here. So, just break. They probably should return Complete or Waiting, but not necessarily.
+						// But, we may as well read some more data if needed to give them a bit more time.
 						if(!ProcessFlags(Flags, DataOperation.Write))
 							break;
 					}
