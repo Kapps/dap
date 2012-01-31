@@ -29,6 +29,7 @@ version(Windows) {
 		}		
 		alias WSABUF* LPWSABUF;
 		BOOL AcceptEx(SOCKET, SOCKET, PVOID, DWORD, DWORD, DWORD, DWORD*, LPOVERLAPPED);
+		int WSASend(SOCKET, LPWSABUF, DWORD, DWORD*, DWORD, OVERLAPPED*, LPWSAOVERLAPPED_COMPLETION_ROUTINE);
 	}
 }
 
@@ -38,6 +39,18 @@ enum SocketState {
 	Bound = 1,
 	Listening = 2,
 	Connected = 4
+}
+
+/// Indicates what the controller is for asynchronous socket operations.
+enum AsyncSocketHandler {
+	/// Uses basic socket operations such as send and recv, with select in a different thread to notify when ready.
+	Select =  0,
+	/// Uses IO Completion Ports on Windows for managing socket operations with WSA functions such as WSASend and WSARecv, and AcceptEx / ConnectEx for listening / connecting.
+	IOCP = 1,
+	/// Uses Linux's epoll API in a different thread for notifying when ready.
+	EPoll = 2,
+	/// Uses OSX's kqueue API in a different thread for notifying when ready.
+	KQueue = 4
 }
 
 alias socket_t AsyncSocketHandle;
@@ -50,6 +63,15 @@ class AsyncSocket {
 public:
 
 	alias void delegate(void* State, AsyncSocket NewSocket) AcceptCallbackDelegate;	
+	alias void delegate(void* State, size_t BytesSent) SocketWriteCallbackDelegate;
+	alias void delegate(void* State, size_t BytesRead) SocketReadCallbackDelegate;
+
+	/// Indicates the controller being used for handling files.
+	version(Windows) {
+		enum AsyncSocketHandler Controller = AsyncSocketHandler.IOCP;
+	} else {
+		enum AsyncSocketHandler Controller = AsyncSocketHandler.Select;
+	}
 	
 	/// Creates a new AsyncSocket capable of connecting to a remote endpoint or receiving an arbitrary number of connections.
 	/// Params:
@@ -61,7 +83,12 @@ public:
 		this._Type = Type;
 		this._Protocol = Protocol;
 		_State = SocketState.Disconnected;
-		socket_t sock = cast(socket_t)socket(Family, Type, Protocol);
+		socket_t sock;
+		version(Windows) {
+			sock = cast(socket_t)WSASocketA(cast(int)_Family, cast(int)_Type, cast(int)_Protocol, null, 0, WSA_FLAG_OVERLAPPED);
+		} else {
+			sock = cast(socket_t)socket(Family, Type, Protocol);
+		}
 		SetHandle(sock);
 		IOCP.RegisterHandle(cast(HANDLE)_Handle);
 	}
@@ -72,26 +99,55 @@ public:
 		this._Protocol = Parent._Protocol;
 		_State = SocketState.Connected;
 		SetHandle(Handle);
+		IOCP.RegisterHandle(cast(HANDLE)_Handle);
 	}
 
 	/// Sends the given data asynchronously. It is possible for the data to be split if the send buffer is full, or even for zero bytes to be sent.
 	/// This method returns the number of bytes sent; the rest must be handled by the caller.
 	/// It is safe to assume that once Callback is invoked, the send buffer is no longer full.
 	/// It is the responsibility of the caller to ensure that split messages are delivered in order, as the remote endpoint will get them in the order they are received.
+	/// Note that Data is transfered ownership to the socket until Callback is invoked.
 	/// Params:
-	/// 	Data = The data to send.
+	/// 	Data = The data to send. This data is now taken over by the socket, and the application may not modify nor delete it.
 	/// 	State = A user-defined object to pass in to Callback. Can be null.
 	/// 	Callback = The callback to invoke with State when the operation is complete. Can be null.
 	/// Returns:
 	/// 	The actual number of bytes sent.
-	size_t Send(ubyte[] Data, void* State, void delegate(void*) Callback) {		
+	size_t Send(ubyte[] Data, void* State, SocketWriteCallbackDelegate Callback) {				
+		// TODO: Consider removing synchronization.
 		synchronized {
 			enforce(this.State == SocketState.Connected, "Unable to send to a not-connected socket.");
-			version(Windows) {
-			
-			}
-		}
-		assert(0);
+			static if(Controller == AsyncSocketHandler.IOCP) {
+				// TODO: IMPORTANT: Attempt to detect if sending too large a buffer, and then split it if so. Use SO_MAX_MSG_SIZE.
+				WSABUF* buf = cast(WSABUF*)malloc(WSABUF.sizeof);
+				buf.buf = cast(char*)Data.ptr;
+				buf.len = Data.length;
+				SendState* SS = cast(SendState*)malloc(SendState.sizeof);
+				SS.Buffer = buf;
+				SS.State = State;
+				QueuedOperation!SocketWriteCallbackDelegate* Op = CreateOp(cast(void*)SS, Data, Callback);
+				OVERLAPPED* lpOverlap = CreateOverlap(cast(void*)Op, cast(HANDLE)_Handle, &OnSend);				
+				size_t BytesSent;
+				int Result = WSASend(cast(SOCKET)_Handle, buf, 1, &BytesSent, 0, lpOverlap, null);
+				if(Result == 0) {
+					/* Maybe not!
+					// Completed immediately.
+					if(BytesSent == Data.length) {
+						Callback(State, BytesSent);
+						return BytesSent;
+					} else if(BytesSent != 0) {
+						return Send(Data[BytesSent..$], State, Callback);
+					} else
+						assert(0, "Expected send to be asynchronous, yet returned zero bytes synchronously.");
+					*/
+				} else {
+					int LastErr = WSAGetLastError();
+					if(LastErr != ERROR_IO_PENDING)
+						throw new SocketOSException("Failed to send data over socket", LastErr);
+				}
+				return Data.length;
+			} else static assert(0);
+		}		
 	}
 
 	/// Gets the current state of the socket.
@@ -170,16 +226,16 @@ public:
 	void StartAccepting(void* State, AcceptCallbackDelegate Callback) {	
 		enforce(!IsAccepting, "Already accepting connections.");
 		IsAccepting = true;
-		version(Windows) {			
+		static if(Controller == AsyncSocketHandler.IOCP) {			
 			Pool = SocketPool.GetPool(_Family, _Type, _Protocol);		
 			Accept(State, Callback);	
-		}
+		} else static assert(0);
 	}
 
 protected:
 	void SetHandle(AsyncSocketHandle Handle) {
 		if(Handle == socket_t.init)
-			throw new SocketOSException("Failed to create the socket.");
+			throw new SocketOSException("Failed to create the socket");
 		this._Handle = Handle;
 		// TODO: OSX fix from std.socket.
 		static if (is(typeof(SO_NOSIGPIPE))) {
@@ -202,42 +258,47 @@ private:
 				ErrorCode = WSAGetLastError();
 		}
 		if(ErrorCode == int.max)
-			throw new SocketOSException("A socket exception has occurred.");
+			throw new SocketOSException("A socket exception has occurred");
 		version(Windows) {
 			switch(ErrorCode) {
 				case WSAENETDOWN:
-					throw new SocketOSException("The operation failed because the network device was not responding.", ErrorCode);
+					throw new SocketOSException("The operation failed because the network device was not responding", ErrorCode);
 				case WSAEADDRINUSE:
-					throw new SocketOSException("The operation failed because the address was already in use.", ErrorCode);
+					throw new SocketOSException("The operation failed because the address was already in use", ErrorCode);
 				case WSAEWOULDBLOCK:
 					return;				
 				case 10022: // WSAINEVAL
-					throw new SocketOSException("Attempted to listen or connect without binding the socket.", ErrorCode);
+					throw new SocketOSException("Attempted to listen or connect without binding the socket", ErrorCode);
 				case 10056: // WSAEISCONN
-					throw new SocketOSException("The socket was already connected; unable to listen or connect.", ErrorCode);
+					throw new SocketOSException("The socket was already connected; unable to listen or connect", ErrorCode);
 				case 10057: // WSAENOTCONN
-					throw new SocketOSException("Attempted to send or receive when the socket was not connected.", ErrorCode);
+					throw new SocketOSException("Attempted to send or receive when the socket was not connected", ErrorCode);
 				case 10058: // WSAESHUTDOWN
-					throw new SocketOSException("The socket has already been shut down, unable to perform further sends or receives.", ErrorCode);
+					throw new SocketOSException("The socket has already been shut down, unable to perform further sends or receives", ErrorCode);
 				case 10060: // WSAETIMEOUT
-					throw new SocketOSException("A socket operation timed out prior to completion.", ErrorCode);
+					throw new SocketOSException("A socket operation timed out prior to completion", ErrorCode);
 				case 10061: // WSAECONNREFUSED
-					throw new SocketOSException("The remote host refused the connection.", ErrorCode);									
+					throw new SocketOSException("The remote host refused the connection", ErrorCode);									
 				default:
 					break; // Fall down to throw.
 			}
 		}
-		throw new SocketOSException("A socket exception has occurred.", ErrorCode);
+		throw new SocketOSException("A socket exception has occurred", ErrorCode);
 	}
 	
 	struct AcceptState {
 		void* State;
 		socket_t Socket;
-	}	
+	}
+
+	struct SendState {
+		void* State;
+		LPWSABUF Buffer;		
+	}
 
 	void Accept(void* State, AcceptCallbackDelegate Callback) {		
 		socket_t Sock = Pool.Acquire();		
-		version(Windows) {			
+		static if(Controller == AsyncSocketHandler.IOCP) {			
 			enum BufferSize = 128;
 			ubyte[] InBuffer = cast(ubyte[])(malloc(BufferSize)[0 .. BufferSize]);
 			AcceptState* AS = cast(AcceptState*)malloc(AcceptState.sizeof);
@@ -248,23 +309,46 @@ private:
 			if(AcceptEx(cast(SOCKET)_Handle, Sock, InBuffer.ptr, 0, BufferSize / 2, BufferSize / 2, null, Overlap) == 0) {				
 				int LastErr = WSAGetLastError();
 				if(LastErr != ERROR_IO_PENDING)
-					throw new SocketOSException("Unable to start accepting a connection.", LastErr);
+					throw new SocketOSException("Unable to start accepting a connection", LastErr);
 			}			
-		}
-	}	
+		} else static assert(0);
+	}		
 
-	private void OnAccept(void* State, size_t Unused) {		
+	private void OnAccept(void* State, size_t ErrorCode, size_t Unused) {		
 		QueuedOperation!AcceptCallbackDelegate* Op = cast(QueuedOperation!AcceptCallbackDelegate*)State;
 		NativeReference.RemoveReference(Op);
-		AcceptState* AS = cast(AcceptState*)Op.State;
-		void* OrigState = AS.State;
-		socket_t Socket = AS.Socket;
-		free(AS);
-		AsyncSocket NewSock = new AsyncSocket(this, Socket);		
-		Op.Callback(State, NewSock);
-		// TODO: Check if we need to do this in a task thread.
-		// MSDN is not perfectly clear whether doing this in in this callback thread causes problems.
-		taskPool.put(task(&Accept, OrigState, Op.Callback));
-		//Accept(OrigState, Op.Callback);
+		static if(Controller == AsyncSocketHandler.IOCP) {
+			AcceptState* AS = cast(AcceptState*)Op.State;
+			void* OrigState = AS.State;
+			socket_t Socket = AS.Socket;
+			free(AS);
+			AsyncSocket NewSock = new AsyncSocket(this, Socket);	
+			if(Op.Callback)	
+				Op.Callback(State, NewSock);
+			// TODO: Check if we need to do this in a task thread.
+			// MSDN is not perfectly clear whether doing this in in this callback thread causes problems.
+			//taskPool.put(task(&Accept, OrigState, Op.Callback));
+			Accept(OrigState, Op.Callback);
+		} else static assert(0);		
+	}
+
+	private void OnSend(void* State, size_t ErrorCode, size_t BytesSent) {
+		QueuedOperation!SocketWriteCallbackDelegate* Op = cast(QueuedOperation!SocketWriteCallbackDelegate*)State;
+		NativeReference.RemoveReference(Op);
+		version(Windows) {
+			SendState* SS = cast(SendState*)Op.State;
+			void* UserState = SS.State;
+			LPWSABUF Buffer = SS.Buffer;
+			ubyte[] OrigData = cast(ubyte[])Buffer.buf[0 .. Buffer.len];
+			if(OrigData.length != 0 && BytesSent == 0)
+				throw new SocketException("Attempted to send more bytes than possible. This is an internal error as it should have been split automatically.");
+			free(SS.Buffer);
+			free(SS);
+			bool OperationComplete = OrigData.length == BytesSent;
+			if(OperationComplete && Op.Callback)
+				Op.Callback(UserState, BytesSent);
+			else if(!OperationComplete) // We didn't finish; queue the remaining bytes.
+				Send(OrigData[BytesSent .. $], State, Op.Callback);
+		} else static assert(0);
 	}
 }

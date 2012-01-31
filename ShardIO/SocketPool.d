@@ -6,6 +6,10 @@ private import std.socket;
 
 version(Windows) {
 	import std.c.windows.winsock;
+	enum size_t WSA_FLAG_OVERLAPPED = 1;
+	extern(Windows) {
+		SOCKET WSASocketA(int, int, int, void*, size_t, size_t);
+	}
 }
 
 /// Provides a pool of created sockets of a given AddressFamily, Protocol, and SocketType.
@@ -48,15 +52,13 @@ public:
 	/// If no sockets are available, a new one will be created while more are being generated.
 	socket_t Acquire() {		
 		synchronized(AcquireLock) {			
-			if(Sockets.length == 0 || IsGenerating) {
-				debug writeln("Returning new Socket.");
+			if(Sockets.length == 0 || IsGenerating) {				
 				return CreateSocket();
 			}
 		}
 		synchronized(this, AcquireLock) {			
 			socket_t Result = Sockets[$-1];
-			Sockets = Sockets[0..$-1];		
-			debug writeln("Returning existing socket.");	
+			Sockets = Sockets[0..$-1];					
 			if(Sockets.length < Increment / 10)
 				PerformGenerate();
 			return Result;
@@ -123,7 +125,12 @@ private:
 	}
 
 	socket_t CreateSocket() {
-		socket_t sock = cast(socket_t)socket(cast(int)_Family, cast(int)_Type, cast(int)_Protocol);
+		socket_t sock;
+		version(Windows) {
+			sock = cast(socket_t)WSASocketA(cast(int)_Family, cast(int)_Type, cast(int)_Protocol, null, 0, WSA_FLAG_OVERLAPPED);
+		} else {
+			sock = cast(socket_t)socket(cast(int)_Family, cast(int)_Type, cast(int)_Protocol);
+		}
 		if(sock == socket_t.init)
 			throw new SocketOSException("Unable to create a socket to pool.", sock);
 		return sock;

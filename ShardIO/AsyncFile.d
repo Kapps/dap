@@ -76,8 +76,8 @@ enum AsyncFileHandler {
 
 alias void* AsyncFileHandle;
 
-alias void delegate(void* State) WriteCallbackDelegate;
-alias void delegate(void* State, ubyte[] Data) ReadCallbackDelegate;
+alias void delegate(void* State) FileWriteCallbackDelegate;
+alias void delegate(void* State, ubyte[] Data) FileReadCallbackDelegate;
 
 package struct QueuedOperation(T) {
 	void* State;
@@ -114,7 +114,7 @@ public:
 			throw new FileException("Reading a file is only allowed with Open or OpenCreate file modes.");
 		if(Access == FileAccessMode.Write && (OpenMode != FileOpenMode.CreateNew && OpenMode != FileOpenMode.CreateOrReplace && OpenMode != FileOpenMode.OpenOrCreate))
 			throw new FileException("Writing a file is only allowed with CreateNew or CreateOrReplace file modes.");
-		this._Handle = CreateHandle(FilePath, Access, OpenMode, Hint);
+		this._Handle = CreateHandle(FilePath, Access, OpenMode, Hint);		
 		IsOpen = true;
 	}
 
@@ -153,10 +153,10 @@ public:
 	/// 	Data = The data to append to the file.
 	/// 	State = A user-defined object to pass into callback. Can be null.
 	/// 	Callback = A callback to invoke upon completion. For best performance, this callback should be light-weight and not queue more data itself. It must be thread-safe.
-	void Append(ubyte[] Data, void* State, WriteCallbackDelegate Callback) {		
+	void Append(ubyte[] Data, void* State, FileWriteCallbackDelegate Callback) {		
 		synchronized(this) {
 			enforce(IsOpen && !WaitingToClose, "Unable to write to a closed file.");
-			QueuedOperation!WriteCallbackDelegate* QueuedOp = CreateOp(State, Data, Callback);			
+			QueuedOperation!FileWriteCallbackDelegate* QueuedOp = CreateOp(State, Data, Callback);			
 			static if(Controller == AsyncFileHandler.IOCP) {																
 				OVERLAPPED* lpOverlap = CreateOverlap(cast(void*)QueuedOp, _Handle, &InitialWriteCallback);				
 				lpOverlap.Offset = 0xFFFFFFFF;
@@ -176,10 +176,10 @@ public:
 	/// 	Offset = The offset within the file to read from.
 	/// 	State = A user-defined object to pass into callback. Can be null.
 	/// 	Callback = A callback to invoke upon completion. For best performance, this callback should be light-weight and not queue more data itself. It must be thread-safe. This is invoked with State and the same instance of Buffer, but sliced to the actual number of bytes read.
-	void Read(ubyte[] Buffer, ulong Offset, void* State, ReadCallbackDelegate Callback) {
+	void Read(ubyte[] Buffer, ulong Offset, void* State, FileReadCallbackDelegate Callback) {
 		synchronized(this) {
 			enforce(IsOpen && !WaitingToClose, "Unable to read from a closed file.");
-			QueuedOperation!ReadCallbackDelegate* Op = CreateOp(State, Buffer, Callback);
+			QueuedOperation!FileReadCallbackDelegate* Op = CreateOp(State, Buffer, Callback);
 			static if(Controller == AsyncFileHandler.IOCP) {
 				OVERLAPPED* lpOverlap = CreateOverlap(Op, _Handle, &InitialReadCallback);						
 				lpOverlap.Offset = cast(uint)(Offset >>> 0);
@@ -227,8 +227,8 @@ private:
 	bool IsOpen;
 	bool WaitingToClose;
 
-	void InitialReadCallback(void* State, size_t BytesRead) {
-		QueuedOperation!ReadCallbackDelegate* Op = cast(QueuedOperation!ReadCallbackDelegate*)State;
+	void InitialReadCallback(void* State, size_t ErrorCode, size_t BytesRead) {
+		QueuedOperation!FileReadCallbackDelegate* Op = cast(QueuedOperation!FileReadCallbackDelegate*)State;
 		scope(exit)
 			NativeReference.RemoveReference(cast(void*)Op);		
 		ubyte[] Data = Op.Data[0 .. BytesRead];
@@ -236,8 +236,8 @@ private:
 			Op.Callback(Op.State, Data);
 	}
 	
-	void InitialWriteCallback(void* State, size_t BytesRead) {
-		QueuedOperation!WriteCallbackDelegate* Op = cast(QueuedOperation!WriteCallbackDelegate*)State;
+	void InitialWriteCallback(void* State, size_t ErrorCode, size_t BytesRead) {
+		QueuedOperation!FileWriteCallbackDelegate* Op = cast(QueuedOperation!FileWriteCallbackDelegate*)State;
 		scope(exit)
 			NativeReference.RemoveReference(cast(void*)Op);		
 		if(Op.Callback)
@@ -245,7 +245,7 @@ private:
 	}	
 	
 	void PerformWriteSync(void* State) {			
-		QueuedOperation!WriteCallbackDelegate* Op = cast(QueuedOperation!WriteCallbackDelegate*)State;
+		QueuedOperation!FileWriteCallbackDelegate* Op = cast(QueuedOperation!FileWriteCallbackDelegate*)State;
 		scope(exit)
 			NativeReference.RemoveReference(Op);
 		FILE* File = cast(FILE*)_Handle;

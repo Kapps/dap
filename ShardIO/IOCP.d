@@ -13,9 +13,7 @@ version(Windows){
 	extern(Windows) {		
 		alias void function(size_t, size_t, OVERLAPPED*) LPOVERLAPPED_COMPLETION_ROUTINE;		
 		alias OVERLAPPED WSAOVERLAPPED;
-		alias OVERLAPPED* LPOVERLAPPED;
-		alias WSAOVERLAPPED* LPWSAOVERLAPPED;
-		alias void function(size_t, size_t, OVERLAPPED*, size_t) LPWSAOVERLAPPED_COMPLETION_ROUTINE;
+		alias OVERLAPPED* LPOVERLAPPED;				
 		HANDLE CreateIoCompletionPort(HANDLE, HANDLE, void*, size_t);
 		int BindIoCompletionCallback(HANDLE, LPOVERLAPPED_COMPLETION_ROUTINE, size_t);		
 	}	
@@ -31,12 +29,14 @@ version(Windows){
 		return Result;
 	}
 
+	alias void delegate(void* UserData, size_t ErrorCode, size_t BytesSent) IOCPCallbackDelegate;
+
 	/// Provides the implementation of OVERLAPPED that should be used for operations used by handles registered with the IOCP class.
 	/// This struct should never have instances created manually; instead, use CreateOverlap.
 	public struct OVERLAPPEDExtended {
 		OVERLAPPED Overlap;	
 		void* UserData;
-		void delegate(void*, size_t) Callback;
+		IOCPCallbackDelegate Callback;
 		HANDLE Handle;	
 	}	
 
@@ -46,7 +46,7 @@ version(Windows){
 	/// 	UserData = Any user-defined data to store. It is passed into the callback. IMPORTANT: It must have at least one reference until the end of the callback!
 	/// 	Handle = The handle for the object the operation is being performed on.
 	///		Callback = A callback to invoke upon completion.
-	OVERLAPPED* CreateOverlap(void* UserData, HANDLE Handle, void delegate(void*, size_t) Callback) {		
+	OVERLAPPED* CreateOverlap(void* UserData, HANDLE Handle, IOCPCallbackDelegate Callback) {		
 		OVERLAPPEDExtended* Result = cast(OVERLAPPEDExtended*)malloc(OVERLAPPEDExtended.sizeof);	
 		memset(&Result.Overlap, 0, OVERLAPPED.sizeof);
 		Result.UserData = UserData;
@@ -79,10 +79,20 @@ version(Windows){
 		}
 	}
 
-	extern(Windows) private void CompletionCallback(size_t dwError, size_t cbTransfered, OVERLAPPED* lpOverlapped) {
+	/// A thread-local boolean so that we can initialize each thread exactly once with the runtime.
+	private static bool IsRegisteredWithRuntime; // Thread-local
+	extern(Windows) private void CompletionCallback(size_t dwError, size_t cbTransfered, OVERLAPPED* lpOverlapped) {		
+		if(!IsRegisteredWithRuntime) {
+			synchronized {
+				if(!IsRegisteredWithRuntime) {
+					thread_attachThis();
+					IsRegisteredWithRuntime = true;
+				}
+			}
+		}
 		OVERLAPPEDExtended* Extended = cast(OVERLAPPEDExtended*)cast(void*)lpOverlapped;		
 		void* State = Extended.UserData;		
-		Extended.Callback(State, cbTransfered);
+		Extended.Callback(State, dwError, cbTransfered);
 		free(Extended);
 	}
 }
