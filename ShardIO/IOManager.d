@@ -44,5 +44,5 @@ public:
 private:
 	TaskPool Pool;
 
-	static IOManager _Default;
+	static __gshared IOManager _Default;
 }

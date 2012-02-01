@@ -67,7 +67,7 @@ public:
 
 	/// Gets or creates a SocketPool that creates sockets with the given parameters.		
 	static SocketPool GetPool(AddressFamily Family, SocketType Type, ProtocolType Protocol) {
-		synchronized {
+		synchronized(typeid(SocketPool)) {
 			foreach(StoredPool Pool; Pools) {
 				if(Pool.Family == Family && Pool.Type == Type && Pool.Protocol == Protocol)
 					return Pool.Pool;
@@ -102,8 +102,7 @@ private:
 	}
 
 	private void PerformGenerate() {
-		synchronized {
-			debug writeln("-Queued generating-");
+		synchronized(this) {			
 			if(IsGenerating)
 				return;
 			IsGenerating = true;
@@ -111,17 +110,15 @@ private:
 		}
 	}
 
-	void GenerateSockets() {
-		debug writeln("---Started Generating---");
-		synchronized {			
+	void GenerateSockets() {		
+		synchronized(this) {			
 			reserve(Sockets, Sockets.length + Increment);
 			for(size_t i = 0; i < Increment; i++) {
 				socket_t sock = CreateSocket();
 				Sockets ~= sock;
 			}
 			IsGenerating = false;
-		}
-		debug writeln("---Done Generating---");
+		}		
 	}
 
 	socket_t CreateSocket() {

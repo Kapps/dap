@@ -37,7 +37,7 @@ public:
 
 	/// An event called when the operation is finished, both when successful as well as when aborted.
 	final @property CompletionEvent Completed() {
-		synchronized {
+		synchronized(this) {
 			if(!_Completed) // Lazily create it, since most operations won't use this.
 				_Completed = new CompletionEvent();						
 		}
