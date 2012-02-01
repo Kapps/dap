@@ -45,6 +45,7 @@ public:
 			File.Append(Chunk, cast(void*)this, &WriteCompleteCallback);
 			NumSent++;		
 			BytesHandled = Chunk.length;		
+			// TODO: Consider waiting until write callback.
 			return DataRequestFlags.Continue;		
 		}
 	}
@@ -79,7 +80,7 @@ private:
 
 	void WriteCompleteCallback(void* State) {
 		synchronized(this) {
-			NumReceived++;						
+			NumReceived++;									
 			AttemptCompletion();
 		}
 	}

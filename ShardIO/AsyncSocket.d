@@ -466,8 +466,8 @@ private:
 				int Result = WSAGetLastError();
 				if(Result != ERROR_IO_PENDING && Callback) {
 					Callback(State, Message, ErrorCode);						
-				}
-				NotifyDisconnect(Message, ErrorCode);
+				} else if(Result != ERROR_IO_PENDING)
+					NotifyDisconnect(Message, ErrorCode);
 			}					
 		}
 	}

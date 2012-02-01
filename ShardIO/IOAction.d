@@ -1,4 +1,5 @@
 ﻿module ShardIO.IOAction;
+private import ShardTools.NativeReference;
 private import std.conv;
 private import core.atomic;
 private import std.stdio;
@@ -32,7 +33,7 @@ public:
 	this() {		
 		this._Status = CompletionType.Incomplete;
 		this._ChunkSize = DefaultChunkSize;
-		this._MaxChunks = DefaultMaxChunks;			
+		this._MaxChunks = DefaultMaxChunks;				
 	}
 
 	/// An event called when the operation is finished, both when successful as well as when aborted.
@@ -122,6 +123,7 @@ public:
 			this._Input = Input;
 			this._Output = Output;
 			ProcessIfNeeded();
+			NativeReference.AddReference(cast(void*)this);
 		}
 	}
 
@@ -423,6 +425,7 @@ private:
 				_Completed = null; // Don't allow memory leaks by keeping this referenced.
 			}
 			CompleteOnBreakType = CompletionType.Incomplete;
+			NativeReference.RemoveReference(cast(void*)this);
 		}
 	}
 }

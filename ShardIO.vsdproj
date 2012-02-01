@@ -68,6 +68,12 @@
     <Compile Include="ShardIO\SocketPool.d">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ShardIO\StandardInput.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardIO\StandardOutput.d">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ShardTools\ShardTools.vsdproj">
