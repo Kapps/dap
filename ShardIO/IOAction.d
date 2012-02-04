@@ -1,4 +1,5 @@
 ﻿module ShardIO.IOAction;
+private import std.datetime;
 private import ShardTools.NativeReference;
 private import std.conv;
 private import core.atomic;
@@ -134,8 +135,11 @@ public:
 
 	/// Blocks the calling thread until this action completes. This has, at most, 1 millisecond precision.
 	/// Returns the way in which this action was completed.
-	CompletionType WaitForCompletion() {
+	/// Params:
+	/// 	Timeout = A duration after which to throw an exception if not yet complete.
+	CompletionType WaitForCompletion(Duration Timeout) {
 		// Called from: Non-Process Thread. Thread-safe: Yes.
+		SysTime Start = Clock.currTime();
 		while(_Status == CompletionType.Incomplete)
 			Thread.sleep(dur!"msecs"(1));
 		return _Status;

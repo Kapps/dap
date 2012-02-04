@@ -74,6 +74,12 @@
     <Compile Include="ShardIO\StandardOutput.d">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ShardIO\StreamInput.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardIO\Unittests.d">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ShardTools\ShardTools.vsdproj">
