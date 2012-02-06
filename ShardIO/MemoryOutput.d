@@ -11,8 +11,8 @@ class MemoryOutput : OutputSource {
 
 public:
 	/// Initializes a new instance of the MemoryOutput object.
-	this(IOAction Action) {
-		super(Action);
+	this() {
+		
 	}
 
 	/// Gets the data that is currently filled in.

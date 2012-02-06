@@ -33,18 +33,22 @@ public:
 
 	alias Event!(void, IOAction, CompletionType) CompletionEvent;
 
-	/// Initializes a new instance of the IOTask object.
-	this() {		
+	/// Initializes a new instance of the IOAction object.
+	this(InputSource Input, OutputSource Output) {		
 		this._Status = CompletionType.Incomplete;
 		this._ChunkSize = DefaultChunkSize;
 		this._MaxChunks = DefaultMaxChunks;				
+		this._Input = Input;
+		this._Output = Output;
+		Input._Action = this;
+		Output._Action = this;
 	}
 
 	/// Notifies the given callback when the action is complete.
 	/// If the action is already complete, the callback is notified immediately and synchronously.	
 	final void NotifyOnComplete(void delegate(IOAction Action, CompletionType Type) Callback) {
 		synchronized(this) {
-			if(_Status != CompletionType.Incomplete) {
+			if(_Status == CompletionType.Incomplete) {
 				if(!_Completed)
 					_Completed = new CompletionEvent();
 				_Completed ~= Callback;
@@ -122,15 +126,13 @@ public:
 	}
 	
 	/// Begins this operation asynchronously.	
-	void Start(InputSource Input, OutputSource Output) {
+	void Start() {
 		// Called from: Non-Process Thread. Thread-safe: With Lock. Dead-Lock Risk: None.
 		synchronized(this) {
 			enforce(!HasBegun, "The operation had already been begun.");
 			if(_Manager is null)
 				_Manager = IOManager.Default;
-			HasBegun = true;
-			this._Input = Input;
-			this._Output = Output;
+			HasBegun = true;			
 			ProcessIfNeeded();
 			NativeReference.AddReference(cast(void*)this);
 		}

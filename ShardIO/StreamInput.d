@@ -1,4 +1,5 @@
 ﻿module ShardIO.StreamInput;
+private import std.traits;
 private import std.exception;
 private import ShardTools.BufferPool;
 public import ShardIO.InputSource;
@@ -46,8 +47,7 @@ class StreamInput : InputSource {
 
 public:
 	/// Initializes a new instance of the StreamInput object.
-	this(FlushMode FlushType, IOAction Action) {
-		super(Action);
+	this(FlushMode FlushType) {		
 		SizeEstimate = 1024;
 		this._FlushType = FlushType;
 		AcquireBuffer();
@@ -83,7 +83,7 @@ public:
 	/// Params:
 	/// 	T = The type of the element to write.
 	/// 	Data = The element to write.
-	void Write(T)(T Data) if(!is(T == class) && !is(T == interface)) {
+	void Write(T)(T Data) if(!is(T == class) && !is(T == interface) && !isArray!(T)) {
 		synchronized(this) {
 			enforce(!_ShouldComplete, "Unable to write more data to a stream after waiting for completion.");
 			CurrentBuffer.Write(Data);
@@ -95,7 +95,7 @@ public:
 	/// Params:
 	/// 	T = The type of the elements in the array.
 	/// 	Data = The array to write.
-	void Write(T)(T[] Data) if(!is(T == class) && !is(T == interface)) {
+	void Write(T)(T[] Data) if(!is(T == class) && !is(T == interface) && !isArray!(T)) {
 		synchronized(this) {
 			enforce(!_ShouldComplete, "Unable to write more data to a stream after waiting for completion.");
 			CurrentBuffer.Write(Data);

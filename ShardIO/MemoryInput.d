@@ -12,8 +12,7 @@ public:
 	/// Params:
 	/// 	Raw = The raw array used for input. Unless ForceCopy is true, this array will be referenced directly and may be modified.
 	/// 	ForceCopy = Whether or not to force a copy of Raw.
-	this(IOAction Action, ubyte[] Raw, bool ForceCopy = false) {
-		super(Action);
+	this(ubyte[] Raw, bool ForceCopy = false) {		
 		this.Raw = Raw;
 		this.ForceCopy = ForceCopy;
 	}	

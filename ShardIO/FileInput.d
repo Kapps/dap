@@ -16,23 +16,22 @@ public:
 	/// Initializes a new instance of the FileInput object.
 	/// Params:
 	/// 	File = The file to read input from. Input is read starting from the beginning of the file. The file must be open. The file will be closed after the source is fully read.
-	this(AsyncFile File, IOAction Action) {
-		super(Action);
+	this(AsyncFile File) {		
 		this.File = File;
 		Offset = 0;
 		Length = File.Size;		
-		ChunkSize = Action.ChunkSize;	
+		ChunkSize = 16384;	
 		LoadChunk();	
 	}	
 
 	/// Initializes a new instance of the FileInput object.
 	/// Params:
 	/// 	FilePath = The path to the file to read input from. An exception is thrown if it does not exist.
-	this(string FilePath, IOAction Action) {
+	this(string FilePath) {
 		if(!exists(FilePath))
 			throw new FileNotFoundException("The file at " ~ FilePath ~ " was not found.");
 		AsyncFile File = new AsyncFile(FilePath, FileAccessMode.Read, FileOpenMode.Open, FileOperationsHint.Sequential);
-		this(File, Action);
+		this(File);
 	}
 
 	/// Called by the IOAction after this InputSource notifies it is ready to have input received.
@@ -56,6 +55,7 @@ public:
 				Callback(null, DataFlags.None);
 				return DataRequestFlags.Waiting | DataRequestFlags.Continue;
 			}
+			ChunkSize = Action.ChunkSize;
 			DataFlags Flags = DataFlags.None;
 			Callback(Next.Data, Flags);
 			Processed += Next.Data.length;

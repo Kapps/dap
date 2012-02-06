@@ -15,8 +15,7 @@ public:
 	alias void delegate(ubyte[]) CallbackType;
 
 	/// Initializes a new instance of the CallbackOutput object.
-	this(Action, CallbackType Callback) {
-		super(Action);
+	this(CallbackType Callback) {		
 		this._Callback = Callback;
 		enforce(Callback !is null);		
 	}

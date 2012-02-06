@@ -1,4 +1,5 @@
 ﻿module ShardIO.DataSource;
+private import std.exception;
 public import ShardIO.IOAction;
 
 /// Indicates whether to do a read operation, write operation, or both a read and a write.
@@ -30,15 +31,16 @@ abstract class DataSource  {
 // Example of InputSource: Anything that returns a non-copyable array that must be freed prior to the end of the current stack frame.
 public:
 	/// Initializes a new instance of the DataSource object.
-	this(IOAction Action) {
+	this() {
 		this._Action = Action;
 	}
 
 	/// Gets the action this DataSource is a part of.
-	final @property IOAction Action() {
+	/// If this DataSource is not yet part of an action (because no IOAction has been created that uses it), this returns null.
+	final @property IOAction Action() {		
 		return _Action;
 	}
 	
-private:
-	IOAction _Action;
+private:	
+	package IOAction _Action;
 }

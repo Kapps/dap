@@ -10,10 +10,9 @@ class StandardInput : InputSource {
 
 public:
 	/// Initializes a new instance of the StandardInput object.
-	this(IOAction Action) {
-		super(Action);
+	this() {		
 		BufferedData = new Buffer(1024);
-		Action.Completed.Add(&OnActionComplete);
+		Action.NotifyOnComplete(&OnActionComplete);
 		auto t = task(&WorkerThread);
 		taskPool.put(t);
 	}

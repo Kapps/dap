@@ -18,8 +18,7 @@ public:
 	/// Params:
 	/// 	File = The file to append to. This file must remain open. It is closed automatically after completion.
 	///		Action = The IOAction that will be using this OutputSource.
-	this(AsyncFile File, IOAction Action) {
-		super(Action);		
+	this(AsyncFile File) {		
 		this.File = File;
 	}	
 
@@ -27,9 +26,9 @@ public:
 	/// Params:
 	/// 	FilePath = The path to the file to append to. It is created if it does not exist.
 	///		Action = The IOAction that will be using this OutputSource.
-	this(string FilePath, IOAction Action) {
+	this(string FilePath) {
 		AsyncFile File = new AsyncFile(FilePath, FileAccessMode.Write, FileOpenMode.OpenOrCreate, FileOperationsHint.Sequential);
-		this(File, Action);
+		this(File);
 	}
 
 	/// Attempts to handle the given chunk of data.

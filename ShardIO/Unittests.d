@@ -19,8 +19,8 @@ __gshared int NumTests;
 __gshared InputData[] Inputs;
 __gshared OutputData[] Outputs;
 
-alias InputSource delegate(IOAction, ubyte[]) InputFactoryCallback;
-alias OutputSource delegate(IOAction) OutputFactoryCallback;
+alias InputSource delegate(ubyte[]) InputFactoryCallback;
+alias OutputSource delegate() OutputFactoryCallback;
 alias bool delegate(IOAction, ubyte[]) VerificationCallback;
 
 struct InputData {
@@ -51,9 +51,9 @@ private void RunAllTests() {
 
 unittest {
 	// MemoryInput / MemoryOutput
-	Inputs ~= InputData(delegate(Action, Data) { return new MemoryInput(Action, Data, false); });
+	Inputs ~= InputData(delegate(Data) { return new MemoryInput(Data, false); });
 	Outputs ~= OutputData(
-		delegate(Action) { return new MemoryOutput(Action); },
+		delegate() { return new MemoryOutput(); },
 		delegate(Action, Data) { 
 			MemoryOutput Output = cast(MemoryOutput)Action.Output;
 			return Output.Data == Data;
@@ -76,17 +76,17 @@ unittest {
 		return FilePath;
 	}
 
-	Inputs ~= InputData(delegate(Action, Data) {
+	Inputs ~= InputData(delegate(Data) {
 		string FilePath = GetTempFile();
 		File f = File(FilePath, "w");
 		f.rawWrite(Data);
 		f.close();
-		return new FileInput(FilePath, Action);
+		return new FileInput(FilePath);
 	});
 	
 	string LastFile;
 	Outputs ~= OutputData(
-		delegate(Action) { LastFile = GetTempFile(); return new FileOutput(LastFile, Action); },
+		delegate() { LastFile = GetTempFile(); return new FileOutput(LastFile); },
 		delegate(Action, Data) { 			
 			ubyte[] FileData = new ubyte[Data.length];
 			auto file = File(LastFile, "r");
@@ -105,21 +105,21 @@ private void RunTest(InputData InData, OutputData OutData) {
 	for(int i = 1; i <= NumTests; i++) {
 		ubyte[] SomeArray = new ubyte[5 * pow(Base, i - 1)];
 		foreach(ref ubyte Element; SomeArray)
-			Element = uniform!ubyte();	
-		IOAction Action = new IOAction();
-		InputSource Input = InData.Callback(Action, SomeArray);
-		OutputSource Output = OutData.Callback(Action);		
+			Element = uniform!ubyte();			
+		InputSource Input = InData.Callback(SomeArray);
+		OutputSource Output = OutData.Callback();		
+		IOAction Action = new IOAction(Input, Output);
 		bool DoneVerifying = false;
-		Action.Completed.Add(delegate(IOAction Acton, CompletionType Type) {
+		Action.NotifyOnComplete(delegate(IOAction Acton, CompletionType Type) {
 			assert(Type == CompletionType.Successful, "The action did not complete successfully for " ~ typeid(Input).stringof ~ " and " ~ typeid(Output).stringof ~ " on run number " ~ to!string(i) ~ ".");
 			assert(OutData.Verifier(Action, SomeArray), "The action did not verify successfully for " ~ typeid(Input).stringof ~ " and " ~ typeid(Output).stringof ~ " on run number " ~ to!string(i) ~ ".");
 			DoneVerifying = true;
 		});
-		Action.Start(Input, Output);
+		Action.Start();
 		try {
 			Action.WaitForCompletion(dur!"seconds"(10));		
 		} catch (TimeoutException) {
-			assert(0, "The action using " ~ typeid(Input).stringof ~ " and " ~ typeid(Output).stringof ~ " did not complete prior to the timeout on run number " ~ to!string(i) ~ ".");
+			assert(0, "The action using " ~ to!string(typeid(Input)) ~ " and " ~ to!string(typeid(Output)) ~ " did not complete prior to the timeout on run number " ~ to!string(i) ~ ".");
 		}
 	}
 } 

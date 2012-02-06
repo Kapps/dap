@@ -17,8 +17,7 @@ class StandardOutput : OutputSource {
 
 public:
 	/// Initializes a new instance of the StandardOutput object.
-	this(StandardOutputSource Source, IOAction Action) {
-		super(Action);
+	this(StandardOutputSource Source) {		
 		this._Source = Source;	
 	}
 

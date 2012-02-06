@@ -9,8 +9,7 @@ class SocketOutput : OutputSource {
 
 public:
 	/// Initializes a new instance of the SocketOutput object.	
-	this(AsyncSocket Socket, IOAction Action) {
-		super(Action);
+	this(AsyncSocket Socket) {		
 		this._Socket = Socket;
 		enforce(_Socket.IsAlive(), "The socket for a SocketOutput must be alive and connected.");
 		_Socket.RegisterNotifyDisconnected(&OnDisconnect);

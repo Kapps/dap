@@ -15,8 +15,8 @@ abstract class InputSource : DataSource {
 
 public:
 	/// Initializes a new instance of the InputSource object.
-	this(IOAction Action) {
-		super(Action);
+	this() {
+		
 	}
 
 package:
@@ -40,7 +40,10 @@ protected:
 
 	/// Notifies the IOAction owning this InputSource that there is some data ready to be written.
 	final void NotifyDataReady() {
-		Action.NotifyInputReady();
+		synchronized(this) {
+			if(Action) // If not, we're ready prior to a call to Start, so it's fine anyways.
+				Action.NotifyInputReady();
+		}
 	}
 
 	/// Notifies the IOAction that there is data available that must be processed immediately.

@@ -11,8 +11,7 @@ public:
 	/// Initializes a new instance of the SocketInput object.
 	/// Params:
 	/// 	Socket = The socket to use for the input. Must be open. This input will only be considered complete once the socket is no longer alive.
-	this(AsyncSocket Socket, IOAction Action) {
-		super(Action);
+	this(AsyncSocket Socket) {		
 		this._Socket = Socket;		
 	}
 

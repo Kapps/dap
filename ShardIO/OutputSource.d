@@ -9,8 +9,8 @@ abstract class OutputSource : DataSource {
 
 public:
 	/// Initializes a new instance of the OutputSource object.
-	this(IOAction Action) {
-		super(Action);
+	this() {
+		
 	}
 
 package:
@@ -44,7 +44,10 @@ protected:
 
 	/// Notifies the IOAction owning this OutputSource that it is ready to handle more data.
 	final void NotifyReady() {
-		Action.NotifyOutputReady();
+		synchronized(this) {
+			if(Action)
+				Action.NotifyOutputReady();
+		}
 	}
 	
 private:
