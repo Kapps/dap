@@ -1,4 +1,5 @@
 ﻿module ShardIO.IOAction;
+private import ShardTools.ExceptionTools;
 private import std.datetime;
 private import ShardTools.NativeReference;
 private import std.conv;
@@ -14,6 +15,8 @@ private import ShardTools.Buffer;
 public import ShardIO.OutputSource;
 public import ShardIO.InputSource;
 import std.array;
+
+mixin(MakeException("TimeoutException", "An operation has timed out prior to completion."));
 
 /// Indicates whether an IOAction is complete and whether it was aborted or finished successfully.
 enum CompletionType {
@@ -37,13 +40,18 @@ public:
 		this._MaxChunks = DefaultMaxChunks;				
 	}
 
-	/// An event called when the operation is finished, both when successful as well as when aborted.
-	final @property CompletionEvent Completed() {
+	/// Notifies the given callback when the action is complete.
+	/// If the action is already complete, the callback is notified immediately and synchronously.	
+	final void NotifyOnComplete(void delegate(IOAction Action, CompletionType Type) Callback) {
 		synchronized(this) {
-			if(!_Completed) // Lazily create it, since most operations won't use this.
-				_Completed = new CompletionEvent();						
+			if(_Status != CompletionType.Incomplete) {
+				if(!_Completed)
+					_Completed = new CompletionEvent();
+				_Completed ~= Callback;
+			} else {
+				Callback(this, _Status);
+			}
 		}
-		return _Completed;
 	}
 
 	/// Gets the input for this action.
@@ -140,8 +148,12 @@ public:
 	CompletionType WaitForCompletion(Duration Timeout) {
 		// Called from: Non-Process Thread. Thread-safe: Yes.
 		SysTime Start = Clock.currTime();
-		while(_Status == CompletionType.Incomplete)
+		while(_Status == CompletionType.Incomplete) {
 			Thread.sleep(dur!"msecs"(1));
+			SysTime Current = Clock.currTime();
+			if((Current - Start) > Timeout)
+				throw new TimeoutException();
+		}
 		return _Status;
 	}
 

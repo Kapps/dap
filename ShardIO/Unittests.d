@@ -2,6 +2,7 @@
 module ShardIO.Unittests;
 
 private:
+private import core.thread;
 private import ShardIO.FileOutput;
 private import ShardIO.FileInput;
 private import std.stdio;
@@ -70,6 +71,8 @@ unittest {
 	string GetTempFile() {
 		string FilePath = "ShardIOUnitTest" ~ to!string(NumTests++) ~ ".txt";
 		TmpFiles ~= FilePath;
+		if(exists(FilePath))
+			remove(FilePath);
 		return FilePath;
 	}
 
@@ -106,11 +109,17 @@ private void RunTest(InputData InData, OutputData OutData) {
 		IOAction Action = new IOAction();
 		InputSource Input = InData.Callback(Action, SomeArray);
 		OutputSource Output = OutData.Callback(Action);		
+		bool DoneVerifying = false;
 		Action.Completed.Add(delegate(IOAction Acton, CompletionType Type) {
 			assert(Type == CompletionType.Successful, "The action did not complete successfully for " ~ typeid(Input).stringof ~ " and " ~ typeid(Output).stringof ~ " on run number " ~ to!string(i) ~ ".");
 			assert(OutData.Verifier(Action, SomeArray), "The action did not verify successfully for " ~ typeid(Input).stringof ~ " and " ~ typeid(Output).stringof ~ " on run number " ~ to!string(i) ~ ".");
+			DoneVerifying = true;
 		});
 		Action.Start(Input, Output);
-		Action.WaitForCompletion();
+		try {
+			Action.WaitForCompletion(dur!"seconds"(10));		
+		} catch (TimeoutException) {
+			assert(0, "The action using " ~ typeid(Input).stringof ~ " and " ~ typeid(Output).stringof ~ " did not complete prior to the timeout on run number " ~ to!string(i) ~ ".");
+		}
 	}
 } 

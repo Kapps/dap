@@ -41,6 +41,7 @@ const struct FlushMode {
 
 /// Provides an InputSource that gets manually written to, and flushed to send to the output.
 /// The InputSource does not end until Complete is called.
+/// Note that there is no StreamOutput, but a MemoryOutput performs a similar task.
 class StreamInput : InputSource {
 
 public:

@@ -554,10 +554,8 @@ private:
 				if(Op.Callback)	
 					Op.Callback(State, NewSock);
 			}
-			// TODO: Check if we need to do this in a task thread.
-			// MSDN is not perfectly clear whether doing this in in this callback thread causes problems.
-			taskPool.put(task(&Accept, OrigState, Op.Callback));
-			//Accept(OrigState, Op.Callback);
+			// Bad things will happen if we constantly queue more operations from a completion thread.
+			taskPool.put(task(&Accept, OrigState, Op.Callback));			
 		} else static assert(0);		
 	}
 
