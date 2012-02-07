@@ -159,6 +159,14 @@ public:
 		Insert(Index + 1, Value);
 	}
 
+	int opApply(int delegate(ref T) dg) {
+		int Result;
+		foreach(ref T Element; _Elements)
+			if((Result = dg(Element)) != 0)
+				break;
+		return Result;
+	}
+
 	unittest {
 		List!size_t TestList = new List!size_t(10);
 		assert(TestList.Count == 0);

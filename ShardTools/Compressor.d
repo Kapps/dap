@@ -16,6 +16,7 @@ public:
 	}
 
 	/// Compresses the given data using the gzip specification.
+	/// This is equivalent to DeflateToGzip(ToDeflate(Data, false)).
 	static void[] ToGzip(void[] Data) {
 		void[] Deflated = ToDeflate(Data, false);
 		return DeflateToGzip(Deflated, Data);
@@ -34,6 +35,9 @@ public:
 	/// 	Original = The non-compressed data.
 	/// 	OriginalCRC = The crc32 of the original data.
 	/// 	OriginalLength = The length of the original data.
+	/// BUGS:
+	///		This may or may not work properly for all devices.
+	/// 	The Android Browser does not seem to like things compressed with this method, so there is likely a glitch somewhere.
 	static void[] DeflateToGzip(void[] Data, const void[] Original) {
 		return ToGzipInternal(Data, Original.length, std.zlib.crc32(0, Original));
 	}

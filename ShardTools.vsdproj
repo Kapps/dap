@@ -11,6 +11,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="LinkedList.d">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ShardTools\ArrayOps.d">
       <SubType>Code</SubType>
     </Compile>
@@ -21,6 +24,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ShardTools\Color.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\CompositeEvent.d">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ShardTools\Compressor.d">
@@ -75,6 +81,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ShardTools\PrioritizedEvent.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\Queue.d">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ShardTools\ReadOnlyCollection.d">

@@ -12,6 +12,8 @@ private import std.c.string;
 /// Provides a reusable buffer of memory designed for efficient writes.
 final class Buffer  {
 
+// TODO: Allow support for creating the array by using pages of memory.
+
 public:
 	/// Initializes a new instance of the Buffer object.
 	this(size_t InitialSize = 64) {
@@ -36,6 +38,11 @@ public:
 	@property ubyte[] FullData() {
 		CheckDisposed();
 		return _Data;
+	}
+
+	/// Gets the maximum number of bytes this Buffer is capable of storing prior to needing a resize.
+	@property size_t Capacity() {
+		return _Data.length;
 	}
 
 	/// Advances the position by the given number of bytes without actually writing any data.

@@ -23,10 +23,8 @@ public static:
 	/// Params:
 	/// 	Obj = The object to remove the reference to.
 	void RemoveReference(void* Obj) {
-		synchronized(typeid(NativeReference)) {	
-			if(Objects is null)
-				Objects = new Collection();
-			enforce(Objects.removeKey(Obj) == 1, "The object to remove was not found.");
+		synchronized(typeid(NativeReference)) {
+			enforce(Objects !is null && Objects.removeKey(Obj) == 1, "The object to remove was not found.");
 		}
 	}
 	

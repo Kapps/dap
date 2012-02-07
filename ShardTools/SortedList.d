@@ -1,4 +1,5 @@
 module ShardTools.SortedList;
+private import std.exception;
 import std.array;
 
 /// Represents a list sorted by an integer key.
@@ -6,25 +7,35 @@ class SortedList(T) {
 	
 	/// Initializes a new instance of the SortedList class.
 	/// Params: Capacity = The number of elements to be capable of storing initially.
-	this(int Capacity) {
+	this(int Capacity = 4) {
+		enforce(Capacity > 0);
 		Items = new SortedListItem[Capacity];
+		assumeSafeAppend(Items);
 		_Length = 0;
 	}
 	
 	/// Removes the specified item from the collection.
 	/// Params: item = The item to remove.
-	void Remove(T item) {
+	bool Remove(T item) {
 		int index = -1;
 		for(index = 0; index < _Length; index++) {
 			if(Items[index].Item == item)
 				break;			
 		}		
 		if(index == _Length)
-			return;
+			return false;
+		RemoveAt(index);	
+		return true;
+	}
+
+	/// Removes the element at the given index.
+	/// Params:
+	/// 	Index = The index to remove the element at.
+	void RemoveAt(size_t Index) {
 		_Length--;
-		for(size_t i = index; i < _Length; i++)
-			Items[index] = Items[index + 1];
-		Items.length = Items.length - 1;
+		for(size_t i = Index; i < _Length; i++)
+			Items[Index] = Items[Index + 1];
+		Items.length = Items.length - 1;		
 	}
 	
 	/// Adds the specified item to the collection.

@@ -22,21 +22,24 @@ class Event(RetValue, Params...) {
 	*/
 	static if(!is(RetValue == void)) {
 		RetValue[] Execute(Params Parameters) {
-			if(!HasSubscribers)
-				return null;
-			CallbackType[] Pointers = this.Callbacks.Elements;
-			RetValue[] Result = new RetValue[Pointers.length];
-			for(size_t i = 0; i < Pointers.length; i++)
-				Result[i] = Pointers[i](Parameters);
-			return Result;
+			synchronized(this) {
+				if(!HasSubscribers)
+					return null;
+				CallbackType[] Pointers = this.Callbacks.Elements;
+				RetValue[] Result = new RetValue[Pointers.length];
+				for(size_t i = 0; i < Pointers.length; i++)
+					Result[i] = Pointers[i](Parameters);
+				return Result;
+			}
 		}
 	} else {
 		void Execute(Params Parameters) {
-			if(!HasSubscribers)
-				return;
-			CallbackType[] Pointers = this.Callbacks.Elements;
-			for(size_t i = 0; i < Pointers.length; i++)
-				Pointers[i](Parameters);
+			synchronized(this) {
+				if(!HasSubscribers)
+					return;
+				foreach(dg; this.Callbacks)
+					dg(Parameters);
+			}
 		}
 	}
 			
@@ -45,7 +48,9 @@ class Event(RetValue, Params...) {
 	 * Params: Callback = The callback to add.
 	*/
 	void Add(CallbackType Callback) {
-		Callbacks.Add(Callback);
+		synchronized(this) {
+			Callbacks.Add(Callback);
+		}
 		/*Pointers.length = Pointers.length + 1;
 		Pointers[NextSlot] = RetValue delegate(Object, Params);
 		NextSlot++;	*/
@@ -53,7 +58,9 @@ class Event(RetValue, Params...) {
 
 	/// Returns a value indicating whether this Event has any subscribers.
 	@property bool HasSubscribers() const {
-		return Callbacks.Count != 0;
+		synchronized(this) {
+			return Callbacks.Count != 0;
+		}
 	}
 
 	/**
@@ -61,7 +68,9 @@ class Event(RetValue, Params...) {
 	 * Returns: Whether the callback was removed.
 	*/
 	bool Remove(CallbackType Callback) {
-		return Callbacks.Remove(Callback);
+		synchronized(this) {
+			return Callbacks.Remove(Callback);
+		}
 	}
 
 	static if(is(RetValue == void)) {
