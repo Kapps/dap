@@ -8,15 +8,17 @@ private import ShardIO.OutputSource;
 /// This class assumes that the callback is always available and always capable of handling all of the data.
 /// For a more customizable approach, you will need to implement OutputSource yourself.
 /// There is, at the moment, no CallbackInput. Instead, consider using a StreamInput to write the data.
+/// To make it easier to keep track of State, the CallbackOutput takes in a State pointer passed in to the Callback.
 class CallbackOutput : OutputSource {
 
 public:
 	
-	alias void delegate(ubyte[]) CallbackType;
+	alias void delegate(void*, ubyte[]) CallbackType;
 
 	/// Initializes a new instance of the CallbackOutput object.
-	this(CallbackType Callback) {		
+	this(void* State, CallbackType Callback) {		
 		this._Callback = Callback;
+		this._State = State;
 		enforce(Callback !is null);		
 	}
 
@@ -30,7 +32,7 @@ public:
 	///		BytesHandled = The actual number of bytes that were able to be handled.
 	override DataRequestFlags ProcessNextChunk(ubyte[] Chunk, out size_t BytesHandled) {
 		synchronized(this) {
-			_Callback(Chunk);
+			_Callback(_State, Chunk);
 			BytesHandled = Chunk.length;
 			return DataRequestFlags.Continue;
 		}
@@ -38,4 +40,5 @@ public:
 	
 private:
 	CallbackType _Callback;
+	void* _State;
 }

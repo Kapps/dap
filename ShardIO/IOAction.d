@@ -40,8 +40,8 @@ public:
 		this._MaxChunks = DefaultMaxChunks;				
 		this._Input = Input;
 		this._Output = Output;
-		Input._Action = this;
-		Output._Action = this;
+		Input.NotifyInitialize(this);
+		Output.NotifyInitialize(this);		
 	}
 
 	/// Notifies the given callback when the action is complete.
@@ -177,10 +177,17 @@ package:
 	void NotifyInputReady() {
 		// Called from: Non-Process Thread. Thread-safe: With Lock. Race Risk: None				
 		synchronized(this) {		
-			if(!HasBegun)
+			if(!HasBegun) {
+				//debug writeln("Returned because HasBegun was true.");
 				return;
+			}
+			if((WaitingOn & DataOperation.Read) == 0) {
+				//debug writeln("Returned because WaitingOn did not include Read.");
+				return;
+			}
 			WaitingOn &= ~DataOperation.Read;
 			if(IsInputComplete || (AreBuffersFull() && (WaitingOn & DataOperation.Write) == 0)) {				
+				//debug writeln("InputComplete: ", IsInputComplete, " - Buffers Full: ", AreBuffersFull(), " - Waiting On: ", WaitingOn);
 				return; // Waiting for output, so no need to do anything here.
 			}
 			ProcessIfNeeded();
@@ -301,8 +308,9 @@ private:
 		// The IOManager gets to take care of this. We just need to make sure we don't queue the same action multiple times at once.		
 		//debug writeln("PIF");		
 		synchronized(this) {			
-			//debug writeln("PIF lock received");
+			//debug writeln("PIF lock received");			
 			if(InDataOperation) {				
+				debug writeln("Returned because InDataOperation was true.");
 				return;
 			}
 			InDataOperation = true;
@@ -349,7 +357,7 @@ private:
 		// Note that this is run in a separate worker thread.
 		// So if we get an abort in the middle of this, we need to wait for this write to finish then call the completion event.
 		// Likewise, we don't want this to start in the middle of Abort.
-		//debug writeln("PD");			
+		//debug writeln("PD");					
 		synchronized(this) {			
 			bool CheckCompletion() {
 				// We're complete when Output says we are, or when Input says we are and Output finishes.				

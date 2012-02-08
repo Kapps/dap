@@ -75,9 +75,8 @@ public:
 	alias void delegate(void* State, AsyncSocket NewSocket) AcceptCallbackDelegate;
 	alias void delegate(void* State, Address RemoteEndPoint) ConnectCallbackDelegate;	
 	alias void delegate(void* State, size_t BytesSent) SocketWriteCallbackDelegate;
-	alias void delegate(void* State, ubyte[] DataRead) SocketReadCallbackDelegate;
-	alias void delegate(void* State, string Reason, int) SocketCloseCallbackDelegate;	
-	alias void delegate(AsyncSocket Socket, string Reason, int PlatformCode) SocketCloseNotificationCallback;
+	alias void delegate(void* State, ubyte[] DataRead) SocketReadCallbackDelegate;	
+	alias void delegate(void* State, string Reason, int PlatformCode) SocketCloseNotificationCallback;
 	/// Indicates the controller being used for handling files.
 	version(Windows) {
 		enum AsyncSocketHandler Controller = AsyncSocketHandler.IOCP;
@@ -118,10 +117,13 @@ public:
 	/// A socket is disconnected either when Disconnect is called, or when an error occurs.
 	/// Because errors leave sockets in an undefined state, it is assumed to be disconnected after all errors.
 	/// If the error did not leave it disconnected, it will be manually disconnected.
-	void RegisterNotifyDisconnected(SocketCloseNotificationCallback Callback) {
+	void RegisterNotifyDisconnected(void* State, SocketCloseNotificationCallback Callback) {
 		synchronized(this){
 			EnforceDisposed();
-			this.DisconnectNotifiers ~= Callback;
+			DisconnectSubscriber sub;
+			sub.Callback = Callback;
+			sub.State = State;
+			this.DisconnectNotifiers ~= sub;
 		}
 	}
 
@@ -199,6 +201,52 @@ public:
 	/// This is accurate as of the last operation explicitly invoked that changes state.
 	@property SocketState State() const {		
 		return _State;
+	}
+
+	/// Gets the Address of the remote or local endpoint for this socket.
+	/// This operation is NOT asynchronous, and blocks until completion.
+	@property Address RemoteAddress() {
+		Address addr = CreateEmptyAddress();
+		socklen_t nameLen = addr.nameLen();
+		if(SOCKET_ERROR == getpeername(cast(socket_t)_Handle, addr.name(), &nameLen)) {
+			SocketOSException Ex = new SocketOSException("Unable to obtain remote socket address");
+			debug writeln(Ex.msg);
+			throw Ex;
+		}
+		if(nameLen > addr.nameLen())
+			throw new SocketParameterException("Not enough socket address storage");
+		assert(addr.addressFamily() == _Family);
+        return addr;
+	}
+
+	/// Ditto
+	@property Address LocalAddress() {
+		mixin(GetAddressMixin("getsockname"));
+		return addr;
+	}
+
+	private static string GetAddressMixin(string Method) {
+		string Result = "
+			Address addr = CreateEmptyAddress();
+			socklen_t nameLen = addr.nameLen();
+			if(SOCKET_ERROR == " ~ Method ~ "(cast(socket_t)_Handle, addr.name(), &nameLen))
+				throw new SocketOSException(\"Unable to obtain remote socket address\");
+			if(nameLen > addr.nameLen())
+				throw new SocketParameterException(\"Not enough socket address storage\");
+			assert(addr.addressFamily() == _Family);
+		";
+		return Result;
+	}
+
+	protected Address CreateEmptyAddress() {
+		switch(_Family) {
+			case AddressFamily.INET:
+				return new InternetAddress(0);
+			case AddressFamily.INET6:
+				return new Internet6Address(0);
+			default:
+				return new UnknownAddress;
+		}
 	}
 
 	/// Begins listening for connections to this socket, invoking Callback upon receiving one.
@@ -349,7 +397,7 @@ public:
 	/// Params:
 	///		State = A user-defined object to pass in to Callback. Can be null.
 	/// 	Callback = The callback to invoke when the disconnect is complete. Can be null.
-	void Disconnect(string Reason, void* State, SocketCloseCallbackDelegate Callback) {
+	void Disconnect(string Reason, void* State, SocketCloseNotificationCallback Callback) {
 		EnforceDisposed();
 		Disconnect(Reason, 0, State, Callback, false);
 	}
@@ -391,12 +439,12 @@ private:
 	SocketPool Pool;
 	bool IsAccepting = false;
 	bool IsDisposed;
-	SocketCloseNotificationCallback[] DisconnectNotifiers;
+	DisconnectSubscriber[] DisconnectNotifiers;
 
-	void OnSocketError(string Message, int ErrorCode, bool Throw) {
+	void OnSocketError(string Message, int ErrorCode, bool Throw) {	
+		Disconnect(Message, ErrorCode, null, null, false);
 		if(Throw)
 			throw new SocketOSException(Message, ErrorCode);
-		Disconnect(Message, ErrorCode, null, null, false);
 	}
 
 	void HandleSocketException(int ErrorCode = int.max) {		
@@ -448,8 +496,13 @@ private:
 		void* State;
 		Address Endpoint;
 	}
+	
+	struct DisconnectSubscriber {
+		void* State;
+		SocketCloseNotificationCallback Callback;
+	}
 
-	void Disconnect(string Message, int ErrorCode, void* State, SocketCloseCallbackDelegate Callback, bool ThrowIfDisconnected) {		
+	void Disconnect(string Message, int ErrorCode, void* State, SocketCloseNotificationCallback Callback, bool ThrowIfDisconnected) {		
 		if(!IsAlive()) {
 			if(ThrowIfDisconnected)
 				throw new SocketException("Unable to disconnect an already-disconnected socket.");
@@ -459,7 +512,7 @@ private:
 			}
 		}		
 		static if(Controller == AsyncSocketHandler.IOCP) {
-			QueuedOperation!SocketCloseCallbackDelegate* Op = CreateOp(State, cast(ubyte[])Message.dup, Callback);				
+			QueuedOperation!SocketCloseNotificationCallback* Op = CreateOp(State, cast(ubyte[])Message.dup, Callback);				
 			OVERLAPPED* lpOverlap = CreateOverlap(cast(void*)Op, cast(HANDLE)_Handle, &OnDisconnect);
 			EnsureDisconnectExPtr();
 			if(DisconnectEx(cast(SOCKET)_Handle, lpOverlap, 0, 0) == 0) {
@@ -484,8 +537,8 @@ private:
 			IsDisposed = true;
 			_State = SocketState.Disconnected;		
 			NativeReference.RemoveReference(cast(void*)this);						
-			foreach(SocketCloseNotificationCallback dg; DisconnectNotifiers)
-				dg(this, Reason, Code);
+			foreach(DisconnectSubscriber sub; DisconnectNotifiers)
+				sub.Callback(sub.State, Reason, Code);			
 			DisconnectNotifiers = null;
 		}
 	}
@@ -493,7 +546,7 @@ private:
 	void OnDisconnect(void* State, size_t ErrorCode, size_t Unused) {		
 		if(IsDisposed)
 			return;			
-		QueuedOperation!SocketCloseCallbackDelegate* Op = cast(QueuedOperation!SocketCloseCallbackDelegate*)State;
+		QueuedOperation!SocketCloseNotificationCallback* Op = cast(QueuedOperation!SocketCloseNotificationCallback*)State;
 		scope(exit)
 			NativeReference.RemoveReference(Op);
 		string Reason = cast(string)Op.Data;			
@@ -597,7 +650,7 @@ private:
 				OnSocketError("Error receiving data from endpoint", ErrorCode, false);
 				return;
 			}
-			Op.Callback(State, ReceivedData);
+			Op.Callback(UserState, ReceivedData);
 		}
 	}
 }

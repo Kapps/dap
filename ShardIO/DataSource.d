@@ -40,7 +40,21 @@ public:
 	final @property IOAction Action() {		
 		return _Action;
 	}
+
+package:
+
+	void NotifyInitialize(IOAction Action) {
+		Initialize(Action);
+	}
+
+protected:
+
+	/// Called to initialize the DataSource after the action is set.
+	/// Any DataSources that require access to the IOAction they are part of should use this to do so.
+	void Initialize(IOAction Action) {
+		this._Action = Action;
+	}
 	
 private:	
-	package IOAction _Action;
+	private IOAction _Action;
 }

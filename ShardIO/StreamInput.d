@@ -168,7 +168,7 @@ private:
 		size_t BufferSize;
 		switch(FlushType.Type) {
 			case StreamFlushType.AfterSize:
-				BufferSize = FlushType.Parameter;
+				BufferSize = cast(size_t)(FlushType.Parameter * 1.25f);
 				break;
 			default:
 				BufferSize = SizeEstimate;

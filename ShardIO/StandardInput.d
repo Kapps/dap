@@ -11,10 +11,9 @@ class StandardInput : InputSource {
 public:
 	/// Initializes a new instance of the StandardInput object.
 	this() {		
-		BufferedData = new Buffer(1024);
-		Action.NotifyOnComplete(&OnActionComplete);
+		BufferedData = new Buffer(1024);		
 		auto t = task(&WorkerThread);
-		taskPool.put(t);
+		t.executeInNewThread();
 	}
 
 	/// Called by the IOAction after this InputSource notifies it is ready to have input received.
@@ -46,6 +45,13 @@ public:
 		synchronized(this) {
 			IsComplete = true;
 		}
+	}
+
+	/// Called to initialize the DataSource after the action is set.
+	/// Any DataSources that require access to the IOAction they are part of should use this to do so.
+	protected override void Initialize(IOAction Action) {
+		super.Initialize(Action);
+		Action.NotifyOnComplete(&OnActionComplete);
 	}
 	
 private:

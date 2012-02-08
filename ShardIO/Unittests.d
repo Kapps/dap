@@ -1,5 +1,6 @@
 ﻿/// Provides unit tests for testing DataSources, as this requires more than one module.
 module ShardIO.Unittests;
+private import ShardIO.StreamInput;
 
 private:
 private import core.thread;
@@ -95,6 +96,12 @@ unittest {
 			return FileData == Data;
 		}
 	);
+
+	// StreamInput:
+
+	// TODO: Make it write.
+	//Inputs ~= InputData(delegate(Data) { return new StreamInput(FlushMode.PerWrite); });
+	//Inputs ~= InputData(delegate(Data) { return new StreamInput(FlushMode.PerWrite); });
 
 	RunAllTests();
 }

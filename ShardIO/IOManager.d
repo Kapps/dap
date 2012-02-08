@@ -37,7 +37,7 @@ public:
 	/// Params:
 	/// 	Action = The action to queue.
 	package void QueueAction(IOAction Action) {		
-		//enforce(Action.HasBegun);
+		//enforce(Action.HasBegun);		
 		Pool.put(task(&Action.ProcessData));
 	}
 	

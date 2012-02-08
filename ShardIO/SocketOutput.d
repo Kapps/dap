@@ -12,10 +12,10 @@ public:
 	this(AsyncSocket Socket) {		
 		this._Socket = Socket;
 		enforce(_Socket.IsAlive(), "The socket for a SocketOutput must be alive and connected.");
-		_Socket.RegisterNotifyDisconnected(&OnDisconnect);
+		_Socket.RegisterNotifyDisconnected(cast(void*)Socket, &OnDisconnect);
 	}
 
-	void OnDisconnect(AsyncSocket Socket, string Reason, int ErrorCode) {
+	void OnDisconnect(void* State, string Reason, int ErrorCode) {
 		synchronized(this) {
 			ForceComplete = true;
 			if(CompletionCallback && !IsComplete) {
@@ -91,12 +91,12 @@ private:
 	}
 
 	void OnWriteComplete(void* State, size_t BytesSent) {
-		if(ForceComplete) {
-			if(!IsComplete && CompletionCallback)
-				CompletionCallback();
-			return;
-		}
 		synchronized(this) {
+			if(ForceComplete) {
+				if(!IsComplete && CompletionCallback)
+					CompletionCallback();
+				return;
+			}		
 			NumReceived++;
 			if(!AttemptCompletion())
 				NotifyReady();

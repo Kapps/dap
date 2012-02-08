@@ -20,9 +20,9 @@ public:
 		this.File = File;
 		Offset = 0;
 		Length = File.Size;		
-		ChunkSize = 16384;	
+		ChunkSize = Action.DefaultChunkSize;
 		LoadChunk();	
-	}	
+	}		
 
 	/// Initializes a new instance of the FileInput object.
 	/// Params:
@@ -70,6 +70,13 @@ public:
 				return DataRequestFlags.Continue;
 			return DataRequestFlags.Waiting | DataRequestFlags.Continue;
 		}
+	}
+
+	/// Called to initialize the DataSource after the action is set.
+	/// Any DataSources that require access to the IOAction they are part of should use this to do so.
+	protected override void Initialize(IOAction Action) {
+		super.Initialize(Action);
+		ChunkSize = Action.ChunkSize;
 	}
 	
 private:
