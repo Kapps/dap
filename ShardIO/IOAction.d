@@ -443,6 +443,7 @@ private:
 
 	void CompleteFinish(CompletionType Type) {
 		synchronized(this) {
+			enforce(HasBegun, "Unable to finish an action that has not yet started.");
 			enforce(_Status == CompletionType.Incomplete);
 			enforce(Type == CompletionType.Successful || Type == CompletionType.Aborted);
 			_Status = Type;

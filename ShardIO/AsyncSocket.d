@@ -8,6 +8,7 @@ private import ShardIO.SocketPool;
 private import std.exception;
 public import std.socket;
 import std.c.stdlib;
+import std.c.string;
 
 
 version(Windows) {	
@@ -32,7 +33,7 @@ version(Windows) {
 		BOOL AcceptEx(SOCKET, SOCKET, PVOID, DWORD, DWORD, DWORD, DWORD*, LPOVERLAPPED);		
 		int WSASend(SOCKET, LPWSABUF, DWORD, DWORD*, DWORD, OVERLAPPED*, LPWSAOVERLAPPED_COMPLETION_ROUTINE);		
 		int WSARecv(SOCKET, LPWSABUF, DWORD, DWORD*, DWORD*, OVERLAPPED*, LPWSAOVERLAPPED_COMPLETION_ROUTINE);		
-
+		void GetAcceptExSockaddrs(void*, DWORD, DWORD, DWORD, sockaddr**, int*, sockaddr**, int*);
 		__gshared BOOL function(SOCKET, const sockaddr*, int, void*, DWORD, DWORD*, LPOVERLAPPED) ConnectEx;
 		__gshared BOOL function(SOCKET, LPOVERLAPPED, DWORD, DWORD) DisconnectEx;
 	}		
@@ -204,49 +205,14 @@ public:
 	}
 
 	/// Gets the Address of the remote or local endpoint for this socket.
-	/// This operation is NOT asynchronous, and blocks until completion.
+	/// Though this call is synchronous, the provider attempts to cache them from an accept, bind, or connect whenever possible.
 	@property Address RemoteAddress() {
-		Address addr = CreateEmptyAddress();
-		socklen_t nameLen = addr.nameLen();
-		if(SOCKET_ERROR == getpeername(cast(socket_t)_Handle, addr.name(), &nameLen)) {
-			SocketOSException Ex = new SocketOSException("Unable to obtain remote socket address");
-			debug writeln(Ex.msg);
-			throw Ex;
-		}
-		if(nameLen > addr.nameLen())
-			throw new SocketParameterException("Not enough socket address storage");
-		assert(addr.addressFamily() == _Family);
-        return addr;
+		return _RemoteAddr;
 	}
 
 	/// Ditto
 	@property Address LocalAddress() {
-		mixin(GetAddressMixin("getsockname"));
-		return addr;
-	}
-
-	private static string GetAddressMixin(string Method) {
-		string Result = "
-			Address addr = CreateEmptyAddress();
-			socklen_t nameLen = addr.nameLen();
-			if(SOCKET_ERROR == " ~ Method ~ "(cast(socket_t)_Handle, addr.name(), &nameLen))
-				throw new SocketOSException(\"Unable to obtain remote socket address\");
-			if(nameLen > addr.nameLen())
-				throw new SocketParameterException(\"Not enough socket address storage\");
-			assert(addr.addressFamily() == _Family);
-		";
-		return Result;
-	}
-
-	protected Address CreateEmptyAddress() {
-		switch(_Family) {
-			case AddressFamily.INET:
-				return new InternetAddress(0);
-			case AddressFamily.INET6:
-				return new Internet6Address(0);
-			default:
-				return new UnknownAddress;
-		}
+		return _LocalAddr;
 	}
 
 	/// Begins listening for connections to this socket, invoking Callback upon receiving one.
@@ -265,10 +231,11 @@ public:
 	/// Params:
 	/// 	Addr = The address to bind to.
 	void Bind(Address Addr) {		
-		synchronized(this) {
-			EnforceDisposed();		
+		synchronized(this) {			
+			EnforceDisposed();					
 			if(bind(cast(SOCKET)_Handle, Addr.name(), Addr.nameLen()) == SOCKET_ERROR)			
 				HandleSocketException();
+			_LocalAddr = Addr;
 			_State = SocketState.Bound;		
 		}
 	}
@@ -289,6 +256,7 @@ public:
 				else if(_Family == AddressFamily.INET6)
 					Bind(new Internet6Address(Internet6Address.ADDR_ANY, Internet6Address.PORT_ANY));
 			}
+			_RemoteAddr = Addr;
 			_State = SocketState.Connecting;
 		}			
 		static if(Controller == AsyncSocketHandler.IOCP) {
@@ -435,6 +403,8 @@ private:
 	ProtocolType _Protocol;
 	SocketType _Type;
 	AsyncSocketHandle _Handle;	
+	Address _RemoteAddr;
+	Address _LocalAddr;
 	SocketState _State;
 	SocketPool Pool;
 	bool IsAccepting = false;
@@ -442,7 +412,8 @@ private:
 	DisconnectSubscriber[] DisconnectNotifiers;
 
 	void OnSocketError(string Message, int ErrorCode, bool Throw) {	
-		Disconnect(Message, ErrorCode, null, null, false);
+		//Disconnect(Message, ErrorCode, null, null, false);
+		NotifyDisconnect(Message, ErrorCode);
 		if(Throw)
 			throw new SocketOSException(Message, ErrorCode);
 	}
@@ -481,6 +452,7 @@ private:
 		throw new SocketOSException("A socket exception has occurred", ErrorCode);
 	}
 	
+
 	struct AcceptState {
 		void* State;
 		socket_t Socket;
@@ -518,9 +490,11 @@ private:
 			if(DisconnectEx(cast(SOCKET)_Handle, lpOverlap, 0, 0) == 0) {
 				int Result = WSAGetLastError();
 				if(Result != ERROR_IO_PENDING && Callback) {
+					if(Callback)
+						Callback(State, Message, ErrorCode);
+					NotifyDisconnect(Message, ErrorCode);					
 					Callback(State, Message, ErrorCode);						
-				} else if(Result != ERROR_IO_PENDING)
-					NotifyDisconnect(Message, ErrorCode);
+				}
 			}					
 		}
 	}
@@ -535,6 +509,8 @@ private:
 			if(IsDisposed)
 				return;			
 			IsDisposed = true;
+			//_RemoteAddr = null;
+			//_LocalAddr = null;
 			_State = SocketState.Disconnected;		
 			NativeReference.RemoveReference(cast(void*)this);						
 			foreach(DisconnectSubscriber sub; DisconnectNotifiers)
@@ -571,13 +547,14 @@ private:
 		if(Op.Callback)
 			Op.Callback(UserState, EndPoint);		
 	}
+	
 
 	void Accept(void* State, AcceptCallbackDelegate Callback) {		
 		socket_t Sock = Pool.Acquire();		
-		static if(Controller == AsyncSocketHandler.IOCP) {			
-			enum BufferSize = 128;
+		static if(Controller == AsyncSocketHandler.IOCP) {	
+			enum int BufferSize = 128;
 			ubyte[] InBuffer = cast(ubyte[])(malloc(BufferSize)[0 .. BufferSize]);
-			AcceptState* AS = new AcceptState(); // GC Memory
+			AcceptState* AS = new AcceptState(); // Requires GC Memory?
 			AS.State = State;
 			AS.Socket = Sock;
 			AS.InBuffer = InBuffer;
@@ -601,15 +578,40 @@ private:
 			AcceptState* AS = cast(AcceptState*)Op.State;
 			void* OrigState = AS.State;
 			socket_t Socket = AS.Socket;
-			free(AS.InBuffer.ptr);			
+			Address Local =  CreateEmptyAddress(), Remote = CreateEmptyAddress();
+
+			try {								
+				int LocalLength, RemoteLength;
+				sockaddr* lpLocal = Local.name(), lpRemote = Remote.name();								
+				GetAcceptExSockaddrs(AS.InBuffer.ptr, 0, AS.InBuffer.length / 2, AS.InBuffer.length / 2, &lpLocal, &LocalLength, &lpRemote, &RemoteLength);							
+				if(LocalLength > Local.nameLen() || RemoteLength > Remote.nameLen())
+					throw new SocketException("Unable to get local or remote address; name too long.");								
+				memcpy(Local.name(), lpLocal, LocalLength);
+				memcpy(Remote.name(), lpRemote, RemoteLength);				
+			} finally {
+				free(AS.InBuffer.ptr);			
+			}						
 			if(ErrorCode == 0) {
 				AsyncSocket NewSock = new AsyncSocket(this, Socket);	
+				NewSock._LocalAddr = Local;
+				NewSock._RemoteAddr = Remote;
 				if(Op.Callback)	
 					Op.Callback(State, NewSock);
 			}
 			// Bad things will happen if we constantly queue more operations from a completion thread.
 			taskPool.put(task(&Accept, OrigState, Op.Callback));			
 		} else static assert(0);		
+	}
+
+	private Address CreateEmptyAddress() {
+		switch(_Family) {
+			case AddressFamily.INET:
+				return new InternetAddress(0);
+			case AddressFamily.INET6:
+				return new Internet6Address(0);
+			default:
+				return new UnknownAddress();
+		}	
 	}
 
 	private void OnSend(void* State, size_t ErrorCode, size_t BytesSent) {
