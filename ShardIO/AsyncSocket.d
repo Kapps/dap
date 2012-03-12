@@ -153,8 +153,10 @@ public:
 			DWORD Flags = 0;
 			if(WSARecv(cast(SOCKET)_Handle, Buf, 1, null, &Flags, lpOverlap, null) != 0) {
 				int LastErr = WSAGetLastError();
-				if(LastErr != ERROR_IO_PENDING)
+				if(LastErr != ERROR_IO_PENDING) {
+					NativeReference.RemoveReference(Op);
 					OnSocketError("Unable to prepare to receive data", LastErr, false);
+				}
 			}
 					
 		} else static assert(0);		
@@ -189,6 +191,7 @@ public:
 			if(Result != 0) {
 				int LastErr = WSAGetLastError();
 				if(LastErr != ERROR_IO_PENDING) {
+					NativeReference.RemoveReference(Op);
 					OnSocketError("Failed to send data over socket", LastErr, false);
 					return -1;
 				}
@@ -269,8 +272,8 @@ public:
 			if(ConnectEx(cast(SOCKET)_Handle, Addr.name(), cast(int)Addr.nameLen(), null, 0, null, lpOverlap) == 0) {
 				int LastErr = WSAGetLastError();
 				if(LastErr != ERROR_IO_PENDING) {
-					OnSocketError("Unable to connect to the server", LastErr, false);
-					return;
+					NativeReference.RemoveReference(Op);
+					OnSocketError("Unable to connect to the server", LastErr, false);					
 				}
 			}					
 		}					
@@ -489,7 +492,9 @@ private:
 			EnsureDisconnectExPtr();
 			if(DisconnectEx(cast(SOCKET)_Handle, lpOverlap, 0, 0) == 0) {
 				int Result = WSAGetLastError();
-				if(Result != ERROR_IO_PENDING && Callback) {
+				if(Result != ERROR_IO_PENDING)
+					NativeReference.RemoveReference(Op);
+				if(Result != ERROR_IO_PENDING && Callback) {					
 					if(Callback)
 						Callback(State, Message, ErrorCode);
 					NotifyDisconnect(Message, ErrorCode);					
@@ -514,7 +519,9 @@ private:
 			_State = SocketState.Disconnected;		
 			NativeReference.RemoveReference(cast(void*)this);						
 			foreach(DisconnectSubscriber sub; DisconnectNotifiers)
-				sub.Callback(sub.State, Reason, Code);			
+				sub.Callback(sub.State, Reason, Code);		
+			shutdown(_Handle, 2);
+			closesocket(_Handle);						
 			DisconnectNotifiers = null;
 		}
 	}
@@ -563,6 +570,7 @@ private:
 			if(AcceptEx(cast(SOCKET)_Handle, Sock, InBuffer.ptr, 0, BufferSize / 2, BufferSize / 2, null, Overlap) == 0) {				
 				int LastErr = WSAGetLastError();
 				if(LastErr != ERROR_IO_PENDING) {
+					NativeReference.RemoveReference(Op);
 					OnSocketError("Unable to start accepting a connection", LastErr, false);
 					return;
 				}
@@ -649,7 +657,14 @@ private:
 			ubyte[] ReceivedData = cast(ubyte[])Buffer.buf[0 .. BytesRead];
 			free(SS.Buffer);			
 			if(ErrorCode != 0) {
+				//debug writeln("Error receiving data. ", ErrorCode);
 				OnSocketError("Error receiving data from endpoint", ErrorCode, false);
+				return;
+			}
+			// TODO: wat. What if they just send 0 bytes?
+			if(BytesRead == 0) {
+				//debug writeln("Zero bytes received; assuming closed connection.");
+				OnSocketError("The connection has been closed.", -1, false);
 				return;
 			}
 			Op.Callback(UserState, ReceivedData);

@@ -43,10 +43,10 @@ protected:
 	}
 
 	/// Notifies the IOAction owning this OutputSource that it is ready to handle more data.
-	final void NotifyReady() {
+	final void NotifyReady() {		
 		synchronized(this) {
 			if(Action)
-				Action.NotifyOutputReady();
+				Action.NotifyOutputReady();		
 		}
 	}
 	

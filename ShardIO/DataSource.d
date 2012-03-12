@@ -1,4 +1,5 @@
 ﻿module ShardIO.DataSource;
+private import core.sync.mutex;
 private import std.exception;
 public import ShardIO.IOAction;
 
@@ -28,7 +29,7 @@ abstract class DataSource  {
 public:
 	/// Initializes a new instance of the DataSource object.
 	this() {
-		this._Action = Action;
+		
 	}
 
 	/// Gets the action this DataSource is a part of.
@@ -47,10 +48,12 @@ protected:
 
 	/// Called to initialize the DataSource after the action is set.
 	/// Any DataSources that require access to the IOAction they are part of should use this to do so.
-	void Initialize(IOAction Action) {
-		this._Action = Action;
+	void Initialize(IOAction Action) {				
+		this.__monitor = Action.__monitor;
+		synchronized(this)
+			this._Action = Action;
 	}
 	
-private:	
+private:		
 	private IOAction _Action;
 }

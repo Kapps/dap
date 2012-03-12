@@ -39,7 +39,9 @@ public:
 		this._ChunkSize = DefaultChunkSize;
 		this._MaxChunks = DefaultMaxChunks;				
 		this._Input = Input;
-		this._Output = Output;
+		this._Output = Output;		
+		// To allow setting IS/OS monitor to this action's.
+		new Mutex(this);		
 		Input.NotifyInitialize(this);
 		Output.NotifyInitialize(this);		
 	}
@@ -139,8 +141,9 @@ public:
 	}
 
 	/// Aborts the operation, preventing any new data being written (unless it has already begun being written).
-	void Abort() {		
-		AttemptFinish(CompletionType.Aborted);
+	/// Returns whether the operation was actually aborted (false if the operation was already complete or aborted previously).
+	bool Abort() {				
+		return AttemptFinish(CompletionType.Aborted);
 	}
 
 	/// Blocks the calling thread until this action completes. This has, at most, 1 millisecond precision.
@@ -255,6 +258,8 @@ private:
 	bool IsInputComplete; // Because Input needs to wait for Output to complete. If Output says we're done though, we're done.
 	CompletionType OutputCompletionCallbackState; // When using asynchronous output, need to know what type of completion we're waiting on.
 
+	Mutex _InputLock, _OutputLock;
+
 	bool AreBuffersFull() {
 		// Called from: Process Thread; automatically thread-safe.
 
@@ -322,6 +327,13 @@ private:
 	/// Processes the flags returned by a DataSource. Returns whether more data should be handled for this source.
 	bool ProcessFlags(DataRequestFlags Flags, DataOperation Operation) {
 		// Called from: Process Thread; automatically thread-safe.
+
+		// First, check if something caused a completion or abort during the operation itself:
+		if(CompleteOnBreakType != CompletionType.Incomplete)
+			return false;
+		
+		// Otherwise, if the operation is a write operation that's completely queued, tell it to notify when complete.
+		// If it's a read, check if no data needs to be written and do the above.
 		if((Flags & DataRequestFlags.Complete) != 0) {			
 			if(Operation == DataOperation.Write) {
 				OutputCompletionCallbackState = CompletionType.Successful;
@@ -335,6 +347,7 @@ private:
 			}			
 			return false;
 		}
+		
 		if((Flags & DataRequestFlags.Waiting) != 0) {
 			WaitingOn |= Operation;
 			return false;
@@ -360,6 +373,7 @@ private:
 		//debug writeln("PD");					
 		synchronized(this) {			
 			bool CheckCompletion() {
+				bool Result = false;
 				// We're complete when Output says we are, or when Input says we are and Output finishes.				
 				if(Buffers.length == 0 && IsInputComplete) {
 					if(OutputCompletionCallbackState == CompletionType.Incomplete) {
@@ -368,12 +382,14 @@ private:
 						OutputCompletionCallbackState = CompletionType.Successful;						
 						Output.InvokeNotifyCompletion(&NotifyOutputComplete);
 					}
-					// In case they made Notify be blocking (which default implementation is).
-					if(CompleteOnBreakType != CompletionType.Incomplete)
-						CompleteFinish(CompleteOnBreakType);
-					return true;
+					// In case they made Notify be blocking (which default implementation is).					
+					Result = true;
 				}				
-				return false;
+				if(CompleteOnBreakType != CompletionType.Incomplete) {
+					Result = true;
+					CompleteFinish(CompleteOnBreakType);
+				}
+				return Result;
 			}
 			
 			bool CanRead() {				
@@ -404,8 +420,10 @@ private:
 						} 
 						// 0 bytes handled; nothing to do here. So, just break. They probably should return Complete or Waiting, but not necessarily.
 						// But, we may as well read some more data if needed to give them a bit more time.
-						if(!ProcessFlags(Flags, DataOperation.Write))
+						if(!ProcessFlags(Flags, DataOperation.Write)) {
+							CheckCompletion();
 							break;
+						}
 					}
 
 					if(CheckCompletion())
@@ -428,16 +446,18 @@ private:
 		}
 	}	
 
-	void AttemptFinish(CompletionType Type) {
+	bool AttemptFinish(CompletionType Type) {
 		// TODO: See what happens if CompleteOnBreakType is set here. Nothing should really care much if it is..?
 		// But possibly subtle race conditions that will be difficult to spot.
-		// At the moment, if on the last loop of CanRead/Write, it will probably break.
+		// At the moment, if on the last loop of CanRead/Write, it will probably break.		
 		synchronized(this) {
-			enforce(_Status == CompletionStatus.Incomplete);			
+			if(_Status != CompletionStatus.Incomplete)
+				return false;			
 			if(InDataOperation)			
 				CompleteOnBreakType = Type;
 			else
 				CompleteFinish(Type);
+			return true;
 		}
 	}
 

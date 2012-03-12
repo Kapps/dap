@@ -1,10 +1,12 @@
 ﻿module ShardIO.SocketOutput;
+private import core.atomic;
 private import std.exception;
 public import ShardIO.AsyncSocket;
 public import ShardIO.OutputSource;
 
 
-/// Provides an OutputSource that writes to an AsyncSocket until the InputSource is depleted or the socket receives an error.
+/// Provides an OutputSource that writes to an AsyncSocket until the InputSource is depleted.
+/// If a socket error occurs, the action is aborted.
 class SocketOutput : OutputSource {
 
 public:
@@ -15,14 +17,14 @@ public:
 		_Socket.RegisterNotifyDisconnected(cast(void*)Socket, &OnDisconnect);
 	}
 
+	version(D_Ddoc) {
+		static assert(0, "Due to bug 5930, this module may not be compiled with -D.");		
+	}
+
 	void OnDisconnect(void* State, string Reason, int ErrorCode) {
-		synchronized(this) {
-			ForceComplete = true;
-			if(CompletionCallback && !IsComplete) {
-				CompletionCallback();
-				IsComplete = true;
-			}
-			NotifyReady();
+		synchronized(this) {			
+			if(!IsComplete)
+				Action.Abort();
 		}
 	}
 
@@ -40,25 +42,15 @@ public:
 	/// Params:
 	///		Chunk = The chunk to attempt to process.
 	///		BytesHandled = The actual number of bytes that were able to be handled.
-	override DataRequestFlags ProcessNextChunk(ubyte[] Chunk, out size_t BytesHandled) {
-		synchronized(this) {
-			if(ForceComplete) {
-				BytesHandled = 0;
-				if(CompletionCallback && !IsComplete) {
-					CompletionCallback();
-					IsComplete = true;
-				}
-				return DataRequestFlags.Complete;
-			}
-			size_t BytesSent = _Socket.Send(Chunk, cast(void*)Chunk, &OnWriteComplete);
-			if(BytesSent == -1) {
-				BytesHandled = 0;
-				return DataRequestFlags.Complete;
-			}
-			BytesHandled = BytesSent;
-			this.NumSent++;
-			return DataRequestFlags.Continue | DataRequestFlags.Waiting;
+	override DataRequestFlags ProcessNextChunk(ubyte[] Chunk, out size_t BytesHandled) {		
+		size_t BytesSent = _Socket.Send(Chunk, cast(void*)Chunk, &OnWriteComplete);
+		if(BytesSent == -1) {
+			Action.Abort();
+			return DataRequestFlags.Complete;
 		}
+		BytesHandled = BytesSent;
+		atomicOp!("+=", size_t, int)(NumSent, 1);			
+		return DataRequestFlags.Continue | DataRequestFlags.Waiting;		
 	}
 
 protected:
@@ -66,40 +58,34 @@ protected:
 	/// Called after the last call to ProcessNextChunk, with a callback to invoke when the chunk is fully finished being processed.
 	/// For example, when using overlapped IO, the callback would be invoked after the actual write is complete, as opposed to queueing the write.
 	/// The base method should not be called if overridden.
-	override void NotifyOnCompletion(void delegate() Callback) {
-		synchronized(this) {
-			CompletionCallback = Callback;
-			AttemptCompletion();
-		}
+	override void NotifyOnCompletion(void delegate() Callback) {		
+		CompletionCallback = Callback;
+		AttemptCompletion();		
 	}
 	
 private:
-	AsyncSocket _Socket;
-	bool ForceComplete = false;
+	AsyncSocket _Socket;	
 	size_t NumSent;
 	size_t NumReceived;
 	void delegate() CompletionCallback;
 	bool IsComplete = false;
 
 	bool AttemptCompletion() {
-		if(NumSent == NumReceived && CompletionCallback !is null) {			
-			if(!IsComplete)
-				CompletionCallback();			
-			return true;
+		synchronized(this) {
+			if(NumSent == NumReceived && CompletionCallback !is null) {			
+				if(!IsComplete) {
+					IsComplete = true;
+					CompletionCallback();			
+				}
+				return true;
+			}
+			return false;		
 		}
-		return false;		
 	}
 
-	void OnWriteComplete(void* State, size_t BytesSent) {
-		synchronized(this) {
-			if(ForceComplete) {
-				if(!IsComplete && CompletionCallback)
-					CompletionCallback();
-				return;
-			}		
-			NumReceived++;
-			if(!AttemptCompletion())
-				NotifyReady();
-		}
+	void OnWriteComplete(void* State, size_t BytesSent) {		
+		atomicOp!("+=", size_t, int)(NumReceived, 1);			
+		if(!AttemptCompletion())
+			NotifyReady();		
 	}
 }
