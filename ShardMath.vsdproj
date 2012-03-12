@@ -40,10 +40,10 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
     <GenerateDocumentation>True</GenerateDocumentation>
-    <OutputPath>bin\x86\Debug</OutputPath>
+    <OutputPath>bin\x86\Release</OutputPath>
     <BuildType>Library</BuildType>
     <OutputType>Lib</OutputType>
-    <LastBuilt>26/11/2011 2:58:35 PM</LastBuilt>
+    <LastBuilt>24/01/2012 3:58:24 AM</LastBuilt>
     <SkipLibraryStage>True</SkipLibraryStage>
     <DefaultImports />
   </PropertyGroup>
@@ -66,7 +66,7 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <OptimizeCode>True</OptimizeCode>
     <AllowInlining>True</AllowInlining>
-    <RemoveBoundaryChecks>True</RemoveBoundaryChecks>
+    <RemoveBoundaryChecks>False</RemoveBoundaryChecks>
     <DisplayThreadLocal>False</DisplayThreadLocal>
     <CompileUnitTests>False</CompileUnitTests>
     <ImportPaths>

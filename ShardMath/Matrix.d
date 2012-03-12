@@ -1,6 +1,5 @@
 ﻿module ShardMath.Matrix;
 private import std.path;
-private import ShardTools.Enforce;
 private import std.traits;
 import std.conv;
 import ShardMath.Vector;
@@ -108,11 +107,22 @@ public:
 	static if(N == 4) {		
 		/// Creates a scalar matrix with the given scale.
 		static Matrix CreateScale(T Scale) {
-			Matrix Result = Matrix.Identity;
+			Matrix Result;
 			Result.M11 = Scale;
 			Result.M22 = Scale;
 			Result.M33 = Scale;		
+			Result.M44 = 1;
 			return Result;	
+		}
+
+		/// Ditto
+		static Matrix CreateScale(Vector!(3, T) Scale...) {
+			Matrix Result;
+			Result.M11 = Scale.X;
+			Result.M22 = Scale.Y;
+			Result.M33 = Scale.Z;
+			Result.M44 = 1;
+			return Result;
 		}
 
 		/// Creates a Matrix with the given translation value.
@@ -322,14 +332,18 @@ public:
 		}
 
 		/// Inverts this Matrix by altering it's own elements, returning the same instance of the Matrix.
-		ref Matrix!(N, T) InvertInline() {
+		ref Matrix InvertInline() {
 			assert(IsInvertible);
 			// TODO: Can optimize this by storing the results of the calculations we used for Determinant.
 			static if(N == 2) {				
 				T Det = Determinant;
 				assert(Det != 0);
-				T InvDet = 1f / Det;
-				return Matrix!(N, T)(InvDet * M22, InvDet * -M12, InvDet * -M21, InvDet * M11);
+				T InvDet = 1f / Det;			
+				M22 *= InvDet;
+				M12 *= -InvDet;
+				M21 *= -InvDet;
+				M11 *= InvDet;
+				return this;
 			}
 			assert(0, "Not yet implemented.");
 		}

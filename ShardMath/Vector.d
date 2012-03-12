@@ -200,29 +200,30 @@ public:
 	}
 	
 	/// Returns the sum of this vector and the specified other vector.
-	Vector!(N, T) opAdd(in Vector!(N, T) other) const {				
+	Vector!(N, T) opAdd(Vector!(N, T) other) const {				
 		Vector!(N, T) Result = this;	
 		Result.AddInline(other);
 		return Result;		
 	}
 	
 	/// Implements the subtraction operator.
-	Vector!(N, T) opSub(in Vector!(N, T) other) const {
+	Vector!(N, T) opSub(Vector!(N, T) other) const {
 		Vector!(N, T) Result = this;
 		Result.SubtractInline(other);
 		return Result;
 	}
 	
 	/// Implements the multiply operator.
-	Vector!(N, T) opMul(in Vector!(N, T) other) const {
+	Vector!(N, T) opMul(Vector!(N, T) other) const {
 		Vector!(N, T) Result = this;
 		Result.MultiplyInline(other);
 		return Result;
 	}
 	
 	/// Implements the divide operator.
-	Vector!(N, T) opDiv(in Vector!(N, T) other) const {		
+	Vector!(N, T) opDiv(Vector!(N, T) other) const {		
 		Vector!(N, T) Result = this;
+		import core.simd;		
 		Result.DivideInline(other);
 		return Result;
 	}		
@@ -242,22 +243,22 @@ public:
 	}
 
 	/// Implements the addition by assignment operator.
-	void opAddAssign(in Vector!(N, T) other) {
+	void opAddAssign(Vector!(N, T) other) {
 		AddInline(other);			
 	}
 	
 	/// Implements the subtraction by assignment operator.
-	void opSubtractAssign(in Vector!(N, T) other) {
+	void opSubtractAssign(Vector!(N, T) other) {
 		SubtractInline(other);
 	}
 	
 	/// Implements the multiplication by assignment operator.
-	void opMultiplyAssign(in Vector!(N, T) other) {
+	void opMultiplyAssign(Vector!(N, T) other) {
 		MultiplyInline(other);
 	}
 	
 	/// Implements the division by assignment operator.
-	void opDivideAssign(in Vector!(N, T) other) {
+	void opDivideAssign(Vector!(N, T) other) {
 		DivideInline(other);
 	}
 	
@@ -306,7 +307,7 @@ public:
 	///		First = The first vector to use in the operation.
 	///		Second = The second vector to use in the operation.
 	/// Returns: A newly created Vector with the result of this operation.
-	static Vector!(N, T) Add(in Vector!(N, T) first, in Vector!(N, T) second) {		
+	static Vector!(N, T) Add(ref Vector!(N, T) first, ref Vector!(N, T) second) {		
 		Vector!(N, T) Result = first;
 		Result.AddInline(second);
 		return Result;		
@@ -317,7 +318,7 @@ public:
 	///		First = The first vector to use in the operation.
 	///		Second = The second vector to use in the operation.
 	/// Returns: A newly created Vector with the result of this operation.
-	static Vector!(N, T) Subtract(in Vector!(N, T) first, in Vector!(N, T) second) {		
+	static Vector!(N, T) Subtract(ref Vector!(N, T) first, ref Vector!(N, T) second) {		
 		Vector!(N, T) Result = first;
 		Result.SubtractInline(second);
 		return Result;	
@@ -328,7 +329,7 @@ public:
 	///		First = The first vector to use in the operation.
 	///		Second = The second vector to use in the operation.
 	/// Returns: A newly created Vector with the result of this operation.
-	static Vector!(N, T) Multiply(in Vector!(N, T) first, in Vector!(N, T) second) {		
+	static Vector!(N, T) Multiply(ref Vector!(N, T) first, ref Vector!(N, T) second) {		
 		Vector!(N, T) Result = first;
 		Result.MultiplyInline(second);
 		return Result;	
@@ -339,7 +340,7 @@ public:
 	///		First = The first vector to use in the operation.
 	///		Second = The second vector to use in the operation.
 	/// Returns: A newly created Vector with the result of this operation.
-	static Vector!(N, T) Divide(in Vector!(N, T) first, in Vector!(N, T) second) {		
+	static Vector!(N, T) Divide(ref Vector!(N, T) first, ref Vector!(N, T) second) {		
 		Vector!(N, T) Result = first;
 		Result.DivideInline(second);
 		return Result;	
@@ -433,7 +434,7 @@ public:
 
 	/// Gets the magnitude, or length, of this Vector.
 	@property DecimalType Magnitude() const {		
-		return cast(DecimalType)sqrt(MagnitudeSquared);
+		return cast(DecimalType)sqrt(cast(DecimalType)MagnitudeSquared);
 	}
 
 	/// Gets the Magnitude, or length, of this Vector without performing a square-root operation on the end result.
@@ -458,13 +459,13 @@ public:
 		//TODO: SIMD
 		static if(N <= 4) {
 			static if(N >= 2) {
-				T xS = X * X;
-				T yS = Y * Y;
+				DecimalType xS = X * X;
+				DecimalType yS = Y * Y;
 			} 
 			static if(N >= 3)
-				T zS = Z * Z;
+				DecimalType zS = Z * Z;
 			static if(N >= 4)
-				T wS = W * W;
+				DecimalType wS = W * W;
 			static if(N == 2) { 
 				auto Recip = sqrt(1 / (xS + yS));
 				return Vector!(N, T)(cast(T)(X * Recip), cast(T)(Y * Recip));
@@ -476,7 +477,7 @@ public:
 				return Vector!(N, T)(cast(T)(X * Recip), cast(T)(Y * Recip), cast(T)(Z * Recip), cast(T)(W * Recip));
 			}				
 		} else {
-			auto Recip = 0;
+			DecimalType Recip = 0;
 			for(size_t i = 0; i < N; i++)
 				Recip += Elements[i] * Elements[i];		
 			Recip = sqrt(1 / Recip);
@@ -491,14 +492,14 @@ public:
 	void NormalizeInline() {
 		static if(N <= 4) {
 			static if(N >= 2) {
-				T xS = X * X;
-				T yS = Y * Y;
+				DecimalType xS = X * X;
+				DecimalType yS = Y * Y;
 			} 
 			static if(N >= 3) {
-				T zS = Z * Z;
+				DecimalType zS = Z * Z;
 			} 
 			static if(N == 4) {
-				T wS = W * W;						
+				DecimalType wS = W * W;						
 			} 
 			static if(N == 2) { 
 				auto Recip = sqrt(1 / (xS + yS));
@@ -517,11 +518,7 @@ public:
 				W *= Recip;				
 			}				
 		} else {
-			static if(is(T == float) || is(T == double) || is(T == real)) {
-				T Recip = 0;
-			} else {
-				double Recip = 0;			
-			}
+			DecimalType Recip = 0;			
 			for(size_t i = 0; i < N; i++)
 				Recip += Elements[i] * Elements[i];		
 			Recip = sqrt(1 / Recip);
