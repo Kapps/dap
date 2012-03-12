@@ -38,7 +38,7 @@ private:
 abstract class Logger {
 public:
 	/// An event raised when a message is logged.
-	Event!(void, Logger, immutable MessageLoggedEventArgs) MessageLogged;
+	Event!(void, Logger, MessageLoggedEventArgs) MessageLogged;
 	
 	/// Initializes a new instance of the Logger object.
 	this() {

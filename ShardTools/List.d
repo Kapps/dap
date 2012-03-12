@@ -25,14 +25,10 @@ public:
 	///	Params:
 	///		Index = The index to remove the element at.
 	void RemoveAt(size_t Index) {
-		//debug assert(Index >= 0 && Index < _Elements.length,  "List out of bounds. Index " ~ to!string(Index) ~ ".");
-		if(Index == 0)
-			_Elements = _Elements[1..$];
-		else {
-			for(size_t i = Index; i < Count - 1; i++)
-				_Elements[i] = _Elements[i + 1];
-			_Elements.length = _Elements.length - 1;
-		}		
+		//debug assert(Index >= 0 && Index < _Elements.length,  "List out of bounds. Index " ~ to!string(Index) ~ ".");		
+		for(size_t i = Index; i < Count - 1; i++)
+			_Elements[i] = _Elements[i + 1];
+		_Elements.length = _Elements.length - 1;		
 	}
 
 	/// Returns the element at the specified, zero-based, index.

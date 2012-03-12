@@ -2,12 +2,11 @@ module ShardTools.StringTools;
 
 import std.conv;
 import std.string;
-import ShardTools.Logger;
 
 // The below functions due to awful preformance of std.string's equivalents.
 
 /// Provides a faster toLower implementation for ascii characters.
-inout(char[]) toLowerAscii(inout(char[]) Input) {
+pure inout(char[]) toLowerAscii(inout(char[]) Input) {
 	char[] Result = cast(char[])Input.dup;
 	foreach(ref char c; Result)
 		if(c >= 'A' && c <= 'Z')
@@ -29,7 +28,7 @@ void toLowerInPlaceAscii(char[] Input) {
 }
 
 /// Determines whether the two ascii strings are equal.
-bool EqualsInsensitiveAscii(in char[] First, in char[] Second) {
+pure bool EqualsInsensitiveAscii(in char[] First, in char[] Second) {
 	if(First.length != Second.length)
 		return false;
 	const(char)* FP = First.ptr, SP = Second.ptr;

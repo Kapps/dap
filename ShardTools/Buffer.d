@@ -25,11 +25,28 @@ public:
 		this._Position = _Data.length;
 	}
 
+	/// Returns the number of bytes written to the buffer.	
+	/// This resets to zero when Reuse is called, even though old data may still remain.
+	@property size_t Count() const {
+		return _Position;
+	}
+
 	/// Gets a reference to the underlying data.
 	/// This value should not be stored. It is not guaranteed that this slice refers to the same data after any further operations on the Buffer.
 	@property ubyte[] Data() {
 		CheckDisposed();
 		return _Data[0 .. _Position];
+	}
+
+	/// Ditto
+	@property const(ubyte)[] Data() const {
+		CheckDisposed();
+		return cast(const)_Data[0 .. _Position];
+	}
+
+	/// Indicates whether the Buffer has been disposed of due to a Split.
+	@property bool IsDisposed() const {
+		return _Disposed;
 	}
 
 	/// Gets a reference to all of the underlying data.
@@ -41,6 +58,7 @@ public:
 	}
 
 	/// Gets the maximum number of bytes this Buffer is capable of storing prior to needing a resize.
+	/// This is guaranteed to be a power of two.
 	@property size_t Capacity() {
 		return _Data.length;
 	}
@@ -98,7 +116,7 @@ public:
 		CheckDisposed();
 		if(ClearOldData)
 			memset(_Data.ptr, 0, _Position);
-		_Position = 0;
+		_Position = 0;		
 	} unittest {
 		Buffer b = new Buffer();
 		b.Write(uninitializedArray!(ubyte[])(4096));
@@ -173,7 +191,7 @@ public:
 	/// Params:
 	/// 	T = The type of the values in the array.
 	/// 	Value = The array to write.
-	void Write(T)(T[] Value) if(!is(T == class) && !is(T == struct) && !isArray!T) {
+	void Write(T)(in T[] Value) if(!is(T == class) && !is(T == struct) && !isArray!T) {
 		if(Value.length == 0)
 			return;
 		CheckDisposed();
@@ -204,7 +222,7 @@ private:
 	ubyte[] _Data;	
 	size_t _Position;
 
-	void CheckDisposed() {
+	void CheckDisposed() const {
 		enforce(!_Disposed, "Operations are not allowed on a disposed buffer.");
 	}
 }

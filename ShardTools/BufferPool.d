@@ -1,4 +1,11 @@
 ﻿module ShardTools.BufferPool;
+private import std.stdio;
+private import ShardTools.ConcurrentStack;
+private import std.algorithm;
+private import std.exception;
+private import ShardTools.Stack;
+private import std.math;
+private import ShardTools.LinkedList;
 private import core.atomic;
 public import ShardTools.Buffer;
 private import ShardTools.SortedList;
@@ -6,22 +13,25 @@ public import std.outbuffer;
 private import std.container;
 
 /// Provides access to a pool of reuseable buffers.
-class BufferPool  {
+/// All methods in this class are O(1), thread-safe, and lock-free.
+final class BufferPool  {
 
-// TODO: Allow support for Paged buffers.
+// TODO: Allow support for Paged buffers. Maybe. Maybe not. Probably not. Maybe a constructor that takes alignment though, or allocator.
+// TODO: Try to implement self-load-balancing. Maybe have a balance checker in another thread that checks every few seconds.
+//		 Then, when it sees something has too many or too little, it pops some buffers, splits and combines them, and pushes them back in.
 
 public:
 
-	static this() {		
-		// TODO: REMEMBER TO CHANGE THIS TO HIGHER.
-		// Once SortedList doesn't suck anyways.
-		_Global = new BufferPool(1024 * 1024 * 2); // 32 megabytes max by default seems safe.
+	shared static this() {				
+		_Global = new BufferPool(1024 * 1024 * 64, 1024 * 1024 * 2); // 64 megabytes max by default seems safe.
 	}
 
 	/// Initializes a new instance of the BufferPool object.	
-	this(size_t MaxSize) {
+	this(size_t MaxSize, size_t MaxIndividualSize) {
 		this._MaxSize = MaxSize;
-		Buffers = new BufferList();
+		this._MaxIndividualSize = MaxIndividualSize;
+		foreach(Index; 0 .. NumBuffers)
+			Buffers[Index] = new BufferCollection();		
 	}
 
 	/// Gets a global BufferPool to be used.
@@ -31,6 +41,7 @@ public:
 
 	/// Gets or sets the maximum size, in bytes, of the buffers that the pool holds. If buffers are resized past this size, they get split upon release.
 	/// Changes will not take effect immediately, but the pool will balance itself out eventually.
+	/// It is possible for this pool to go over the maximum size in certain situations, mostly from race conditions. It will still balance itself out, so this is generally acceptable.	
 	@property size_t MaxSize() const {		
 		return _MaxSize;
 	}
@@ -40,61 +51,106 @@ public:
 		_MaxSize = Value;
 	}
 
+	/// Gets or sets the maximum size of each individual buffer in the pool.
+	/// To prevent the entire pool being taken up from one buffer, buffers past this size being released will be ignored.
+	@property size_t MaxIndividualSize() const {
+		return _MaxIndividualSize;
+	}
+
+	/// Ditto
+	@property void MaxIndividualSize(size_t Value) {
+		_MaxIndividualSize = Value;
+	}
+
+	/// Gets the total number of bytes currently being stored.
+	/// This is the combined size of all the buffers in the pool that are not currently in use.
+	@property size_t BytesStored() const {
+		return CurrentSize;
+	}
+
 	/// Acquires a buffer from the pool, or creates a new buffer if necessary.
 	/// Params:
-	/// 	NumBytes = The minimum number of bytes that the buffer should contain. If no buffers contain this many bytes, the largest one will be resized and returned.
-	Buffer Acquire(size_t NumBytes) {
-		synchronized(this) {
-			Buffer Result;	
-			if(Buffers.Count == 0) {
-				Result = new Buffer(NumBytes);
-				return Result;
-			}					
-			for(size_t i = 0; i < Buffers.Count; i++) {
-				if(Buffers[i].Capacity < NumBytes) {
-					if(i == 0) {
-						Result = Buffers[i];					
-						Buffers.RemoveAt(0);
-					} else {
-						Result = Buffers[i - 1];					
-						Buffers.RemoveAt(i - 1);
-					}
-					break;
-				}
+	/// 	NumBytes = The minimum number of bytes that the buffer should contain.
+	Buffer Acquire(size_t NumBytes) {							
+		size_t Index = IndexForBuffer(NumBytes);		
+		// If we don't have a buffer of the exact size needed, try a couple sizes above first.
+		// If even then, try one or two sizes below with a resize.
+		// Note that this leads to buffers gradually growing larger when callers request a smaller size than they use. This is generally fine. It is the large buffers that take the most time after all.				
+		size_t Max = min(NumBuffers, Index + 30);			
+		for(size_t i = Index; i < Max; i++) {				
+			Buffer buff = Buffers[i].Pop();
+			if(buff) {
+				OnBufferRemoved(buff);
+				return buff;
 			}
-			if(!Result) {
-				Result = Buffers[Buffers.Count - 1];			
-				Buffers.RemoveAt(Buffers.Count - 1);
-			}
-			CurrentSize -= Result.Capacity;
-			Result.Reserve(NumBytes);	
-			return Result;
 		}
+		size_t Min = max(0, Index - 20);
+		for(size_t i = Index - 1; i >= Min; i--) {				
+			Buffer buff = Buffers[i].Pop();				
+			if(buff !is null) {
+				OnBufferRemoved(buff); // We want this to happen before reserve.
+				buff.Reserve(NumBytes);
+				return buff;
+			}
+		}				
+		return new Buffer(NumBytes);
 	}
 
 	/// Releases the specified buffer, putting it back into the pool if the pool is not full.
-	/// If the buffer is too large to fit, it shall be discarded because it is not possible to slice the buffer without maintaining a reference to the whole data.
+	/// If the buffer is too large to fit, it shall be discarded because it is not possible to slice the buffer without maintaining a reference to the whole data.	
 	/// Params:
 	/// 	Buffer = The buffer to release in to the pool.
 	/// 	ClearOldData = Whether to zero out the old data in the buffer.
 	void Release(Buffer Buffer, bool ClearOldData = false) {		
-		synchronized(this) {
-			Buffer.Reuse(ClearOldData);
-			if(CurrentSize + Buffer.Capacity > MaxSize)
-				return;
-			CurrentSize += Buffer.Capacity;
-			Buffers.Add(Buffer, Buffer.Capacity);					
+		// Race conditions are fine for this check.		
+		if(CurrentSize + Buffer.Capacity > _MaxSize || Buffer.Capacity > _MaxIndividualSize) {			
+			return;
 		}
+
+		enforce(!Buffer.IsDisposed);
+		size_t Index = IndexForBuffer(Buffer.Capacity);
+		BufferCollection Collection = Buffers[Index];
+		Buffer.Reuse(ClearOldData);
+
+		OnBufferAdded(Buffer);							
+		Collection.Push(Buffer);			
 	}
 	
 private:
-	size_t _MaxSize;
-	size_t CurrentSize;	
-	alias SortedList!Buffer BufferList;	
-	private BufferList Buffers;
+	static __gshared BufferPool _Global;
 
-	static __gshared BufferPool _Global;	
-	size_t IndexForBytes(size_t Bytes) {
-		assert(0, "Not yet implemented.");
+	size_t _MaxSize;
+	size_t _MaxIndividualSize;
+	size_t CurrentSize;	
+	size_t StoredBuffers;	
+
+	size_t IndexForBuffer(size_t NumBytes) {
+		real Log = log2(NumBytes);
+		// The % 2 is there for floating point precision issues. Not sure if it's needed, nor if it's a good idea...
+		// Still, it leans towards a larger buffer than necessary, which is fine. It's also rare that it'd affect the result.
+		return Log - Log == 0 && NumBytes % 2 == 0 ? cast(int)Log : cast(int)Log + 1;
 	}
+
+	void OnBufferRemoved(Buffer buff) {				
+		atomicOp!("-=", size_t, size_t)(CurrentSize, buff.Capacity);
+		atomicOp!("-=", size_t, size_t)(StoredBuffers, cast(size_t)1);		
+	}
+
+	void OnBufferAdded(Buffer buff) {				
+		atomicOp!("+=", size_t, size_t)(CurrentSize, buff.Capacity);
+		atomicOp!("+=", size_t, size_t)(StoredBuffers, cast(size_t)1);		
+	}
+
+	// The way this works is that our Buffers are guaranteed to have a capacity that's a power of two.
+	// This means we have a fixed number of buffers known at compile time.
+	// So, when requesting a buffer, we can get the collection of buffers associated with it in O(1) time and lock-free by using the next power of two.
+	// Then, we make that collection be O(1) and lock-free too, and thus the entire Acquire and Release methods are O(1) and lock-free.
+	// Things like max size checks are done in a way that allows race conditions. This is fine, it doesn't need to be exact.
+	
+	alias ConcurrentStack!Buffer BufferCollection;		
+	enum size_t NumBuffers = size_t.sizeof * 8;	
+
+	// While we don't necessarily need all of these buffers, we'd have some complications with MaxSize being set if we just calculated the amount needed at runtime.
+	// It's not much overhead anyways considering you usally only have one buffer pool.
+	BufferCollection[NumBuffers] Buffers;	
 }

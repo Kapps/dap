@@ -1,4 +1,5 @@
 ﻿module ShardTools.Stack;
+private import core.memory;
 private import core.atomic;
 private import std.exception;
 private import std.c.stdlib;
@@ -19,7 +20,7 @@ public:
 	this(size_t Capacity = 4) {
 		enforce(Capacity > 0, "Initial capacity must be greater than zero.");		
 		this._Capacity = Capacity;
-		Elements = cast(T*)malloc(T.sizeof * Capacity);
+		Allocate(_Capacity);
 	}
 
 	/// The maximum amount of elements this Stack is capable of storing prior to resizing.
@@ -33,19 +34,19 @@ public:
 	}
 
 	/// Pops an element from the Stack.
-	/// If no elements are available, T.init is returned.	
-	T Pop() {		
+	/// If no elements are available, DefaultValue is evaluated and returned.	
+	T Pop(lazy T DefaultValue = T.init) {		
 		if(_Count == 0)
-			return T.init;
+			return DefaultValue();
 		return *(Elements + _Count-- - 1);		
 	}
 
 
 	/// Pops an element from the Stack without altering the state of the Stack.
-	/// If no elements are available, T.init is returned.
-	@property T Peek() {
+	/// If no elements are available, DefaultValue is evaluated and returned.
+	@property T Peek(lazy T DefaultValue = T.init) {
 		if(_Count == 0)
-			return T.init;
+			return DefaultValue();
 		return *(Elements + _Count -1);
 	}
 
@@ -81,7 +82,18 @@ private:
 		do 
 			_Capacity <<= 1;
 		while(_Capacity < MinCapacity);		
-		T* New = cast(T*)malloc(T.sizeof * _Capacity);
-		memcpy(New, Elements, T.sizeof * _Count);		
+		Allocate(_Capacity);
+	}
+
+	void Allocate(size_t Capacity) {
+		// Can use malloc for primitives like int, but objects need to have a reference kept. We just use (add/remove)Range in this case.		 
+		T* New = cast(T*)malloc(T.sizeof * Capacity);
+		GC.addRange(New, T.sizeof * Capacity);
+		if(Elements) {			
+			memcpy(New, Elements, T.sizeof * _Count);			
+			GC.removeRange(Elements);
+			free(Elements);		
+		}
+		this.Elements = New;		
 	}
 }

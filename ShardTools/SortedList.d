@@ -7,7 +7,7 @@ class SortedList(T) {
 	
 	/// Initializes a new instance of the SortedList class.
 	/// Params: Capacity = The number of elements to be capable of storing initially.
-	this(int Capacity = 4) {
+	this(size_t Capacity = 4) {
 		enforce(Capacity > 0);
 		Items = new SortedListItem[Capacity];
 		assumeSafeAppend(Items);
@@ -17,7 +17,7 @@ class SortedList(T) {
 	/// Removes the specified item from the collection.
 	/// Params: item = The item to remove.
 	bool Remove(T item) {
-		int index = -1;
+		size_t index = -1;
 		for(index = 0; index < _Length; index++) {
 			if(Items[index].Item == item)
 				break;			
@@ -42,7 +42,7 @@ class SortedList(T) {
 	/// Params: 
 	///		item = The item to add.
 	///		key = The key of the item to add.
-	void Add(T item, int Key) {
+	void Add(T item, size_t Key) {
 		size_t Index = GetIndexForKey(Key);
 		_Length++;				
 		//Items.insertInPlace(Index, new SortedListItem(item, Key));	
@@ -73,9 +73,9 @@ private:
 	
 	class SortedListItem {
 		T Item;
-		int Key;
+		size_t Key;
 		
-		this(T Item, int Key) {
+		this(T Item, size_t Key) {
 			this.Item = Item;
 			this.Key = Key;
 		}
@@ -86,7 +86,7 @@ private:
 		}
 	}
 	
-	size_t GetIndexForKey(int Key) {
+	size_t GetIndexForKey(size_t Key) {
 		// TODO: Binary search.
 		for(size_t i = 0; i < _Length; i++) {
 			if(Items[i].Key >= Key)

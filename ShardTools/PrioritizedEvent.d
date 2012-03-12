@@ -21,7 +21,7 @@ public:
 	*/
 	bool Execute(T Params) {
 		for(size_t i = 0; i < List.Count; i++) {
-			if(List.At(i)(Params))
+			if(List[i](Params))
 				return false;
 		}
 		return true;
