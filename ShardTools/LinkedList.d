@@ -1,4 +1,5 @@
 ﻿module ShardTools.LinkedList;
+private import std.functional;
 
 
 /// A basic doubly linked list.
@@ -25,6 +26,15 @@ public:
 	/// Gets the number of elements this collection contains.
 	@property size_t Count() const {
 		return _Count;
+	}
+
+	int opApply(int delegate(ref T, LinkedListNode Node) dg) {
+		int Result = 0;
+		for(LinkedListNode Node = _Head; Node !is null; Node = Node.Next) {
+			if((Result = dg(Node._Value, Node)) != 0)
+				break;
+		}
+		return Result;
 	}
 
 	int opApply(int delegate(ref T) dg) {
