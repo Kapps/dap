@@ -1,4 +1,6 @@
 ﻿module ShardIO.AsyncSocket;
+private import ShardTools.LinkedList;
+private import ShardTools.ArrayOps;
 private import ShardTools.Event;
 private import std.stdio;
 private import std.parallelism;
@@ -110,21 +112,37 @@ public:
 		this._Protocol = Protocol;
 		_State = State;		
 		SetHandle(Handle);
+		this.DisconnectNotifiers = new typeof(DisconnectNotifiers)();
 		IOCP.RegisterHandle(cast(HANDLE)_Handle);
 		NativeReference.AddReference(cast(void*)this);
 	}
 
-	/// Adds a callback to be invoked upon the first disconnect of this socket.
+	/// Adds or removes a callback to be invoked upon the first disconnect of this socket.
 	/// A socket is disconnected either when Disconnect is called, or when an error occurs.
 	/// Because errors leave sockets in an undefined state, it is assumed to be disconnected after all errors.
 	/// If the error did not leave it disconnected, it will be manually disconnected.
 	void RegisterNotifyDisconnected(void* State, SocketCloseNotificationCallback Callback) {
 		synchronized(this){
 			EnforceDisposed();
-			DisconnectSubscriber sub;
+			foreach(ref Sub; DisconnectNotifiers)
+				if(Sub.Callback == Callback)
+					return;
+			auto sub = new DisconnectSubscriber();
 			sub.Callback = Callback;
 			sub.State = State;
-			this.DisconnectNotifiers ~= sub;
+			this.DisconnectNotifiers.Add(sub);
+		}
+	}
+
+	/// Ditto
+	void RemoveNotifyDisconnected(SocketCloseNotificationCallback Callback) {
+		synchronized(this) {
+			foreach(ref Sub, Node; DisconnectNotifiers) {
+				if(Sub.Callback == Callback) {
+					DisconnectNotifiers.Remove(Node);
+					break;
+				}
+			}
 		}
 	}
 
@@ -411,8 +429,8 @@ private:
 	SocketState _State;
 	SocketPool Pool;
 	bool IsAccepting = false;
-	bool IsDisposed;
-	DisconnectSubscriber[] DisconnectNotifiers;
+	bool IsDisposed;	
+	LinkedList!(DisconnectSubscriber*) DisconnectNotifiers;
 
 	void OnSocketError(string Message, int ErrorCode, bool Throw) {	
 		//Disconnect(Message, ErrorCode, null, null, false);
@@ -518,7 +536,7 @@ private:
 			//_LocalAddr = null;
 			_State = SocketState.Disconnected;		
 			NativeReference.RemoveReference(cast(void*)this);						
-			foreach(DisconnectSubscriber sub; DisconnectNotifiers)
+			foreach(sub; DisconnectNotifiers)
 				sub.Callback(sub.State, Reason, Code);		
 			shutdown(_Handle, 2);
 			closesocket(_Handle);						
