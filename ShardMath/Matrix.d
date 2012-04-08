@@ -318,6 +318,7 @@ public:
 	static if(isFloatingPoint!(T)) {
 		// TODO: Support DecimalType. Keep in mind that InvertInline wouldn't work.
 
+		version(None) { // TODO: Broked.
 		/// Calculates the inverse of this Matrix.
 		@property Matrix!(N, T) Inverse() const {
 			// TODO: Consider optimizing.
@@ -346,6 +347,7 @@ public:
 				return this;
 			}
 			assert(0, "Not yet implemented.");
+		}
 		}
 	}
 
@@ -428,7 +430,7 @@ public:
 			}
 			Result ~= ']';
 			if(y != N)
-				Result ~= linesep;
+				Result ~= "\n";
 		}
 		return Result;
 	}
@@ -436,7 +438,7 @@ public:
 	unittest {
 			
 		Matrix2f Test = Matrix2f(1, 2, 3, 4);
-		string Expected = "[1, 2]" ~ linesep ~ "[3, 4]";
+		string Expected = "[1, 2]" ~ "\n" ~ "[3, 4]";
 		assert(to!string(Test) == Expected);
 	}
 
