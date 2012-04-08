@@ -52,6 +52,12 @@ protected:
 		this.__monitor = Action.__monitor;
 		synchronized(this)
 			this._Action = Action;
+		Action.NotifyOnComplete(&OnComplete);
+	}
+
+	/// Occurs when the action completes for whatever reason.
+	protected void OnComplete(IOAction Action, CompletionType Type) {
+
 	}
 	
 private:		

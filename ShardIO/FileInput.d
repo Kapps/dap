@@ -21,7 +21,7 @@ public:
 		Offset = 0;
 		Length = File.Size;		
 		ChunkSize = Action.DefaultChunkSize;
-		LoadChunk();	
+		LoadChunk();			
 	}		
 
 	/// Initializes a new instance of the FileInput object.
@@ -77,6 +77,12 @@ public:
 	protected override void Initialize(IOAction Action) {
 		super.Initialize(Action);
 		ChunkSize = Action.ChunkSize;
+	}	
+
+	/// Occurs when the action completes for whatever reason.
+	protected override void OnComplete(IOAction Action, CompletionType Type) {
+		if(File)
+			File.Close();
 	}
 	
 private:

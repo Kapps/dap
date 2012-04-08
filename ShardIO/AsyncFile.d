@@ -33,6 +33,7 @@ mixin(MakeException("FileNotFoundException"));
 mixin(MakeException("AccessDeniedException"));
 mixin(MakeException("FileAlreadyExistsException"));
 mixin(MakeException("FileException"));
+mixin(MakeException("FileNotClosedException", "A file had it's destructor called prior to being closed. The file has been closed, but this indicates a bug in the code."));
 
 enum FileAccessMode {
 	Read = 1,
@@ -79,25 +80,10 @@ alias void* AsyncFileHandle;
 alias void delegate(void* State) FileWriteCallbackDelegate;
 alias void delegate(void* State, ubyte[] Data) FileReadCallbackDelegate;
 
-package struct QueuedOperation(T) {
-	void* State;
-	ubyte[] Data;		
-	T Callback;			
-}
-
-package QueuedOperation!(T)* CreateOp(T)(void* State, ubyte[] Data, T Callback) {
-	QueuedOperation!T* Op = new QueuedOperation!T();
-	Op.State = State;
-	Op.Data = Data;
-	Op.Callback = Callback;		
-	NativeReference.AddReference(cast(void*)Op);
-	return Op;
-}
-
 /// Represents a file that uses asynchronous IO for reads and writes.
-/// Limitations:
+/// BUGS:
 ///		At the moment when using the Basic AsyncFileHandler, it is easy to surpass the maximum number of file descriptors (roughly 70).
-///		Eventually, consider supporting this. But keep in mind Basic is meant to be a fallback anyways, so that may not be an issue.
+///		Eventually, this should be fixed, but since basic is a fallback it is not a high priority.
 class AsyncFile  {
 
 public:	
@@ -156,15 +142,14 @@ public:
 	void Append(ubyte[] Data, void* State, FileWriteCallbackDelegate Callback) {		
 		synchronized(this) {
 			enforce(IsOpen && !WaitingToClose, "Unable to write to a closed file.");
-			QueuedOperation!FileWriteCallbackDelegate* QueuedOp = CreateOp(State, Data, Callback);			
-			static if(Controller == AsyncFileHandler.IOCP) {																
-				OVERLAPPED* lpOverlap = CreateOverlap(cast(void*)QueuedOp, _Handle, &InitialWriteCallback);				
-				lpOverlap.Offset = 0xFFFFFFFF;
-				lpOverlap.OffsetHigh = 0xFFFFFFFF;
-				WriteFile(cast(HANDLE)this._Handle, Data.ptr, Data.length, null, lpOverlap);
+			auto Op = CreateOperation(_Handle, &InitialWriteCallback, Callback, State);			
+			static if(Controller == AsyncFileHandler.IOCP) {																				
+				Op.Offset = 0xFFFFFFFF;
+				Op.OffsetHigh = 0xFFFFFFFF;
+				WriteFile(cast(HANDLE)this._Handle, Data.ptr, Data.length, null, Op);
 			} else static if(Controller == AsyncFileHandler.Basic) {				
 				// Fall back to synchronous IO in a new thread.
-				taskPool.put(task(&PerformWriteSync, cast(void*)QueuedOp));
+				taskPool.put(task(&PerformWriteSync, cast(void*)Op));
 			} else // TODO: AIO and KQueue
 				static assert(0, "Unknown controller " ~ to!string(Controller) ~ ".");
 		}
@@ -179,13 +164,12 @@ public:
 	void Read(ubyte[] Buffer, ulong Offset, void* State, FileReadCallbackDelegate Callback) {
 		synchronized(this) {
 			enforce(IsOpen && !WaitingToClose, "Unable to read from a closed file.");
-			QueuedOperation!FileReadCallbackDelegate* Op = CreateOp(State, Buffer, Callback);
-			static if(Controller == AsyncFileHandler.IOCP) {
-				OVERLAPPED* lpOverlap = CreateOverlap(Op, _Handle, &InitialReadCallback);						
-				lpOverlap.Offset = cast(uint)(Offset >>> 0);
-				lpOverlap.OffsetHigh = cast(uint)(Offset >>> 32);				
-				ReadFile(cast(HANDLE)this._Handle, Buffer.ptr, Buffer.length, null, lpOverlap);
-			}
+			auto Op = CreateOperation(_Handle, &InitialReadCallback, Callback, State, Buffer);			
+			static if(Controller == AsyncFileHandler.IOCP) {				
+				Op.Offset = cast(uint)(Offset >>> 0);
+				Op.OffsetHigh = cast(uint)(Offset >>> 32);				
+				ReadFile(cast(HANDLE)this._Handle, Buffer.ptr, Buffer.length, null, Op);
+			} else static assert(0);
 		}
 	}
 
@@ -217,8 +201,11 @@ public:
 	}
 
 	~this() {
-		if(IsOpen)
+		if(IsOpen) {
 			Close();
+			std.stdio.stderr.writeln("A file was not closed prior to being deleted.");
+			throw new FileNotClosedException();
+		}
 	}
 	
 private:	
@@ -227,24 +214,20 @@ private:
 	bool IsOpen;
 	bool WaitingToClose;
 
-	void InitialReadCallback(void* State, size_t ErrorCode, size_t BytesRead) {
-		QueuedOperation!FileReadCallbackDelegate* Op = cast(QueuedOperation!FileReadCallbackDelegate*)State;
-		scope(exit)
-			NativeReference.RemoveReference(cast(void*)Op);		
+	void InitialReadCallback(void* State, size_t ErrorCode, size_t BytesRead) {		
+		auto Op = UnwrapOperation!(FileReadCallbackDelegate, "Callback", void*, "State", ubyte[], "Data")(State);		
 		ubyte[] Data = Op.Data[0 .. BytesRead];
 		if(Op.Callback)
 			Op.Callback(Op.State, Data);
 	}
 	
-	void InitialWriteCallback(void* State, size_t ErrorCode, size_t BytesRead) {
-		QueuedOperation!FileWriteCallbackDelegate* Op = cast(QueuedOperation!FileWriteCallbackDelegate*)State;
-		scope(exit)
-			NativeReference.RemoveReference(cast(void*)Op);		
+	void InitialWriteCallback(void* State, size_t ErrorCode, size_t BytesRead) {		
+		auto Op = UnwrapOperation!(FileWriteCallbackDelegate, "Callback", void*, "State", ubyte[], "Data")(State);		
 		if(Op.Callback)
 			Op.Callback(Op.State);
 	}	
 	
-	void PerformWriteSync(void* State) {			
+	version(None) void PerformWriteSync(void* State) {			
 		QueuedOperation!FileWriteCallbackDelegate* Op = cast(QueuedOperation!FileWriteCallbackDelegate*)State;
 		scope(exit)
 			NativeReference.RemoveReference(Op);

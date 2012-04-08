@@ -1,4 +1,7 @@
 ﻿module ShardIO.IOCP;
+private import std.socket;
+private import std.typecons;
+private import ShardTools.NativeReference;
 private import core.memory;
 private import std.conv;
 private import std.stdio;
@@ -33,6 +36,7 @@ version(Windows){
 
 	/// Provides the implementation of OVERLAPPED that should be used for operations used by handles registered with the IOCP class.
 	/// This struct should never have instances created manually; instead, use CreateOverlap.
+	/// For a more cross platform approach, use CreateOperation intead.
 	public struct OVERLAPPEDExtended {
 		OVERLAPPED Overlap;	
 		void* UserData;
@@ -53,6 +57,38 @@ version(Windows){
 		Result.Handle = Handle;	
 		Result.Callback = Callback;		
 		return cast(OVERLAPPED*)cast(void*)Result;
+	}	
+
+	/// Creates a structure that stores information for asynchronous operations.
+	/// Information contains a garbage collector reference internally until UnwrapOperation is called.
+	/// Not calling UnwrapOoperation will result in memory leaks.
+	/// The return type is dependent on the controller used. For example, IOCP returns an OVERLAPPED[Extended]* to be passed in to IOCP calls.
+	//auto CreateOperation(T...)(HANDLE Handle, IOCPCallbackDelegate InternalCallback, T Params) {
+	auto CreateOperation(T...)(T Params) {
+		HANDLE Handle;
+		static if(is(T[0] == socket_t))
+			Handle = cast(void*)Params[0];
+		else
+			Handle = Params[0];
+		IOCPCallbackDelegate InternalCallback = Params[1];		
+		auto State = new Tuple!(T[2..$])(Params[2..$]);		
+		NativeReference.AddReference(cast(void*)State);		
+		OVERLAPPED* lpOverlap = CreateOverlap(cast(void*)State, cast(HANDLE)Handle, InternalCallback);
+		return lpOverlap;
+	}
+
+	/// Unwraps an operation created with CreateOperation, returning state info.
+	/// Even though CreateOperation does not take a named tuple, giving the tuple argument names is allowed and will work.
+	Tuple!(T)* UnwrapOperation(T...)(void* QueuedOp) {		
+		Tuple!(T)* Params = cast(Tuple!(T)*)QueuedOp;
+		NativeReference.RemoveReference(Params);				
+		return Params;
+	}
+
+	/// Removes any garbage collected references that are created internally by CreateOperation, on an overlapped structure returned by it.
+	void CancelOperation(OVERLAPPED* Overlap) {
+		OVERLAPPEDExtended* Ex = cast(OVERLAPPEDExtended*)Overlap;
+		NativeReference.RemoveReference(Ex.UserData);
 	}
 
 
@@ -63,7 +99,7 @@ version(Windows){
 	public static:	
 
 		/// Registers a handle to be owned by this completion port, and be notified of completions.
-		/// Params;
+		/// Params:
 		/// 	Handle = The handle to register.
 		void RegisterHandle(HANDLE Handle) {
 			int Result = BindIoCompletionCallback(Handle, &CompletionCallback, 0);
@@ -87,6 +123,7 @@ version(Windows){
 				if(!IsRegisteredWithRuntime) {
 					thread_attachThis();
 					IsRegisteredWithRuntime = true;
+					//writefln("Registered thread %s with runtime.", Thread.getThis().name);
 				}
 			}
 		}

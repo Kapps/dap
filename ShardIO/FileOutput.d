@@ -60,6 +60,11 @@ public:
 			AttemptCompletion();
 		}
 	}
+
+	/// Occurs when the action completes for whatever reason.
+	protected override void OnComplete(IOAction Action, CompletionType Type) {
+		Close();
+	}
 	
 private:
 	AsyncFile File;
@@ -69,12 +74,18 @@ private:
 
 	bool AttemptCompletion() {
 		if(NumSent == NumReceived && CompletionCallback !is null) {
-			File.Close();
-			File = null;
+			Close();
 			CompletionCallback();			
 			return true;
 		}
 		return false;		
+	}
+
+	void Close() {
+		if(File) {
+			File.Close();
+			File = null;
+		}
 	}
 
 	void WriteCompleteCallback(void* State) {
