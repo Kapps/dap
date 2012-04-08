@@ -68,11 +68,9 @@ public:
 	/// Releases the given socket, freeing resources associated with it.
 	/// The socket is expected to have been shut down already, if needed.
 	void Release(socket_t sock) {
-		version(Windows) {
-			closesocket(cast(SOCKET)sock);
-		} else {
-			closesocket(sock);
-		}
+		int ShutdownResult = closesocket(sock);	
+		if(ShutdownResult != 0)
+			throw new SocketOSException("Unable to release the socket");		
 	}
 
 	/// Gets or creates a SocketPool that creates sockets with the given parameters.		

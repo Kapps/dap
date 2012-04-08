@@ -486,11 +486,9 @@ private:
 			_State = SocketState.Disconnected;		
 			NativeReference.RemoveReference(cast(void*)this);						
 			foreach(sub; DisconnectNotifiers)
-				sub.Callback(sub.State, Reason, Code);		
+				sub.Callback(sub.State, Reason, Code);						
 			shutdown(_Handle, 2);
-			int ShutdownResult = closesocket(_Handle);	
-			if(ShutdownResult != 0)
-				HandleSocketException();
+			Pool.Release(_Handle);			
 			_Handle = AsyncSocketHandle.init;
 			DisconnectNotifiers = null;
 		}

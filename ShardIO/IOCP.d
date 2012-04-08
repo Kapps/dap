@@ -60,7 +60,7 @@ version(Windows){
 	}	
 
 	/// Creates a structure that stores information for asynchronous operations.
-	/// Information contains a garbage collector reference internally until UnwrapOperation is called.
+	/// Information contains a garbage collector reference internally until UnwrapOperation or CancelOperation are called.
 	/// Not calling UnwrapOoperation will result in memory leaks.
 	/// The return type is dependent on the controller used. For example, IOCP returns an OVERLAPPED[Extended]* to be passed in to IOCP calls.
 	//auto CreateOperation(T...)(HANDLE Handle, IOCPCallbackDelegate InternalCallback, T Params) {

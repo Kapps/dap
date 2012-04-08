@@ -62,6 +62,14 @@ protected:
 		CompletionCallback = Callback;
 		AttemptCompletion();		
 	}
+
+	
+	/// Occurs when the action completes for whatever reason.
+	override void OnComplete(IOAction Action, CompletionType Type) {
+		super.OnComplete(Action, Type);
+		if(_Socket)
+			_Socket.RemoveNotifyDisconnected(&OnDisconnect);
+	}
 	
 private:
 	AsyncSocket _Socket;	
