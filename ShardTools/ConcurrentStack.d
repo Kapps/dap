@@ -3,7 +3,7 @@ private import core.atomic;
 
 /// Provides a thread-safe and lock-free implementation of a Stack.
 /// BUGS:
-///		Manual memory management of returned values is not allowed because this implementation suffers from the ABA problem.
+///		Manual memory management of stored values is not allowed because this implementation suffers from the ABA problem.
 class ConcurrentStack(T)  {
 
 public:
@@ -38,24 +38,44 @@ public:
 	}
 
 	/// Pops the given value from the top of the stack.
-	/// Returns a pointer to the resulting value, or DefaultValue if the stack is empty.
-	/// This operation is O(1), thread-safe, and lock-free.
+	/// Returns the resulting value, or DefaultValue if the stack is empty.
+	/// This operation is O(1) (if DefaultValue is O(1) or the Stack has elements), thread-safe, and lock-free.
 	T Pop(lazy T DefaultValue = T.init) {		
+		T Result;
+		if(!TryPop(Result))
+			return DefaultValue();
+		return Result;
+	}
+
+	/// Attempts to Pop a value from the top of the stack, returning whether or not there was an element to pop.
+	/// This operation is O(1), thread-safe, and lock-free.
+	bool TryPop(out T Value) {
 		Node* OldNode;
 		T Result;
 		do {
 			OldNode = Root;
 			if(!OldNode)
-				return DefaultValue();
+				return false;
 			Result = OldNode.Value;
 		} while(!cas(cast(shared)&Root, cast(shared)OldNode, cast(shared)OldNode.Next));
+		Value = Result;
+		return true;
+	}
+
+	int opApply(int delegate(T) dg) {
+		int Result;
+		T Value;
+		while(TryPop(Value)) {
+			if((Result = dg(Value)) != 0)
+				break;
+		}
 		return Result;
 	}
 
 	unittest {
 		ConcurrentStack!int Stack = new ConcurrentStack!int();
 		Stack.Push(3);
-		assert(*Stack.Pop == 3);
+		assert(Stack.Pop == 3);
 	}
 	
 private:

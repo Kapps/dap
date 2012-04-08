@@ -22,6 +22,7 @@ enum PathStyle {
 version(Windows) { 
 	import std.c.windows.windows;		
 	static const ushort MAX_PATH = 260;	
+	enum string DirSeparator = "\\";
 	extern(Windows) {						
 		BOOL PathRemoveFileSpecA(LPTSTR);
 		LPTSTR PathAddBackslashA(LPTSTR);
@@ -42,6 +43,7 @@ version(Windows) {
 	}
 } else {
 	import core.sys.posix.unistd : readLinkPosix = readlink;
+	enum string DirSeparator = "/";
 }
 
 /// Static helper class used to manage paths.

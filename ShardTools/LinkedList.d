@@ -51,9 +51,8 @@ public:
 		LinkedListNode Node = new LinkedListNode();
 		Node._Previous = _Tail;
 		if(_Tail)
-			_Tail._Next = Node;
-		else
-			_Tail = Node;
+			_Tail._Next = Node;		
+		_Tail = Node;
 		if(!_Head)
 			_Head = Node;
 		Node._Value = Value;
@@ -81,6 +80,7 @@ public:
 
 	/// Removes the given node from the list.
 	void Remove(LinkedListNode Node) {
+		assert(GetNode(Node._Value) !is null, "Node was not part of this linked list.");
 		if(Node._Previous)
 			Node._Previous._Next = Node._Next;
 		if(Node._Next)
@@ -101,7 +101,7 @@ public:
 		return null;
 	}
 
-	class LinkedListNode {
+	static class LinkedListNode {
 		/// Gets the node prior to this node.
 		@property LinkedListNode Previous() {
 			return _Previous;
@@ -120,6 +120,24 @@ public:
 		package T _Value;
 		package LinkedListNode _Previous;
 		package LinkedListNode _Next;
+	}
+
+	unittest {
+		LinkedList!int List = new LinkedList!int();
+		assert(List.Count == 0);
+		List.Add(2);
+		assert(List.Count == 1);
+		assert(List.Head == List.Tail);
+		assert(List.Head.Value == 2);
+		assert(List.GetNode(2) == List.Head);
+		assert(List.Remove(2));
+		assert(List.Count == 0);
+		List.Add(3);
+		List.Add(4);
+		assert(List.Count == 2);
+		assert(List.Head != List.Tail);
+		assert(List.Head.Value == 3);
+		assert(List.Tail.Value == 4);
 	}
 	
 private:

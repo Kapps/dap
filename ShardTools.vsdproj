@@ -116,6 +116,9 @@
     <Compile Include="ShardTools\StringMap.d">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ShardTools\ThreadPool.d">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ShardTools\TimeSpan.d">
       <SubType>Code</SubType>
     </Compile>

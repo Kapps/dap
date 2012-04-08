@@ -23,7 +23,7 @@ final class BufferPool  {
 public:
 
 	shared static this() {				
-		_Global = new BufferPool(1024 * 1024 * 64, 1024 * 1024 * 2); // 64 megabytes max by default seems safe.
+		_Global = new BufferPool(1024 * 1024 * 64, 1024 * 1024 * 2); // 64 megabytes max by default seems safe, with 2 megabytes max per buffer.
 	}
 
 	/// Initializes a new instance of the BufferPool object.	
@@ -72,23 +72,24 @@ public:
 	/// Params:
 	/// 	NumBytes = The minimum number of bytes that the buffer should contain.
 	Buffer Acquire(size_t NumBytes) {							
-		size_t Index = IndexForBuffer(NumBytes);		
+		size_t Index = IndexForBuffer(NumBytes);
+		assert(Index >= 0 && Index < 32);				
 		// If we don't have a buffer of the exact size needed, try a couple sizes above first.
 		// If even then, try one or two sizes below with a resize.
 		// Note that this leads to buffers gradually growing larger when callers request a smaller size than they use. This is generally fine. It is the large buffers that take the most time after all.				
 		size_t Max = min(NumBuffers, Index + 30);			
 		for(size_t i = Index; i < Max; i++) {				
 			Buffer buff = Buffers[i].Pop();
-			if(buff) {
+			if(buff) {				
 				OnBufferRemoved(buff);
 				return buff;
 			}
 		}
-		size_t Min = max(0, Index - 20);
-		for(size_t i = Index - 1; i >= Min; i--) {				
+		ptrdiff_t Min = max(0, cast(ptrdiff_t)(Index - 20));
+		for(ptrdiff_t i = Index - 1; i >= Min; i--) {				
 			Buffer buff = Buffers[i].Pop();				
-			if(buff !is null) {
-				OnBufferRemoved(buff); // We want this to happen before reserve.
+			if(buff !is null) {				
+				OnBufferRemoved(buff); // We want this to happen before reserve.				
 				buff.Reserve(NumBytes);
 				return buff;
 			}
@@ -128,7 +129,7 @@ private:
 		real Log = log2(NumBytes);
 		// The % 2 is there for floating point precision issues. Not sure if it's needed, nor if it's a good idea...
 		// Still, it leans towards a larger buffer than necessary, which is fine. It's also rare that it'd affect the result.
-		return Log - Log == 0 && NumBytes % 2 == 0 ? cast(int)Log : cast(int)Log + 1;
+		return Log - cast(size_t)Log == 0 && NumBytes % 2 == 0 ? cast(int)Log : cast(int)Log + 1;
 	}
 
 	void OnBufferRemoved(Buffer buff) {				

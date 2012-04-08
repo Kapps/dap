@@ -13,6 +13,8 @@ private import ShardTools.Map;
 /// Provides quick access to a map of strings by case insensitive strings, with features for easy parsing.
 class StringMap  {
 
+	// TODO: Make a MaxHashCollisions property, and throw if more than that amount occurs.
+
 public:
 	/// Initializes a new instance of the StringMap object.
 	this() {
@@ -129,7 +131,7 @@ private:
 			return Name;
 		}
 
-		hash_t toHash() const {
+		const pure nothrow @safe hash_t toHash() {
 			hash_t Result;
 			foreach(char c; Name) {				
 				Result = (Result * 9) + (c >= 'A' && c <= 'Z') ? c - 32 : c;
