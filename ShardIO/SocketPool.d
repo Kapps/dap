@@ -125,13 +125,13 @@ private:
 	void GenerateSockets() {					
 			static __gshared size_t TotalCreates = 0;
 			Duration SinceLast = Clock.currTime() - LastGeneration;
+			LastGeneration = Clock.currTime();
 			if(SinceLast > ExpectedIncrementDuration)
 				_Increment -= DefaultIncrement;
 			else
 				_Increment += DefaultIncrement;
 			_Increment = max(min(_Increment, 4096), 16);
-			TotalCreates += _Increment;
-			writefln("Creating %s new sockets. Total is now %s.", _Increment, TotalCreates);
+			TotalCreates += _Increment;			
 			for(size_t i = 0; i < _Increment; i++) {
 				socket_t sock = CreateSocket();
 				Sockets.Push(sock);

@@ -102,7 +102,7 @@
     <AssemblyName>ShardIO</AssemblyName>
     <BuildType>Library</BuildType>
     <GenerateDocumentation>True</GenerateDocumentation>
-    <OutputPath>bin\x86\Release</OutputPath>
+    <OutputPath>bin\x86\Debug</OutputPath>
     <OutputType>Lib</OutputType>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
