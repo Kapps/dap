@@ -1,4 +1,5 @@
 ﻿module ShardTools.NativeReference;
+private import core.memory;
 private import std.exception;
 private import std.container;
 
@@ -16,7 +17,7 @@ public static:
 			if(Objects is null)
 				Objects = new Collection();
 			Objects.insert(Obj);
-		}
+		}		
 	}
 	
 	/// Removes a single reference to the given object.
@@ -25,7 +26,7 @@ public static:
 	void RemoveReference(void* Obj) {
 		synchronized(typeid(NativeReference)) {
 			enforce(Objects !is null && Objects.removeKey(Obj) == 1, "The object to remove was not found.");
-		}
+		}		
 	}
 	
 private static:

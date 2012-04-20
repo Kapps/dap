@@ -14,6 +14,15 @@
     <Compile Include="ShardTools\ArrayOps.d">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ShardTools\AsyncAction.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\LocalMemoryCache.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\MemoryCache.d">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ShardTools\RecursiveRange.d">
       <SubType>Code</SubType>
     </Compile>
@@ -98,6 +107,9 @@
     <Compile Include="ShardTools\Reflection.d">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ShardTools\SharedMemoryCache.d">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ShardTools\SortedList.d">
       <SubType>Code</SubType>
     </Compile>
@@ -114,9 +126,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ShardTools\StringMap.d">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="ShardTools\ThreadPool.d">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ShardTools\TimeSpan.d">
@@ -170,7 +179,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
     <GenerateDocumentation>True</GenerateDocumentation>
-    <OutputPath>bin\x86\Release</OutputPath>
+    <OutputPath>bin\x86\Debug</OutputPath>
     <BuildType>Library</BuildType>
     <OutputType>Lib</OutputType>
     <LastBuilt>24/01/2012 3:58:25 AM</LastBuilt>

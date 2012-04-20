@@ -62,6 +62,7 @@ public:
 		return true;
 	}
 
+	/// Repeatedly pops values until the stack is empty, calling dg on them.
 	int opApply(int delegate(T) dg) {
 		int Result;
 		T Value;

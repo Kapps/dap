@@ -1,7 +1,7 @@
 module ShardTools.Event;
 private import ShardTools.List;
 
-/// Represents an event with no parameters besides the mandatory sender, and no return value.
+/// Represents an event with zero or more parameters, and optionally a return value.
 /// This class is thread safe.
 alias Event!(void) ActionEvent;
 

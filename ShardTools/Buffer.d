@@ -163,7 +163,8 @@ public:
 		assert(Split.length == 4);
 		assert(Split[0].Data.ptr == FirstBuffer._Data.ptr);
 		assert(Split[3].Data.ptr == FirstBuffer._Data.ptr + (2048 * 3));
-		map!"assert(a.Data.length == 2048)"(Split);
+		foreach(Buffer Buff; Split)
+			assert(Buff.Data.length == 2048);		
 
 		Buffer Second = new Buffer(8193);
 		Second.Write(new ubyte[8193]);

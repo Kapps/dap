@@ -46,6 +46,14 @@ public:
 		return Result;
 	}
 
+	void opOpAssign(string op)(T Value) if(op == "-" || op == "~") {
+		static if(op == "-")
+			Remove(Value);
+		else static if(op == "~")
+			Add(Value);
+		else static assert(0);
+	}
+
 	/// Appends the given value to the back of the list.
 	void Add(T Value) {
 		LinkedListNode Node = new LinkedListNode();
@@ -58,6 +66,19 @@ public:
 		Node._Value = Value;
 		_Count++;
 	}
+
+	/// Appends the given value to the front of the list.
+	void AddFront(T Value) {
+		LinkedListNode Node = new LinkedListNode();
+		Node._Previous = null;
+		if(_Head)
+			_Head._Previous = Node;
+		_Head = Node;
+		if(!_Tail)
+			_Tail = Node;
+		Node._Value = Value;
+		_Count++;
+	}	
 
 	/// Removes the given element from the list.
 	bool Remove(T Value) {
@@ -79,6 +100,7 @@ public:
 	}+/
 
 	/// Removes the given node from the list.
+	/// The node itself is not altered, thus this is safe to call from a loop.
 	void Remove(LinkedListNode Node) {
 		assert(GetNode(Node._Value) !is null, "Node was not part of this linked list.");
 		if(Node._Previous)
@@ -105,16 +127,21 @@ public:
 		/// Gets the node prior to this node.
 		@property LinkedListNode Previous() {
 			return _Previous;
-		}
+		}		
 
 		/// Gets the node following this node.
 		@property LinkedListNode Next() {
 			return _Next;
 		}
 
-		/// Gets the object contained by this node.
+		/// Gets or sets the object contained by this node.
 		@property T Value() {
 			return _Value;
+		}
+
+		/// Ditto
+		@property void Value(T Val) {
+			_Value = Val;
 		}
 
 		package T _Value;
