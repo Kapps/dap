@@ -1,4 +1,6 @@
 ﻿module ShardIO.IOAction;
+private import ShardTools.LinkedList;
+public import ShardTools.AsyncAction;
 private import ShardTools.ExceptionTools;
 private import std.datetime;
 private import ShardTools.NativeReference;
@@ -16,48 +18,24 @@ public import ShardIO.OutputSource;
 public import ShardIO.InputSource;
 import std.array;
 
-mixin(MakeException("TimeoutException", "An operation has timed out prior to completion."));
-
-/// Indicates whether an IOAction is complete and whether it was aborted or finished successfully.
-enum CompletionType {
-	Incomplete = 0,
-	Aborted = 1,
-	Successful = 2
-}
-
 /// Indicates an operation retrieving input from an InputSource and then outputting it to an OutputSource.
 /// All public methods in this class are thread-safe.
-class IOAction {
+class IOAction : AsyncAction {
 
 public:
 
-	alias Event!(void, IOAction, CompletionType) CompletionEvent;
-
 	/// Initializes a new instance of the IOAction object.
-	this(InputSource Input, OutputSource Output) {		
-		this._Status = CompletionType.Incomplete;
+	this(InputSource Input, OutputSource Output) {				
 		this._ChunkSize = DefaultChunkSize;
 		this._MaxChunks = DefaultMaxChunks;				
 		this._Input = Input;
 		this._Output = Output;		
+		this.Buffers = new LinkedList!(Buffer)();
 		// To allow setting IS/OS monitor to this action's.
-		new Mutex(this);		
+		new Mutex(this);				
 		Input.NotifyInitialize(this);
-		Output.NotifyInitialize(this);		
-	}
-
-	/// Notifies the given callback when the action is complete.
-	/// If the action is already complete, the callback is notified immediately and synchronously.	
-	final void NotifyOnComplete(void delegate(IOAction Action, CompletionType Type) Callback) {
-		synchronized(this) {
-			if(_Status == CompletionType.Incomplete) {
-				if(!_Completed)
-					_Completed = new CompletionEvent();
-				_Completed ~= Callback;
-			} else {
-				Callback(this, _Status);
-			}
-		}
+		Output.NotifyInitialize(this);
+		super();		
 	}
 
 	/// Gets the input for this action.
@@ -73,11 +51,6 @@ public:
 	/// Gets a value indicating whether this action has started being processed.
 	@property bool IsStarted() const {
 		return HasBegun;
-	}
-
-	/// Indicates the status of this operation.
-	final @property CompletionType CompletionStatus() const {
-		return _Status;
 	}
 
 	/// Gets or sets the default value for ChunkSize for new IOActions.
@@ -136,31 +109,8 @@ public:
 				_Manager = IOManager.Default;
 			HasBegun = true;			
 			ProcessIfNeeded();
-			NativeReference.AddReference(cast(void*)this);
 		}
-	}
-
-	/// Aborts the operation, preventing any new data being written (unless it has already begun being written).
-	/// Returns whether the operation was actually aborted (false if the operation was already complete or aborted previously).
-	bool Abort() {				
-		return AttemptFinish(CompletionType.Aborted);
-	}
-
-	/// Blocks the calling thread until this action completes. This has, at most, 1 millisecond precision.
-	/// Returns the way in which this action was completed.
-	/// Params:
-	/// 	Timeout = A duration after which to throw an exception if not yet complete.
-	CompletionType WaitForCompletion(Duration Timeout) {
-		// Called from: Non-Process Thread. Thread-safe: Yes.
-		SysTime Start = Clock.currTime();
-		while(_Status == CompletionType.Incomplete) {
-			Thread.sleep(dur!"msecs"(1));
-			SysTime Current = Clock.currTime();
-			if((Current - Start) > Timeout)
-				throw new TimeoutException();
-		}
-		return _Status;
-	}
+	}	
 
 	/// Gets or sets the IO Manager executing this action.
 	/// This value is only allowed to be set before Start is called.
@@ -203,7 +153,7 @@ package:
 			if(!HasBegun)
 				return;
 			WaitingOn &= ~DataOperation.Write;
-			if(Buffers.length == 0 && (WaitingOn & DataOperation.Read) == 0) {				
+			if(Buffers.Count == 0 && (WaitingOn & DataOperation.Read) == 0) {				
 				return; // We're just waiting for the input source to notify us we're ready.
 			}
 			ProcessIfNeeded();	
@@ -234,6 +184,13 @@ protected:
 			if(Data.length > 0)
 				BufferData(Data, Flags); // We already duplicated it.
 		}		
+	}	
+
+	/// Implement to handle the actual canceling of the action.	
+	override bool PerformAbort() {
+		if(!HasBegun)
+			return false;
+		return AttemptFinish(CompletionType.Aborted);
 	}
 	
 private:
@@ -241,15 +198,12 @@ private:
 	static __gshared size_t _DefaultMaxChunks = 4;
 
 	InputSource _Input;
-	OutputSource _Output;
-	CompletionType _Status;
-	CompletionEvent _Completed;
+	OutputSource _Output;		
 	
 	size_t _ChunkSize;
 	size_t _MaxChunks;	
 	
-	// TODO: Make this a linked-list.
-	Buffer[] Buffers;
+	LinkedList!(Buffer) Buffers;
 	bool HasBegun;
 	DataOperation WaitingOn;	
 	package bool InDataOperation;	
@@ -262,11 +216,6 @@ private:
 
 	bool AreBuffersFull() {
 		// Called from: Process Thread; automatically thread-safe.
-
-		/+ // TODO: Try to take into consideration data larger than BufferSize for MaxChunks.
-		// Aka, two chunks 50% larger than BufferSize should result in no more buffering when MaxChunks is three.	
-		// Do it in a fast way though, maybe cache it. Probaly doesn't need to be too fast though, we operate on chunks after all and it's only checked per-chunk.
-		return Buffers.length >= MaxChunks;		+/
 
 		// TODO: Consider optimizing. Probably not needed.
 		size_t ResultSize = 0;
@@ -284,7 +233,7 @@ private:
 		if((Flags & DataFlags.AllowStorage) && (Data.length > ChunkSize * 0.1f || Data.length > 2048))
 			Buffers ~= Buffer.FromExistingData(Data);
 		// Otherwise, we have to copy into an existing buffer.
-		else if(Buffers.length == 0) {
+		else if(Buffers.Count == 0) {
 			// Even if it was small, can still create a buffer in this case because no existing one.
 			if((Flags & DataFlags.AllowStorage))
 				Buffers ~= Buffer.FromExistingData(Data);
@@ -293,9 +242,9 @@ private:
 		} else if(Data.length > 0) {
 			// Lastly, we copy into an existing buffer.
 			// It's okay to make a large buffer, as we're forced to buffer all this data since we can't just tell the input source to put it back (and there would be no point in doing so).
-			ptrdiff_t AmountToCopy = min(ChunkSize - Buffers[$-1].Data.length, Data.length);
+			ptrdiff_t AmountToCopy = min(ChunkSize - Buffers.Tail.Value.Data.length, Data.length);
 			if(AmountToCopy > 0) { // It may be less than zero because of creating too large a buffer.
-				Buffers[$-1].Write(Data[0 .. AmountToCopy]);
+				Buffers.Tail.Value.Write(Data[0 .. AmountToCopy]);
 				Data = Data[AmountToCopy .. $];
 			}
 			// The data that remains all goes into a possibly larger-than-chunksize buffer.
@@ -306,7 +255,7 @@ private:
 
 	private void ProcessIfNeeded() {
 		// Called from: Non-Process Thread. Thread-safe: With Lock. Race Risk: None?
-		// Basically, we don't want to acutally manipulate the data in the main thread.
+		// Basically, we don't want to actually manipulate the data in the main thread.
 		// Instead, when we receive a notification that data is ready, we process the data in a worker thread.
 		// This means we're limited to a certain number of threads, but it's not too big a deal. Remember that they're only used when data is actually moved.
 		// When we're just waiting for data, we don't need to waste a worker thread for it.
@@ -315,7 +264,7 @@ private:
 		synchronized(this) {			
 			//debug writeln("PIF lock received");			
 			if(InDataOperation) {				
-				debug writeln("Returned because InDataOperation was true.");
+				//debug writeln("Returned because InDataOperation was true.");
 				return;
 			}
 			InDataOperation = true;
@@ -340,7 +289,7 @@ private:
 				Output.InvokeNotifyCompletion(&NotifyOutputComplete);
 			} else {
 				IsInputComplete = true;
-				if(Buffers.length == 0) {					
+				if(Buffers.Count == 0) {					
 					OutputCompletionCallbackState = CompletionType.Successful;
 					Output.InvokeNotifyCompletion(&NotifyOutputComplete);
 				}
@@ -374,8 +323,8 @@ private:
 		synchronized(this) {			
 			bool CheckCompletion() {
 				bool Result = false;
-				// We're complete when Output says we are, or when Input says we are and Output finishes.				
-				if(Buffers.length == 0 && IsInputComplete) {
+				// We're complete when Output says we are, or when Input says we are and Output finishes.								
+				if(Buffers.Count == 0 && IsInputComplete) {
 					if(OutputCompletionCallbackState == CompletionType.Incomplete) {
 						// Already processed this.
 						assert(CompleteOnBreakType == CompletionType.Incomplete);
@@ -387,8 +336,8 @@ private:
 				}				
 				if(CompleteOnBreakType != CompletionType.Incomplete) {
 					Result = true;
-					CompleteFinish(CompleteOnBreakType);
-				}
+					NotifyComplete(CompleteOnBreakType, null);
+				}				
 				return Result;
 			}
 			
@@ -396,7 +345,7 @@ private:
 				return !AreBuffersFull() && (WaitingOn & DataOperation.Read) == 0 && !IsInputComplete && CompleteOnBreakType == CompletionType.Incomplete;
 			}
 			bool CanWrite() {				
-				return Buffers.length > 0 && (WaitingOn & DataOperation.Write) == 0 && CompleteOnBreakType == CompletionType.Incomplete;				
+				return Buffers.Count > 0 && (WaitingOn & DataOperation.Write) == 0 && CompleteOnBreakType == CompletionType.Incomplete;				
 			}	
 			
 			scope(exit)
@@ -405,17 +354,20 @@ private:
 				while(CanRead() || CanWrite()) {
 					// Try to use buffers first as much as possible.				
 					while(CanWrite()) {					
-						ubyte[] BufferData = Buffers[0].Data;
+						ubyte[] BufferData = Buffers.Head.Value.Data;
 						size_t NumHandled;
-						DataRequestFlags Flags = Output.InvokeProcessNextChunk(BufferData, NumHandled);
-						if(NumHandled > 0) {							
+						DataRequestFlags Flags = Output.InvokeProcessNextChunk(BufferData, NumHandled);												
+						if(NumHandled > 0) {								
 							enforce(NumHandled <= BufferData.length);
 							BufferData = BufferData[NumHandled..$];								
 							if(BufferData.length == 0) {		
-								Buffers = (Buffers.length == 1 ? null : Buffers[1..$].dup);
+								if(Buffers.Count > 0)
+									Buffers.Remove(Buffers.Head);
+								//Buffers = (Buffers.length == 1 ? null : Buffers[1..$].dup);
 							} else {
 								Buffer Remaining = Buffer.FromExistingData(BufferData);
-								Buffers[0] = Remaining;
+								Buffers.Head.Value = Remaining;
+								//Buffers[0] = Remaining;
 							}					
 						} 
 						// 0 bytes handled; nothing to do here. So, just break. They probably should return Complete or Waiting, but not necessarily.
@@ -432,47 +384,36 @@ private:
 					// Otherwise, we do this to get more input. Then the input goes into DataReceived, which attempts to process as much as possible before buffering the rest.			
 					while(CanRead()) {				
 						DataRequestFlags Flags = Input.InvokeGetNextChunk(ChunkSize, &OnDataReceived);							
+						// TODO: What happens if the above is asynchronous, returns Complete, and thus we have nothing in the buffer and InputComplete is true, but have data incoming?
 						if(!ProcessFlags(Flags, DataOperation.Read))
 							break;
-					}					
-
-					if(CheckCompletion())
-						return;				
+					}
 				}	
+				if(CheckCompletion())
+						return;			
 			} catch (Throwable e) {
-				CompleteFinish(CompletionType.Aborted);
+				NotifyComplete(CompletionType.Aborted, cast(void*)e);				
 				throw e;
 			}					
 		}
 	}	
 
-	bool AttemptFinish(CompletionType Type) {
-		// TODO: See what happens if CompleteOnBreakType is set here. Nothing should really care much if it is..?
-		// But possibly subtle race conditions that will be difficult to spot.
-		// At the moment, if on the last loop of CanRead/Write, it will probably break.		
+	bool AttemptFinish(CompletionType Type) {	
 		synchronized(this) {
-			if(_Status != CompletionStatus.Incomplete)
+			if(Status != CompletionType.Incomplete)
 				return false;			
 			if(InDataOperation)			
 				CompleteOnBreakType = Type;
 			else
-				CompleteFinish(Type);
+				NotifyComplete(Type, null);
 			return true;
 		}
 	}
 
-	void CompleteFinish(CompletionType Type) {
-		synchronized(this) {
-			enforce(HasBegun, "Unable to finish an action that has not yet started.");
-			enforce(_Status == CompletionType.Incomplete);
-			enforce(Type == CompletionType.Successful || Type == CompletionType.Aborted);
-			_Status = Type;
-			if(_Completed) {
-				_Completed.Execute(this, Type);
-				_Completed = null; // Don't allow memory leaks by keeping this referenced.
-			}
-			CompleteOnBreakType = CompletionType.Incomplete;
-			NativeReference.RemoveReference(cast(void*)this);
-		}
+	/// Called when this action is completed.
+	protected override void OnComplete(CompletionType Status) {
+		enforce(HasBegun, "Unable to finish an action that has not yet started.");
+		CompleteOnBreakType = CompletionType.Incomplete;
+		super.OnComplete(Status);
 	}
 }

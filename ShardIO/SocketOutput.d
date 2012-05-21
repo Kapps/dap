@@ -1,4 +1,5 @@
 ﻿module ShardIO.SocketOutput;
+private import std.stdio;
 private import core.atomic;
 private import std.exception;
 public import ShardIO.AsyncSocket;
@@ -50,6 +51,8 @@ public:
 		}
 		BytesHandled = BytesSent;
 		atomicOp!("+=", size_t, int)(NumSent, 1);			
+		// debug writefln("Handled %s bytes for send number %s on SocketOutput.", BytesHandled, NumSent);
+		// TODO: Notify?
 		return DataRequestFlags.Continue | DataRequestFlags.Waiting;		
 	}
 

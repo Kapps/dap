@@ -117,7 +117,7 @@ private void RunTest(InputData InData, OutputData OutData) {
 		OutputSource Output = OutData.Callback();		
 		IOAction Action = new IOAction(Input, Output);
 		bool DoneVerifying = false;
-		Action.NotifyOnComplete(delegate(IOAction Acton, CompletionType Type) {
+		Action.NotifyOnComplete(null, delegate(void* Var, AsyncAction Acton, CompletionType Type) {
 			assert(Type == CompletionType.Successful, "The action did not complete successfully for " ~ typeid(Input).stringof ~ " and " ~ typeid(Output).stringof ~ " on run number " ~ to!string(i) ~ ".");
 			assert(OutData.Verifier(Action, SomeArray), "The action did not verify successfully for " ~ typeid(Input).stringof ~ " and " ~ typeid(Output).stringof ~ " on run number " ~ to!string(i) ~ ".");
 			DoneVerifying = true;

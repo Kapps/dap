@@ -1,4 +1,8 @@
 ﻿module ShardIO.AsyncSocket;
+private import core.stdc.errno;
+private import ShardIO.SelectNotifier;
+private import ShardTools.ConcurrentStack;
+private import core.atomic;
 private import std.typecons;
 private import ShardTools.LinkedList;
 private import ShardTools.ArrayOps;
@@ -9,6 +13,7 @@ private import ShardTools.NativeReference;
 private import ShardIO.AsyncFile;
 private import ShardIO.SocketPool;
 private import std.exception;
+private import ShardIO.SelectNotifier;
 public import std.socket;
 import std.c.stdlib;
 import std.c.string;
@@ -41,6 +46,8 @@ version(Windows) {
 		__gshared BOOL function(SOCKET, LPOVERLAPPED, DWORD, DWORD) DisconnectEx;
 	}		
 		
+} else {
+
 }
 
 /// Determines the state of a socket.
@@ -64,14 +71,12 @@ enum AsyncSocketHandler {
 	KQueue = 4
 }
 
-alias socket_t AsyncSocketHandle;
-
 /// Represents an asynchronous socket capable of accepting connections or connecting to a remote endpoint, then sending or receiving data.
 /// This socket does not perform any internal buffering of packets too large to be sent without being split.
 /// Some operations may not be asynchronous, and will be clearly marked as blocking in the documentation.
 /// Note that callbacks are not guaranteed to execute. If an error occurs (such as the connection is closed), the socket will be disconnected instead.
 /// In this situation, Disconnected will be called.
-/// Note that a bound AsyncSocket is not eligible for Garbage Collection until it is closed.
+/// Note that a bound AsyncSocket is not eligible for garbage collection until it is closed.
 class AsyncSocket {
 
 public:
@@ -85,8 +90,10 @@ public:
 	/// Indicates the controller being used for handling files.
 	version(Windows) {
 		enum AsyncSocketHandler Controller = AsyncSocketHandler.IOCP;
+		alias socket_t AsyncSocketHandle;
 	} else {
 		enum AsyncSocketHandler Controller = AsyncSocketHandler.Select;
+		alias socket_t AsyncSocketHandle;
 	}	
 	
 	/// Creates a new AsyncSocket capable of connecting to a remote endpoint or receiving an arbitrary number of connections.
@@ -162,17 +169,20 @@ public:
 			WSABUF* Buf = cast(WSABUF*)malloc(WSABUF.sizeof);
 			Buf.buf = cast(char*)Buffer.ptr;
 			Buf.len = Buffer.length;
-			OVERLAPPED* lpOverlap = CreateOperation(_Handle, &OnReceive, Callback, State, Buf);			
-			DWORD Flags = 0;
+			OVERLAPPED* lpOverlap = CreateOverlapOp(_Handle, &OnReceive, Callback, State, Buf);			
+			DWORD Flags = 0;			
 			if(WSARecv(cast(SOCKET)_Handle, Buf, 1, null, &Flags, lpOverlap, null) != 0) {
 				int LastErr = WSAGetLastError();
 				if(LastErr != ERROR_IO_PENDING) {
-					CancelOperation(lpOverlap);
+					CancelOverlap(lpOverlap);
 					OnSocketError("Unable to prepare to receive data", LastErr, false);
 				}
 			}
 					
-		} else static assert(0);		
+		} else static if(Controller == AsyncSocketHandler.Select) {
+			auto Op = CreateOperation(Callback, State, Buffer);
+			
+		} else static assert(0);
 	}
 
 	/// Sends the given data asynchronously. It is possible for the data to be split if the send buffer is full, or even for zero bytes to be sent.
@@ -194,13 +204,13 @@ public:
 			WSABUF* buf = cast(WSABUF*)malloc(WSABUF.sizeof);
 			buf.buf = cast(char*)Data.ptr;
 			buf.len = Data.length;
-			auto lpOverlap = CreateOperation(cast(HANDLE)_Handle, &OnSend, Callback, buf, State);			
+			auto lpOverlap = CreateOverlapOp(cast(HANDLE)_Handle, &OnSend, Callback, buf, State);			
 			size_t BytesSent;
 			int Result = WSASend(cast(SOCKET)_Handle, buf, 1, &BytesSent, 0, lpOverlap, null);
 			if(Result != 0) {
 				int LastErr = WSAGetLastError();
 				if(LastErr != ERROR_IO_PENDING) {
-					CancelOperation(lpOverlap);
+					CancelOverlap(lpOverlap);
 					free(buf);					
 					OnSocketError("Failed to send data over socket", LastErr, false);
 					return -1;
@@ -273,10 +283,11 @@ public:
 			_RemoteAddr = Addr;
 			_State = SocketState.Connecting;			
 		}					
-		auto Op = CreateOperation(_Handle, &OnConnect, Callback,  State, Addr);
+		auto Op = CreateOperation(Callback,  State, Addr);
 		static if(Controller == AsyncSocketHandler.IOCP) {
+			auto Overlap = WrapOverlap(_Handle, &OnConnect, Op);
 			EnsureConnectExPtr();			
-			if(ConnectEx(cast(SOCKET)_Handle, Addr.name(), cast(int)Addr.nameLen(), null, 0, null, Op) == 0) {
+			if(ConnectEx(cast(SOCKET)_Handle, Addr.name(), cast(int)Addr.nameLen(), null, 0, null, Overlap) == 0) {
 				int LastErr = WSAGetLastError();
 				if(LastErr != ERROR_IO_PENDING) {
 					CancelOperation(Op);
@@ -399,8 +410,17 @@ private:
 	bool IsDisposed;	
 	LinkedList!(DisconnectSubscriber*) DisconnectNotifiers;
 
+	static if(Controller == AsyncSocketHandler.Select) {
+		bool SendPending = false;
+		bool ReceivePending = false;
+		ConcurrentStack!SelectOperation SendQueue;
+		ConcurrentStack!SelectOperation ReceiveQueue;
+	}
+
 	void OnSocketError(string Message, int ErrorCode, bool Throw) {	
 		//Disconnect(Message, ErrorCode, null, null, false);
+		//debug static __gshared size_t NumErrors = 0;
+		//debug writefln("Got socket error number %s, with error code of %s and message of \'%s\'.", atomicOp!("+=", size_t, int)(NumErrors, 1), ErrorCode, Message);
 		NotifyDisconnect(Message, ErrorCode);
 		if(Throw)
 			throw new SocketOSException(Message, ErrorCode);
@@ -455,12 +475,12 @@ private:
 			}
 		}		
 		static if(Controller == AsyncSocketHandler.IOCP) {
-			OVERLAPPED* lpOverlap = CreateOperation(_Handle, &OnDisconnect, Callback, State, cast(ubyte[])Message.dup);			
+			OVERLAPPED* lpOverlap = CreateOverlapOp(_Handle, &OnDisconnect, Callback, State, cast(ubyte[])Message.dup);			
 			EnsureDisconnectExPtr();
 			if(DisconnectEx(cast(SOCKET)_Handle, lpOverlap, 0, 0) == 0) {
 				int Result = WSAGetLastError();
 				if(Result != ERROR_IO_PENDING)
-					CancelOperation(lpOverlap);					
+					CancelOverlap(lpOverlap);					
 				if(Result != ERROR_IO_PENDING && Callback) {					
 					if(Callback)
 						Callback(State, Message, ErrorCode);
@@ -522,11 +542,12 @@ private:
 		static if(Controller == AsyncSocketHandler.IOCP) {	
 			enum int BufferSize = 128;
 			ubyte[] InBuffer = cast(ubyte[])(malloc(BufferSize)[0 .. BufferSize]);
-			auto Overlap = CreateOperation(_Handle, &OnAccept, Callback, State, Sock, InBuffer);
+			//auto Overlap = CreateOperation(_Handle, &OnAccept, Callback, State, Sock, InBuffer);
+			auto Overlap = CreateOverlapOp(_Handle, &OnAccept, Callback, State, Sock, InBuffer);
 			if(AcceptEx(cast(SOCKET)_Handle, Sock, InBuffer.ptr, 0, BufferSize / 2, BufferSize / 2, null, Overlap) == 0) {				
 				int LastErr = WSAGetLastError();
 				if(LastErr != ERROR_IO_PENDING) {					
-					CancelOperation(Overlap);	
+					CancelOverlap(Overlap);	
 					free(InBuffer.ptr);									
 					OnSocketError("Unable to start accepting a connection", LastErr, false);
 					return;
@@ -560,7 +581,32 @@ private:
 			}
 			// Bad things will happen if we constantly queue more operations from a completion thread.
 			taskPool.put(task(&Accept, Op.State, Op.Callback));			
-		} else static assert(0);		
+		} else static if(Controller == AsyncSocketHandler.Select) {
+			Address Remote = CreateEmptyAddress(), Local = CreateEmptyAddress();
+			sockaddr* RemoteAddr = Remote.name(), LocalAddr = Local.name();
+			socklen_t RemoteLength, LocalLength;
+			socket_t SockDesc = accept(_Handle, RemoteAddr, &RemoteLength);
+			if(SockDesc != -1) {
+				if(RemoteLength > Remote.nameLen())
+					throw new SocketException("Remote address name length too long.");
+				AsyncSocket Sock = new AsyncSocket(this, SockDesc);
+				Sock._RemoteAddr = Remote;
+
+				if(Op.Callback)
+					Op.Callback(Op.State, Sock);
+				Sock._LocalAddr = Local;
+				if(getsockname(SockDesc, LocalAddr, &LocalLength) != 0)
+					throw new SocketOSException("Unable to get local address");
+				if(LocalLength > Local.nameLen())
+					throw new SocketException("Unable to get local address; name too long.");
+				memcpy(Local.name(), LocalAddr, LocalLength);
+				memcpy(Remote.name(), RemoteAddr, RemoteLength);
+			} else if(errno != EAGAIN) {
+				// TODO: Consider EWOULDBLOCK as well. Should be same though. Not portable. Not defined. 
+				throw new SocketOSException("Unable to accept a new socket");
+			}
+			Accept(Op.State, Op.Callback);
+		} else static assert(0);
 	}
 
 	private Address CreateEmptyAddress() {
@@ -574,41 +620,54 @@ private:
 		}	
 	}
 
-	private void OnSend(void* State, size_t ErrorCode, size_t BytesSent) {		
-		auto Op = UnwrapOperation!(SocketWriteCallbackDelegate, "Callback", WSABUF*, "Buffer", void*, "State")(State);
+	private void OnSend(void* State, size_t ErrorCode, size_t BytesSent) {				
 		static if(Controller == AsyncSocketHandler.IOCP) {			
+			auto Op = UnwrapOperation!(SocketWriteCallbackDelegate, "Callback", WSABUF*, "Buffer", void*, "State")(State);
 			ubyte[] OrigData = cast(ubyte[])Op.Buffer.buf[0 .. Op.Buffer.len];
 			if(OrigData.length != 0 && BytesSent == 0)
 				throw new SocketException("Attempted to send more bytes than possible. This is an internal error as it should have been split automatically.");			
 			free(Op.Buffer);			
-			if(ErrorCode != 0) {
-				OnSocketError("Error sending data to endpoint", ErrorCode, false);
-				return;
-			}
-			bool OperationComplete = OrigData.length == BytesSent;
-			if(OperationComplete && Op.Callback)
-				Op.Callback(Op.State, BytesSent);
-			else if(!OperationComplete) // We didn't finish; queue the remaining bytes, but in a different thread.
-				taskPool.put(task(&Send, OrigData[BytesSent .. $], Op.State, Op.Callback));				
-		} else static assert(0);
+		} else static if(Controller == AsyncSocketHandler.Select) {
+			auto Op = UnwrapOperation!(SocketWriteCallbackDelegate, "Callback", ubyte[], "Buffer", void*, "State")(State);			
+			ubyte[] OrigData = Op.Buffer;
+		} else static assert(0);		
+		if(ErrorCode != 0) {
+			OnSocketError("Error sending data to endpoint", ErrorCode, false);
+			return;
+		}
+		bool OperationComplete = OrigData.length == BytesSent;
+		if(OperationComplete && Op.Callback)
+			Op.Callback(Op.State, BytesSent);
+		else if(!OperationComplete) // We didn't finish; queue the remaining bytes, but in a different thread.
+			taskPool.put(task(&Send, OrigData[BytesSent .. $], Op.State, Op.Callback));						
 	}
 
-	private void OnReceive(void* State, size_t ErrorCode, size_t BytesRead) {		
+	private void OnReceive(void* State, size_t ErrorCode, size_t BytesRead) {				
 		auto Op = UnwrapOperation!(SocketReadCallbackDelegate, "Callback", void*, "State", WSABUF*, "Buffer")(State);		
+		if(ErrorCode != 0) {				
+			OnSocketError("Error receiving data from endpoint", ErrorCode, false);
+			return;
+		}
+		// TODO: Not sure if this should be here.
+		if(BytesRead == 0) {				
+			OnSocketError("The connection has been closed.", -1, false);
+			return;
+		}
 		static if(Controller == AsyncSocketHandler.IOCP) {			
 			ubyte[] ReceivedData = cast(ubyte[])Op.Buffer.buf[0 .. BytesRead];
-			free(Op.Buffer);
-			if(ErrorCode != 0) {				
-				OnSocketError("Error receiving data from endpoint", ErrorCode, false);
+			free(Op.Buffer);			
+		} else static if(Controller == AsyncSocketHandler.Select) {
+			int Read = recv(_Handle, Op.Buffer.ptr, Op.Buffer.length, 0);
+			if(Read == -1) {
+				OnSocketError("Error receiving data from endpoint.", errno, false);
 				return;
 			}
-			// TODO: Not sure if this should be here. Documentation indicates it should be though...
-			if(BytesRead == 0) {				
-				OnSocketError("The connection has been closed.", -1, false);
-				return;
-			}
-			Op.Callback(Op.State, ReceivedData);
-		}
+			BytesRead = Read;
+			ubyte[] ReceivedData = Op.Buffer[0 .. BytesRead];
+		} else static assert(0);
+		
+		assert(Op.Callback);
+		Op.Callback(Op.State, ReceivedData);
 	}
 
 	// IOCP and Windows specific methods.

@@ -1,4 +1,5 @@
 ﻿module ShardIO.StreamInput;
+private import std.stdio;
 private import std.traits;
 private import std.exception;
 private import ShardTools.BufferPool;

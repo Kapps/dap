@@ -1,4 +1,5 @@
 ﻿module ShardIO.AsyncFile;
+private import core.stdc.config;
 import std.stdio : write;
 private import core.stdc.errno;
 import std.stdio : writeln;
@@ -75,8 +76,6 @@ enum AsyncFileHandler {
 	KQueue = 3
 }
 
-alias void* AsyncFileHandle;
-
 alias void delegate(void* State) FileWriteCallbackDelegate;
 alias void delegate(void* State, ubyte[] Data) FileReadCallbackDelegate;
 
@@ -106,10 +105,16 @@ public:
 
 	/// Indicates the controller being used for handling files.
 	version(Windows) {
-		enum AsyncFileHandler Controller = AsyncFileHandler.IOCP;
+		enum AsyncFileHandler Controller = AsyncFileHandler.IOCP;		
 	} else {
 		enum AsyncFileHandler Controller = AsyncFileHandler.Basic;
 	}
+
+	static if(Controller == AsyncFileHandler.IOCP) {
+		alias HANDLE AsyncFileHandle;
+	} else static if(Controller == AsyncFileHandler.Basic) {
+		alias FILE* AsyncFileHandle;
+	} else static assert("Unknown controller.");
 
 	/// Indicates whether true asynchronous IO support is available, as opposed to synchronous operations in a new thread.
 	enum bool SupportsTrueAsync = Controller != AsyncFileHandler.Basic;
@@ -124,29 +129,45 @@ public:
 	/// The result of this function is undefined if there are writes pending.
 	@property ulong Size() {
 		enforce(IsOpen, "The file must be open to get the size of it.");
-		version(Windows) {
+		static if(Controller == AsyncFileHandler.IOCP) {
 			long SizeResult;			
-			int CallResult = GetFileSizeEx(cast(HANDLE)_Handle, &SizeResult);
+			int CallResult = GetFileSizeEx(_Handle, &SizeResult);
 			if(CallResult == 0)
 				throw new FileException("Unable to get the size of the file. Error code was " ~ to!string(GetLastError()) ~ ".");
 			return SizeResult;
-		} else static assert(0, "AsyncFile.Size is not yet implemented on non-Windows platforms.");
+		} else static if(Controller == AsyncFileHandler.Basic) {
+			void ThrowEx() {
+				throw new FileException("Unable to determine the size of the file. Error code " ~ to!string(errno) ~ ".");
+			}
+			long CurrPos = ftell(_Handle);						
+			if(CurrPos == -1)
+				ThrowEx();
+			if(fseek(_Handle, 0, SEEK_END) != 0)
+				ThrowEx();			
+			long Result = ftell(_Handle);
+			if(Result == -1)
+				ThrowEx();
+			if(fseek(_Handle, CurrPos, SEEK_SET) != 0)
+				ThrowEx();
+			return Result;
+		} else static assert(0);
 
 	}
 
 	/// Appends the given data to this file using asynchronous file IO.
 	/// Params:
-	/// 	Data = The data to append to the file.
+	/// 	Data = The data to append to the file. Must not be altered until the completion of this method.
 	/// 	State = A user-defined object to pass into callback. Can be null.
 	/// 	Callback = A callback to invoke upon completion. For best performance, this callback should be light-weight and not queue more data itself. It must be thread-safe.
 	void Append(ubyte[] Data, void* State, FileWriteCallbackDelegate Callback) {		
 		synchronized(this) {
 			enforce(IsOpen && !WaitingToClose, "Unable to write to a closed file.");
-			auto Op = CreateOperation(_Handle, &InitialWriteCallback, Callback, State);			
-			static if(Controller == AsyncFileHandler.IOCP) {																				
-				Op.Offset = 0xFFFFFFFF;
-				Op.OffsetHigh = 0xFFFFFFFF;
-				WriteFile(cast(HANDLE)this._Handle, Data.ptr, Data.length, null, Op);
+			auto Op = CreateOperation(Callback, State, Data);
+			static if(Controller == AsyncFileHandler.IOCP) {		
+				OVERLAPPED* Overlap = WrapOverlap(_Handle, &InitialReadCallback, Op);																		
+				Overlap.Offset = 0xFFFFFFFF;
+				Overlap.OffsetHigh = 0xFFFFFFFF;
+				WriteFile(cast(HANDLE)this._Handle, Data.ptr, Data.length, null, Overlap);
 			} else static if(Controller == AsyncFileHandler.Basic) {				
 				// Fall back to synchronous IO in a new thread.
 				taskPool.put(task(&PerformWriteSync, cast(void*)Op));
@@ -164,11 +185,14 @@ public:
 	void Read(ubyte[] Buffer, ulong Offset, void* State, FileReadCallbackDelegate Callback) {
 		synchronized(this) {
 			enforce(IsOpen && !WaitingToClose, "Unable to read from a closed file.");
-			auto Op = CreateOperation(_Handle, &InitialReadCallback, Callback, State, Buffer);			
+			auto Op = CreateOperation(Callback, State, Buffer);			
 			static if(Controller == AsyncFileHandler.IOCP) {				
-				Op.Offset = cast(uint)(Offset >>> 0);
-				Op.OffsetHigh = cast(uint)(Offset >>> 32);				
-				ReadFile(cast(HANDLE)this._Handle, Buffer.ptr, Buffer.length, null, Op);
+				OVERLAPPED* Overlap = WrapOverlap(_Handle, &InitialReadCallback, Op);
+				Overlap.Offset = cast(uint)(Offset >>> 0);
+				Overlap.OffsetHigh = cast(uint)(Offset >>> 32);				
+				ReadFile(cast(HANDLE)this._Handle, Buffer.ptr, Buffer.length, null, Overlap);
+			} else static if(Controller == AsyncFileHandler.Basic) {
+				taskPool.put(task(&PerformReadSync, cast(void*)Op));
 			} else static assert(0);
 		}
 	}
@@ -214,34 +238,49 @@ private:
 	bool IsOpen;
 	bool WaitingToClose;
 
-	void InitialReadCallback(void* State, size_t ErrorCode, size_t BytesRead) {		
-		auto Op = UnwrapOperation!(FileReadCallbackDelegate, "Callback", void*, "State", ubyte[], "Data")(State);		
-		ubyte[] Data = Op.Data[0 .. BytesRead];
-		if(Op.Callback)
-			Op.Callback(Op.State, Data);
+	static if(Controller == AsyncFileHandler.IOCP) {
+		void InitialReadCallback(void* State, size_t ErrorCode, size_t BytesRead) {		
+			auto Op = UnwrapOperation!(FileReadCallbackDelegate, "Callback", void*, "State", ubyte[], "Data")(State);		
+			ubyte[] Data = Op.Data[0 .. BytesRead];
+			if(Op.Callback)
+				Op.Callback(Op.State, Data);
+		}
+	
+		void InitialWriteCallback(void* State, size_t ErrorCode, size_t BytesRead) {		
+			auto Op = UnwrapOperation!(FileWriteCallbackDelegate, "Callback", void*, "State", ubyte[], "Data")(State);		
+			if(Op.Callback)
+				Op.Callback(Op.State);
+		}	
 	}
 	
-	void InitialWriteCallback(void* State, size_t ErrorCode, size_t BytesRead) {		
-		auto Op = UnwrapOperation!(FileWriteCallbackDelegate, "Callback", void*, "State", ubyte[], "Data")(State);		
-		if(Op.Callback)
-			Op.Callback(Op.State);
-	}	
-	
-	version(None) void PerformWriteSync(void* State) {			
-		QueuedOperation!FileWriteCallbackDelegate* Op = cast(QueuedOperation!FileWriteCallbackDelegate*)State;
-		scope(exit)
-			NativeReference.RemoveReference(Op);
-		FILE* File = cast(FILE*)_Handle;
-		size_t Result = fwrite(Op.Data.ptr, 1, Op.Data.length, File);							
-		if(Result != Op.Data.length) {			
-			string msg = "Writing to the file failed. Returned " ~ to!string(Result) ~ " when " ~ to!string(Op.Data.length) ~ " bytes were requested. Error: " ~ to!string(errno) ~ ".";
-			perror(null);
-			debug writeln(msg);
-			throw new FileException(msg);
+	static if(Controller == AsyncFileHandler.Basic) {
+		void PerformWriteSync(void* State) {					
+			synchronized(this) {
+				auto Op = UnwrapOperation!(FileWriteCallbackDelegate, "Callback", void*, "State", ubyte[], "Data")(State);		
+				size_t Result = fwrite(Op.Data.ptr, 1, Op.Data.length, _Handle);
+				if(Result != Op.Data.length)
+					throw new FileException("Writing to the file failed. Returned " ~ to!string(Result) ~ " when " ~ to!string(Op.Data.length) ~ " bytes were requested. Error: " ~ to!string(errno) ~ ".");		
+				fflush(_Handle);
+				if(Op.Callback)
+					Op.Callback(State);
+			}
+		}	
+
+		void PerformReadSync(ubyte[] Buffer, ulong Offset, void* State) {
+			synchronized(this) {
+				auto Op = UnwrapOperation!(FileReadCallbackDelegate, "Callback", void*, "State", ubyte[], "Data")(State);
+				if(fseek(_Handle, Offset, SEEK_SET) != 0)
+					throw new FileException("Unable to seek to perform a read. Error code " ~ to!string(errno) ~ ".");
+				size_t BytesRead = fread(Buffer.ptr, 1, Buffer.length, _Handle);
+				if(BytesRead != Buffer.length) {
+					if(feof(_Handle) == 0) // Not EOF, thus error.
+						throw new FileException("Unable to read the requested number of bytes due to an error. Error code " ~ to!string(errno) ~ ".");
+				}
+				Buffer = Buffer[0 .. BytesRead];
+				assert(Op.Callback);
+				Op.Callback(Op.State, Buffer);
+			}
 		}
-		fflush(File);		
-		if(Op.Callback)
-			Op.Callback(State);
 	}
 
 	void PerformClose() {		
@@ -253,7 +292,9 @@ private:
 				throw new FileException(msg);
 			}
 		} else static if(Controller == AsyncFileHandler.Basic) {
-			int Result = fclose(cast(FILE*)_Handle);			
+			int Result = fclose(_Handle);			
+			if(Result != 0)
+				throw new FileException("Unable to close the file. Received error code " ~ to!string(errno) ~ ".");
 			//perror(null);
 			//enforce(Result == 0, "Attempting to close the file returned error code " ~ to!string(Result) ~ ".");			
 		} else
@@ -311,9 +352,9 @@ private:
 				}
 			}
 			IOCP.RegisterHandle(Handle);
-			return cast(AsyncFileHandle)Handle;
+			return Handle;
 		}
-	} else {
+	} else static if(Controller == AsyncFileHandler.Basic) {
 		AsyncFileHandle CreateHandle(string FilePath, FileAccessMode Access, FileOpenMode OpenMode, FileOperationsHint Hint) {			
 			string Flags = "";
 			final switch(Access) {
@@ -335,20 +376,20 @@ private:
 					if(OpenMode == FileOpenMode.CreateNew && exists(FilePath))
 						ThrowAlreadyExists(FilePath);
 					if(OpenMode != FileOpenMode.CreateNew && OpenMode != FileOpenMode.CreateOrReplace && OpenMode != FileOpenMode.OpenOrCreate)
-						throw new FileException("Writing to a file, even with Read set as well, is only allowed with the mdoes CreateOrReplace, CreateNew, or OpenOrCreate.");
+						throw new FileException("Writing to a file, even with Read set as well, is only allowed with the modes CreateOrReplace, CreateNew, or OpenOrCreate.");
 					Flags ~= "a+";					
 			}		
 			Flags ~= "b";
 			FILE* Handle = fopen(toStringz(FilePath), toStringz(Flags));
 			if(Handle is null) {
-				string msg = "Opening the file at " ~ FilePath ~ " failed. No additional info is available.";
+				string msg = "Opening the file at " ~ FilePath ~ " failed. Error code " ~ to!string(errno) ~ ".";
 				debug writeln(msg);
 				perror(null);
 				throw new FileException(msg);
 			}
-			return cast(AsyncFileHandle)Handle;
+			return Handle;
 		}
-	}
+	} else static assert(0);
 
 	private void ThrowNotFound(string FilePath) {
 		throw new FileNotFoundException("The file at " ~ FilePath ~ " was not found.");

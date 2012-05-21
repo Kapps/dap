@@ -52,7 +52,11 @@ protected:
 		this.__monitor = Action.__monitor;
 		synchronized(this)
 			this._Action = Action;
-		Action.NotifyOnComplete(&OnComplete);
+		Action.NotifyOnComplete(null, &OnCompleteInternal);
+	}
+
+	private void OnCompleteInternal(void* State, AsyncAction Action, CompletionType Type) {
+		OnComplete(cast(IOAction)Action, Type);
 	}
 
 	/// Occurs when the action completes for whatever reason.

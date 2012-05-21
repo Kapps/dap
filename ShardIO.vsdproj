@@ -17,6 +17,9 @@
     <Compile Include="ShardIO\CallbackOutput.d">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ShardIO\ChainedInput.d">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ShardIO\ChainedOutput.d">
       <SubType>Code</SubType>
     </Compile>
@@ -44,6 +47,9 @@
     <Compile Include="ShardIO\InputSource.d">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ShardIO\Internals.d">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ShardIO\IOAction.d">
       <SubType>Code</SubType>
     </Compile>
@@ -60,6 +66,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ShardIO\OutputSource.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardIO\SelectNotifier.d">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ShardIO\SocketInput.d">
@@ -102,7 +111,7 @@
     <AssemblyName>ShardIO</AssemblyName>
     <BuildType>Library</BuildType>
     <GenerateDocumentation>True</GenerateDocumentation>
-    <OutputPath>bin\x86\Debug</OutputPath>
+    <OutputPath>bin\x86\Release</OutputPath>
     <OutputType>Lib</OutputType>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">x86</Platform>

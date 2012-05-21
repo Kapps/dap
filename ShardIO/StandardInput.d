@@ -51,14 +51,14 @@ public:
 	/// Any DataSources that require access to the IOAction they are part of should use this to do so.
 	protected override void Initialize(IOAction Action) {
 		super.Initialize(Action);
-		Action.NotifyOnComplete(&OnActionComplete);
+		Action.NotifyOnComplete(null, &OnActionComplete);
 	}
 	
 private:
 	Buffer BufferedData;
 	bool IsComplete = false;
 
-	void OnActionComplete(IOAction Action, CompletionType Type) {
+	void OnActionComplete(void* State, AsyncAction Action, CompletionType Type) {
 		IsComplete = true;
 	}
 

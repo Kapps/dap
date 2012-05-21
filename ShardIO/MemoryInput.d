@@ -1,4 +1,5 @@
 ﻿module ShardIO.MemoryInput;
+private import std.stdio;
 private import std.parallelism;
 private import std.algorithm;
 
@@ -29,8 +30,8 @@ public:
 		// We already have it all in memory, may as well let the IOAction buffer it all.
 		DataFlags Flags = ForceCopy ? DataFlags.None : DataFlags.AllowStorage;		
 		Callback(this.Raw, Flags);
-		// Make sure this doesn't try to keep it in memory once IOAction is done with it.
-		this.Raw = null;		
+		// Make sure this doesn't try to keep it in memory once IOAction is done with it.		
+		this.Raw = null;				
 		return DataRequestFlags.Complete;		
 	}
 	

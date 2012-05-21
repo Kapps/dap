@@ -1,4 +1,5 @@
 ﻿module ShardIO.IOCP;
+private import std.parallelism;
 private import std.socket;
 private import std.typecons;
 private import ShardTools.NativeReference;
@@ -11,6 +12,7 @@ private import std.exception;
 import core.stdc.stdlib;
 import core.stdc.string;
 import std.c.windows.winsock;
+public import ShardIO.Internals;
 
 version(Windows){		
 	extern(Windows) {		
@@ -32,15 +34,13 @@ version(Windows){
 		return Result;
 	}
 
-	alias void delegate(void* UserData, size_t ErrorCode, size_t BytesSent) IOCPCallbackDelegate;
-
 	/// Provides the implementation of OVERLAPPED that should be used for operations used by handles registered with the IOCP class.
 	/// This struct should never have instances created manually; instead, use CreateOverlap.
 	/// For a more cross platform approach, use CreateOperation intead.
 	public struct OVERLAPPEDExtended {
 		OVERLAPPED Overlap;	
 		void* UserData;
-		IOCPCallbackDelegate Callback;
+		AsyncIOCallback Callback;
 		HANDLE Handle;	
 	}	
 
@@ -50,47 +50,36 @@ version(Windows){
 	/// 	UserData = Any user-defined data to store. It is passed into the callback. IMPORTANT: It must have at least one reference until the end of the callback!
 	/// 	Handle = The handle for the object the operation is being performed on.
 	///		Callback = A callback to invoke upon completion.
-	OVERLAPPED* CreateOverlap(void* UserData, HANDLE Handle, IOCPCallbackDelegate Callback) {		
+	OVERLAPPED* CreateOverlap(void* UserData, HANDLE Handle, AsyncIOCallback Callback) {		
 		OVERLAPPEDExtended* Result = cast(OVERLAPPEDExtended*)malloc(OVERLAPPEDExtended.sizeof);	
 		memset(&Result.Overlap, 0, OVERLAPPED.sizeof);
 		Result.UserData = UserData;
 		Result.Handle = Handle;	
 		Result.Callback = Callback;		
 		return cast(OVERLAPPED*)cast(void*)Result;
+	}
+
+	/// Creates an OVERLAPPED* using CreateOverlap with an operation created by CreateOperation.
+	/// The result must be freed with UnwrapOperation (with the passed in state to the IOCP call) or CancelOverlap.
+	OVERLAPPED* CreateOverlapOp(T...)(T Params) {
+		static assert(is(T[0] == socket_t) || is(T[0] == HANDLE), "First argument to CreateOverlapOp must be the handle.");
+		static assert(is(T[1] == AsyncIOCallback), "Second argument must be an AsyncIOCallback.");
+		auto Op = CreateOperation(Params[2..$]);
+		return CreateOverlap(cast(void*)Op, cast(HANDLE)Params[0], Params[1]);
+	}
+	
+	/// Creates an overlap wrapping a tuple returned by CreateOperation.
+	OVERLAPPED* WrapOverlap(T, U)(T Handle, AsyncIOCallback Callback, U* Params) {		
+		static assert(is(T == socket_t) || is(T == HANDLE), "Handle must be a socket_t or HANDLE.");
+		static assert(isTuple!U, "Params must be a tuple.");
+		return CreateOverlap(cast(void*)Params, cast(HANDLE)Handle, Callback);
 	}	
 
-	/// Creates a structure that stores information for asynchronous operations.
-	/// Information contains a garbage collector reference internally until UnwrapOperation or CancelOperation are called.
-	/// Not calling UnwrapOoperation will result in memory leaks.
-	/// The return type is dependent on the controller used. For example, IOCP returns an OVERLAPPED[Extended]* to be passed in to IOCP calls.
-	//auto CreateOperation(T...)(HANDLE Handle, IOCPCallbackDelegate InternalCallback, T Params) {
-	auto CreateOperation(T...)(T Params) {
-		HANDLE Handle;
-		static if(is(T[0] == socket_t))
-			Handle = cast(void*)Params[0];
-		else
-			Handle = Params[0];
-		IOCPCallbackDelegate InternalCallback = Params[1];		
-		auto State = new Tuple!(T[2..$])(Params[2..$]);		
-		NativeReference.AddReference(cast(void*)State);		
-		OVERLAPPED* lpOverlap = CreateOverlap(cast(void*)State, cast(HANDLE)Handle, InternalCallback);
-		return lpOverlap;
-	}
-
-	/// Unwraps an operation created with CreateOperation, returning state info.
-	/// Even though CreateOperation does not take a named tuple, giving the tuple argument names is allowed and will work.
-	Tuple!(T)* UnwrapOperation(T...)(void* QueuedOp) {		
-		Tuple!(T)* Params = cast(Tuple!(T)*)QueuedOp;
-		NativeReference.RemoveReference(Params);				
-		return Params;
-	}
-
-	/// Removes any garbage collected references that are created internally by CreateOperation, on an overlapped structure returned by it.
-	void CancelOperation(OVERLAPPED* Overlap) {
+	/// Cancels an operation created by CreateOverlapOp.
+	void CancelOverlap(OVERLAPPED* Overlap) {
 		OVERLAPPEDExtended* Ex = cast(OVERLAPPEDExtended*)Overlap;
-		NativeReference.RemoveReference(Ex.UserData);
+		CancelOperation(Ex.UserData);
 	}
-
 
 	/// Provides a wrapper around Windows' IO Completion Ports.
 	/// This class uses the default ThreadPool's IOCP instance, and thus is limited to a single instance.
@@ -122,14 +111,15 @@ version(Windows){
 			synchronized {
 				if(!IsRegisteredWithRuntime) {
 					thread_attachThis();
-					IsRegisteredWithRuntime = true;
-					//writefln("Registered thread %s with runtime.", Thread.getThis().name);
+					IsRegisteredWithRuntime = true;										
 				}
 			}
 		}
 		OVERLAPPEDExtended* Extended = cast(OVERLAPPEDExtended*)cast(void*)lpOverlapped;		
 		void* State = Extended.UserData;		
-		Extended.Callback(State, dwError, cbTransfered);
+		AsyncIOCallback Callback = Extended.Callback;
+		taskPool.put(task(Callback, State, dwError, cbTransfered));
+		//Extended.Callback(State, dwError, cbTransfered);
 		free(Extended);
 	}
 }
