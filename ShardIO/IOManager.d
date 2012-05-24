@@ -1,4 +1,5 @@
 ﻿module ShardIO.IOManager;
+private import std.algorithm;
 private import std.stdio;
 private import std.exception;
 private import ShardIO.IOAction;
@@ -10,11 +11,12 @@ class IOManager  {
 
 public:
 	/// Initializes a new instance of the IOManager object.
-	this(size_t NumWorkers = 0) {
-		//NumWorkers = 16;		
+	/// Params:
+	///		NumWorkers = The number of threads to process data when available. The default value is half the number of cores.
+	this(size_t NumWorkers = 0) {			
 		//debug NumWorkers = 1;
 		if(NumWorkers == 0)
-			Pool = new TaskPool();
+			Pool = new TaskPool(max(totalCPUs / 2, 1));
 		else
 			Pool = new TaskPool(NumWorkers);		
 		Pool.isDaemon = false; // Make sure all IO operations complete prior to the program ending.			
