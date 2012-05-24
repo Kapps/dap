@@ -25,7 +25,7 @@ enum CompletionType {
 
 mixin(MakeException("TimeoutException", "An operation has timed out prior to completion."));
 
-/// Provides information about an action executed asynchronously.
+/// Provides information about an action that executes asynchronously.
 abstract class AsyncAction  {
 
 public:
@@ -49,10 +49,21 @@ public:
 		return true;
 	}
 
+	/// Indicates whether this action is complete, whether successful or aborted.
+	@property bool IsComplete() const {
+		return this.Status == CompletionType.Successful;
+	}
+
 	/// Gets or sets the amount of time that an action can run before timing out.
 	/// If CanTimeout is false, this will return zero.
+	/// If set to zero, indicates no timeout occurs.
 	@property Duration TimeoutTime() const {
 		return _TimeoutDuration;
+	}
+
+	/// Ditto
+	@property void TimeoutTime(Duration Value) {
+		_TimeoutDuration = Value;
 	}
 
 	/// Indicates when this action was started.
@@ -68,6 +79,17 @@ public:
 	/// Indicates the status of this operation.
 	@property CompletionType Status() const {
 		return _Status;
+	}
+
+	/// Gets the result of the completion for this command.
+	/// The type of the data is unknown, but is generally what the synchronous version would return, or an instance of Throwable.
+	/// Accessing this property before the action is complete will result in an InvalidOperationException being thrown.
+	@property void* CompletionData() {
+		synchronized(this) {
+			if(Status == CompletionType.Incomplete)
+				throw new InvalidOperationException("Unable to access completion data prior to the action being complete.");
+			return _CompletionData;
+		}
 	}
 
 	/// Invokes the given callback when this action is complete or aborted.
@@ -88,6 +110,8 @@ public:
 	/// Attempts to cancel this operation, either synchronously or asynchronously.
 	/// Because this may be executed asynchronously, it is possible that the action will complete prior to being cancelled.
 	/// If this is the case, the cancel operation will effectively do nothing.	
+	/// It is also possible that this simply notifies the operation that it should no longer continue after the next step.
+	/// As such, it may not immediately abort.
 	/// Returns:
 	/// 	Whether the action was successfully aborted; false if the action was already complete.
 	bool Abort() {
@@ -100,17 +124,34 @@ public:
 		}
 	}
 
-	/// Blocks the calling thread until this action completes. This has, at most, 1 millisecond precision.
+	/// Blocks the calling thread until this action completes.
 	/// Returns the way in which this action was completed.
 	/// Params:
 	/// 	Timeout = A duration after which to throw an exception if not yet complete.
-	CompletionType WaitForCompletion(Duration Timeout) {
+	CompletionType WaitForCompletion(Duration Timeout = dur!"msecs"(0)) {
 		SysTime Start = Clock.currTime();
-		while(_Status == CompletionType.Incomplete) {
-			Thread.sleep(dur!"msecs"(1));
+		bool TimesOut = Timeout > dur!"msecs"(0);
+		while(_Status == CompletionType.Incomplete) {						
 			SysTime Current = Clock.currTime();
-			if((Current - Start) > Timeout)
+			if(TimesOut && (Current - Start) > Timeout)
 				throw new TimeoutException();
+			else if((Current - Start) > dur!"msecs"(2)) {
+				// Basically, we don't want to waste a huge amount of CPU time, but at the same time we want faster than 1 MS precision.
+				// We can't do faster than 1MS precision for sleeps however, so what we do is first not sleep at all.
+				// Then, after 2 milliseconds, we can assume the precision isn't a huge deal, so sleep for 1 MS at a time.
+				// Update: This is probably a bad idea. So, we'll try for sub-ms precision at the start; it works on Linux in theory!
+				Thread.sleep(dur!"msecs"(1));
+			}
+			Thread.sleep(dur!"usecs"(100));
+			//Thread.yield();
+			// TODO: We can significantly increase performance by using a Fiber here.
+			// Basically, we use WaitForCompletion to wrap a fiber that does the actual work.
+			// This fiber then gets added to a list in a different static class.
+			// This list then goes through each of the actions and calls the Fiber again when ready.
+			// Of course, that might not work at all...
+			// And by might, I really mean won't.
+			// Most importantly because the point would be to allow the thread to do some other work, but that's not possible because the thread is blocking anyways.
+			// If we had a FiberPool, it could yield and do something from that pool instead, but we don't.
 		}
 		return _Status;
 	}
@@ -118,7 +159,7 @@ public:
 protected:
 	
 	/// Implement to handle the actual cancellation of the action.
-	/// If an action does not support cancellation, CanCancel should return false, and this method should throw an error.
+	/// If an action does not support cancellation, CanAbort should return false, and this method should throw an error.
 	abstract bool PerformAbort();
 
 	/// Called when this action is completed.
@@ -131,11 +172,12 @@ protected:
 	}
 	
 	/// Notifies this AsyncAction that the operation was completed.
-	void NotifyComplete(CompletionType Status) {
+	void NotifyComplete(CompletionType Status, void* CompletionData) {
 		synchronized(this) {
-			enforce(this.Status == CompletionType.Incomplete);
+			enforce(!IsComplete);
 			enforce(Status == CompletionType.Successful || Status == CompletionType.Aborted);
-			this._Status = Status;				
+			this._Status = Status;		
+			this._CompletionData = CompletionData;		
 			NativeReference.RemoveReference(cast(void*)this);
 			OnComplete(Status);
 		}
@@ -146,6 +188,7 @@ private:
 	Duration _TimeoutDuration;
 	Tuple!(void*, "State", CompletionCallback, "Callback")[] CompletionSubscribers;
 	SysTime _StartTime;
+	void* _CompletionData;
 }
 
 private class ActionManager {

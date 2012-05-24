@@ -4,7 +4,7 @@ import std.exception;
 mixin(MakeException("InvalidOperationException", "The performed operation was considered invalid for the present state."));
 mixin(MakeException("NotSupportedException", "The operation being performed was not supported."));
 
-string MakeException(string ExceptionName, string ExceptionDetails) {
+string MakeException(string ExceptionName, string ExceptionDetails, string Base = "Exception") {
 	//const char[] MakeException = 
 	return
 		"public class " ~ ExceptionName ~ " : Exception {

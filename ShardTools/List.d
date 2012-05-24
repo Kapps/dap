@@ -25,7 +25,7 @@ public:
 	///	Params:
 	///		Index = The index to remove the element at.
 	void RemoveAt(size_t Index) {
-		//debug assert(Index >= 0 && Index < _Elements.length,  "List out of bounds. Index " ~ to!string(Index) ~ ".");		
+		//assert(Index >= 0 && Index < _Elements.length,  "List out of bounds. Index " ~ to!string(Index) ~ ".");		
 		for(size_t i = Index; i < Count - 1; i++)
 			_Elements[i] = _Elements[i + 1];
 		_Elements.length = _Elements.length - 1;		
@@ -35,7 +35,7 @@ public:
 	/// Params:
 	///		Index = The zero-based index to get the element at.
 	T At(size_t Index) {
-		debug assert(Index >= 0 && Index < _Elements.length, "List out of bounds. Index " ~ to!string(Index) ~ ".");
+		assert(Index >= 0 && Index < _Elements.length, "List out of bounds. Index " ~ to!string(Index) ~ ".");
 		return _Elements[Index];
 	}
 
@@ -44,7 +44,7 @@ public:
 	///		Index = The zero-based index to set the element at.
 	///		Value = The value to set the element to.
 	void Set(size_t Index, T Value) {
-		debug assert(Index >= 0 && Index < _Elements.length,  "List out of bounds. Index " ~ to!string(Index) ~ ".");
+		assert(Index >= 0 && Index < _Elements.length,  "List out of bounds. Index " ~ to!string(Index) ~ ".");
 		_Elements[Index] = Value;
 	}
 	

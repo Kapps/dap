@@ -17,10 +17,16 @@
     <Compile Include="ShardTools\AsyncAction.d">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ShardTools\AsyncIterator.d">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ShardTools\LocalMemoryCache.d">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ShardTools\MemoryCache.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\Noise.d">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ShardTools\RecursiveRange.d">
@@ -128,6 +134,9 @@
     <Compile Include="ShardTools\StringMap.d">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ShardTools\StringMatcher.d">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ShardTools\TimeSpan.d">
       <SubType>Code</SubType>
     </Compile>
@@ -165,13 +174,6 @@
   <ItemGroup>
     <Folder Include="ShardTools\" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\ShardMath\ShardMath.vsdproj">
-      <Name>ShardMath</Name>
-      <Project>{e7f11097-01cb-46f8-bdfa-077747169bbf}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{b4b4a7d7-80ca-4a81-875d-406c1952562a}</ProjectGuid>
     <AssemblyName>ShardTools</AssemblyName>
@@ -179,7 +181,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
     <GenerateDocumentation>True</GenerateDocumentation>
-    <OutputPath>bin\x86\Debug</OutputPath>
+    <OutputPath>bin\x86\Release</OutputPath>
     <BuildType>Library</BuildType>
     <OutputType>Lib</OutputType>
     <LastBuilt>24/01/2012 3:58:25 AM</LastBuilt>

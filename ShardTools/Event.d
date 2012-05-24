@@ -22,6 +22,8 @@ class Event(RetValue, Params...) {
 	 *	Params = The parameters for the callback.
 	*/
 	static if(!is(RetValue == void)) {
+		//TD: Remove lock. Use a concurrent singly linkde list instead.
+		// Just duplicating inside a lock is slower...
 		RetValue[] Execute(Params Parameters) {
 			synchronized(this) {
 				if(!HasSubscribers)
@@ -43,6 +45,26 @@ class Event(RetValue, Params...) {
 			}
 		}
 	}
+	/*
+	* 	  	Select!(is(RetValue == void), void, RetValue[]) Execute(Params Parameters) {		
+		// TODO: Use a threadsafe linked list for this.		
+		CallbackType[] Pointers;
+		synchronized(this)
+			Pointers = this.Callbacks.Elements.dup;					
+		static if(!is(RetValue == void)) {
+			if(Pointers.length == 0)
+				return null;
+			RetValue[] Result = new RetValue[Pointers.length];
+			for(size_t i = 0; i < Pointers.length; i++)
+				Result[i] = Pointers[i](Parameters);
+			return Result;					
+		} else {
+			if(Pointers.length == 0)
+				return;
+			foreach(CallbackType Pointer; Pointers)
+				Pointer(Parameters);
+		}		
+	}*/
 			
 	/**
 	 * Adds the specified callback to the collection.

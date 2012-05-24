@@ -136,6 +136,35 @@ void WhileTrue(alias Action, Collection)(Collection Range) if(is(typeof(unaryFun
 			break;		
 }
 
+/// Lazily iterates over all of the elements in Range that can be explicitly converted to type T.
+/// Because this allows casting, ref is not allowed.
+/// Params:
+/// 	T = The type of the element to cast to.
+/// 	Range = The underlying range to get the elements from.
+/// 	CollectionType = The type of the range.
+auto OfType(T, CollectionType)(CollectionType Range) {
+	struct Result {		
+		@property bool empty() {
+			return Input.empty;
+		}
+
+		void popFront() {
+			Input.popFront();
+		}		
+
+		@property auto front() {
+			return cast(T)Input.front;
+		}
+
+		this(CollectionType Input) {
+			this.Input = Where!(c=>cast(T)c !is null)(Input);
+		}
+
+		private typeof(Where!(c=>cast(T)c !is null)(Range)) Input;
+	}
+	return Result(Range);
+}
+
 /// Returns all of the elements in Range that evaluate to true for Condition.
 /// Params:
 /// 	Condition = The condition to evaluate for each element, with each element being called "a".
