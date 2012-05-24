@@ -48,14 +48,14 @@ struct Rectangle(T) {
 	}	
 
 	/// Returns an empty rectangle.
-	static Rectangle!(T) Empty() {
+	@property static Rectangle!(T) Empty() {
 		return Rectangle!(T)(0, 0, 0, 0);
 	}
 	
 	/// Determines how this Rectangle contains the specified Rectangle.
 	/// BUG: This method is not fully implemented yet.
 	@disable
-	const ContainmentType Contains(const ref Rectangle!(T) other) const {
+	ContainmentType Contains(const ref Rectangle!(T) other) const {
 		if(X >= other.X || Y >= other.Y)
 			return ContainmentType.Disjoints;
 		if(Right >= other.Right && Bottom >= other.Bottom)
@@ -64,27 +64,27 @@ struct Rectangle(T) {
 	}	
 	
 	/// Determines whether this Rectangle contains the specified point.
-	const bool Contains(const ref Point point) const {
+	bool Contains(in Point point) const {
 		return X <= point.X && point.X <= (X + Width) && Y <= point.Y && point.Y <= (Y + Height);
 	}
 	
 	/// Returns a Point containing the position of this Rectangle.
-	const Point Position() const {
+	@property Point Position() const {
 		return Point(X, Y);
 	}	
 	
 	/// Returns a Point containing the size of this Rectangle.
-	const Point Size() const {
+	@property Point Size() const {
 		return Point(Width, Height);
 	}
 	
 	/// Returns the right-most coordinate in this rectangle.
-	const T Right() {
+	@property T Right() const {
 		return X + Width;
 	}
 	
 	/// Returns the bottom-most coordinate in this Rectangle.
-	const T Bottom() {
+	@property T Bottom() const {
 		return Y + Height;		
 	}
 

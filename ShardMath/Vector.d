@@ -205,6 +205,12 @@ public:
 		Result.AddInline(other);
 		return Result;		
 	}
+
+	Vector!(N, T) opAdd(T Scalar) {
+		Vector!(N, T) Result = this;
+		mixin(ScalarBinaryMixin("Result", "Scalar", "+"));
+		return Result;
+	}
 	
 	/// Implements the subtraction operator.
 	Vector!(N, T) opSub(Vector!(N, T) other) const {
@@ -222,13 +228,12 @@ public:
 	
 	/// Implements the divide operator.
 	Vector!(N, T) opDiv(Vector!(N, T) other) const {		
-		Vector!(N, T) Result = this;
-		import core.simd;		
+		Vector!(N, T) Result = this;			
 		Result.DivideInline(other);
 		return Result;
 	}		
 
-	Vector opBinary(string Op)(in T Scalar) const {
+	Vector opBinary(string Op)(T Scalar) {
 		Vector Result = this;
 		mixin(ScalarBinaryMixin("Result", "Scalar", Op));
 		return Result;
@@ -615,16 +620,22 @@ unittest {
 alias Vector!(4, float) Vector4f;
 alias Vector!(4, double) Vector4d;
 alias Vector!(4, int) Vector4i;
+alias Vector!(4, size_t) Vector4t;
+alias Vector!(4, ptrdiff_t) Vector4p;
 //alias Vector!(4, bool) Vector4b;
 
 alias Vector!(3, float) Vector3f;
 alias Vector!(3, double) Vector3d;
 alias Vector!(3, int) Vector3i;
+alias Vector!(3, size_t) Vector3t;
+alias Vector!(3, ptrdiff_t) Vector3p;
 //alias Vector!(3, bool) Vector3b;
 
 alias Vector!(2, float) Vector2f;
 alias Vector!(2, double) Vector2d;
 alias Vector!(2, int) Vector2i;
+alias Vector!(2, size_t) Vector2t;
+alias Vector!(2, ptrdiff_t) Vector2p;
 //alias Vector!(2, bool) Vector2b;
 
 version(Windows)
