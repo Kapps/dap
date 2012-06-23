@@ -97,6 +97,11 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\ShardData\ShardData.vsdproj">
+      <Name>ShardData</Name>
+      <Project>{2974127b-1bdf-4ec9-9a84-59e6d20b4b33}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\ShardTools\ShardTools.vsdproj">
       <Name>ShardTools</Name>
       <Project>{b4b4a7d7-80ca-4a81-875d-406c1952562a}</Project>
@@ -110,8 +115,8 @@
     <ProjectGuid>{5ecd4884-a66f-40f5-9f8e-a08f72b72bab}</ProjectGuid>
     <AssemblyName>ShardIO</AssemblyName>
     <BuildType>Library</BuildType>
-    <GenerateDocumentation>True</GenerateDocumentation>
-    <OutputPath>bin\x86\Release</OutputPath>
+    <GenerateDocumentation>False</GenerateDocumentation>
+    <OutputPath>bin\x86\Debug</OutputPath>
     <OutputType>Lib</OutputType>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
@@ -120,7 +125,7 @@
     <RootNamespace>ShardIO</RootNamespace>
     <SkipLibraryStage>True</SkipLibraryStage>
     <DefaultImports />
-    <LastBuilt>29/01/2012 2:49:45 AM</LastBuilt>
+    <LastBuilt>06/06/2012 9:52:58 PM</LastBuilt>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <OptimizeCode>False</OptimizeCode>

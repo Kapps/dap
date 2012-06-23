@@ -30,12 +30,10 @@ public:
 	/// Params:
 	///		Chunk = The chunk to attempt to process.
 	///		BytesHandled = The actual number of bytes that were able to be handled.
-	override DataRequestFlags ProcessNextChunk(ubyte[] Chunk, out size_t BytesHandled) {
-		synchronized(this) {
-			_Callback(_State, Chunk);
-			BytesHandled = Chunk.length;
-			return DataRequestFlags.Continue;
-		}
+	override DataRequestFlags ProcessNextChunk(ubyte[] Chunk, out size_t BytesHandled) {		
+		_Callback(_State, Chunk);
+		BytesHandled = Chunk.length;
+		return DataRequestFlags.Continue;		
 	}
 	
 private:

@@ -119,6 +119,7 @@ version(Windows){
 		void* State = Extended.UserData;		
 		AsyncIOCallback Callback = Extended.Callback;
 		taskPool.put(task(Callback, State, dwError, cbTransfered));
+		//Callback(State, dwError, cbTransfered);
 		//Extended.Callback(State, dwError, cbTransfered);
 		free(Extended);
 	}

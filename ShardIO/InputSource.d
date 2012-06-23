@@ -39,11 +39,9 @@ protected:
 	abstract DataRequestFlags GetNextChunk(size_t RequestedSize, scope void delegate(ubyte[], DataFlags) Callback);
 
 	/// Notifies the IOAction owning this InputSource that there is some data ready to be written.
-	final void NotifyDataReady() {
-		synchronized(this) {
-			if(Action) // If not, we're ready prior to a call to Start, so it's fine anyways.
-				Action.NotifyInputReady();
-		}
+	final void NotifyDataReady() {		
+		if(Action) // If not, we're ready prior to a call to Start, so it's fine anyways.
+			Action.NotifyInputReady();		
 	}
 
 	/// Notifies the IOAction that there is data available that must be processed immediately.

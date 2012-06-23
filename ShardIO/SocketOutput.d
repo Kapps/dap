@@ -1,4 +1,5 @@
 ﻿module ShardIO.SocketOutput;
+private import core.sync.mutex;
 private import std.stdio;
 private import core.atomic;
 private import std.exception;
@@ -14,16 +15,17 @@ public:
 	/// Initializes a new instance of the SocketOutput object.	
 	this(AsyncSocket Socket) {		
 		this._Socket = Socket;
+		this.StateLock = new Mutex();
 		enforce(_Socket.IsAlive(), "The socket for a SocketOutput must be alive and connected.");
 		_Socket.RegisterNotifyDisconnected(cast(void*)Socket, &OnDisconnect);
 	}
 
 	version(D_Ddoc) {
-		static assert(0, "Due to bug 5930, this module may not be compiled with -D.");		
+		//static assert(0, "Due to bug 5930, this module may not be compiled with -D.");		
 	}
 
 	void OnDisconnect(void* State, string Reason, int ErrorCode) {
-		synchronized(this) {			
+		synchronized(StateLock) {			
 			if(!IsComplete)
 				Action.Abort();
 		}
@@ -80,18 +82,25 @@ private:
 	size_t NumReceived;
 	void delegate() CompletionCallback;
 	bool IsComplete = false;
+	Mutex StateLock;
 
 	bool AttemptCompletion() {
-		synchronized(this) {
+		bool InvokeCallback = false;
+		bool RetVal;
+		synchronized(StateLock) {
 			if(NumSent == NumReceived && CompletionCallback !is null) {			
 				if(!IsComplete) {
 					IsComplete = true;
-					CompletionCallback();			
+					InvokeCallback = true;
+					//CompletionCallback();			
 				}
-				return true;
+				RetVal = true;
 			}
-			return false;		
+			RetVal = false;		
 		}
+		if(InvokeCallback)
+			CompletionCallback(); // Do this outside a lock.
+		return RetVal;
 	}
 
 	void OnWriteComplete(void* State, size_t BytesSent) {		

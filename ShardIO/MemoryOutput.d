@@ -17,6 +17,7 @@ public:
 
 	/// Gets the data that is currently filled in.
 	/// Once the operation is completed successfully, this will contain all the data passed in.
+	/// Ownership of this data belongs to the input source.
 	@property ubyte[] Data() {
 		if(buffer is null)
 			return null;

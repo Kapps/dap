@@ -190,7 +190,7 @@ public:
 				OVERLAPPED* Overlap = WrapOverlap(_Handle, &InitialReadCallback, Op);
 				Overlap.Offset = cast(uint)(Offset >>> 0);
 				Overlap.OffsetHigh = cast(uint)(Offset >>> 32);				
-				ReadFile(cast(HANDLE)this._Handle, Buffer.ptr, Buffer.length, null, Overlap);
+				ReadFile(cast(HANDLE)this._Handle, Buffer.ptr, cast(uint)Buffer.length, null, Overlap);
 			} else static if(Controller == AsyncFileHandler.Basic) {
 				taskPool.put(task(&PerformReadSync, cast(void*)Op));
 			} else static assert(0);
@@ -304,11 +304,11 @@ private:
 	static if(Controller == AsyncFileHandler.IOCP) {
 		AsyncFileHandle CreateHandle(string FilePath, FileAccessMode Access, FileOpenMode OpenMode, FileOperationsHint Hint) {
 			const char* FilePathPtr = toStringz(FilePath);
-			size_t AccessFlags = Access == FileAccessMode.Read ? GENERIC_READ : (Access == FileAccessMode.Write ? GENERIC_WRITE : GENERIC_READ | GENERIC_WRITE);
-			size_t ShareMode = 0;
+			DWORD AccessFlags = Access == FileAccessMode.Read ? GENERIC_READ : (Access == FileAccessMode.Write ? GENERIC_WRITE : GENERIC_READ | GENERIC_WRITE);
+			DWORD ShareMode = 0;
 			if(AccessFlags == GENERIC_READ)
 				ShareMode = FILE_SHARE_READ;
-			size_t CreateDisp;
+			DWORD CreateDisp;
 			final switch(OpenMode) {
 				case FileOpenMode.CreateNew:
 					CreateDisp = CREATE_NEW;
@@ -324,7 +324,7 @@ private:
 					break;
 			}
 			// TODO: Enable NoBuffering support. Requires annoying things to do so, and need to look more into where it's actually a benefit.
-			size_t Flags = FILE_FLAG_OVERLAPPED;
+			DWORD Flags = FILE_FLAG_OVERLAPPED;
 			if(Hint == FileOperationsHint.RandomAccess)
 				Flags |= FILE_FLAG_RANDOM_ACCESS;
 			else if(Hint == FileOperationsHint.Sequential && Access == FileAccessMode.Read)
@@ -332,7 +332,7 @@ private:
 
 			HANDLE Handle = CreateFileA(FilePathPtr, AccessFlags, ShareMode, null, CreateDisp, Flags, null);
 			if(Handle == INVALID_HANDLE_VALUE) {
-				size_t LastErr = GetLastError();
+				DWORD LastErr = GetLastError();
 				switch(LastErr) {
 					case ERROR_FILE_NOT_FOUND:
 						ThrowNotFound(FilePath);

@@ -48,11 +48,11 @@ protected:
 
 	/// Called to initialize the DataSource after the action is set.
 	/// Any DataSources that require access to the IOAction they are part of should use this to do so.
-	void Initialize(IOAction Action) {				
-		this.__monitor = Action.__monitor;
-		synchronized(this)
+	void Initialize(IOAction Action) {	
+		synchronized(this) {		
 			this._Action = Action;
-		Action.NotifyOnComplete(null, &OnCompleteInternal);
+			Action.NotifyOnComplete(null, &OnCompleteInternal);
+		}
 	}
 
 	private void OnCompleteInternal(void* State, AsyncAction Action, CompletionType Type) {

@@ -16,7 +16,7 @@ public:
 	this(ubyte[] Raw, bool ForceCopy = false) {		
 		this.Raw = Raw;
 		this.ForceCopy = ForceCopy;
-	}	
+	}	 
 
 	/// Called by the IOAction after this InputSource notifies it is ready to have input received.
 	/// The InputSource should have roughly RequestedSize bytes ready and then invoke Callback with the available data.

@@ -123,12 +123,35 @@ public:
 		IOCP.RegisterHandle(cast(HANDLE)_Handle);		
 	}
 
+	/// Gets the current state of the socket.
+	/// This is zero, one, or more of the bits in the SocketState enum.
+	/// This is accurate as of the last operation explicitly invoked that changes state.
+	@property SocketState State() const {		
+		return _State;
+	}
+
+	/// Gets the Address of the remote or local endpoint for this socket.
+	/// Though this call is synchronous, the provider attempts to cache them from an accept, bind, or connect whenever possible.
+	@property Address RemoteAddress() {
+		return _RemoteAddr;
+	}
+
+	/// Ditto
+	@property Address LocalAddress() {
+		return _LocalAddr;
+	}
+
+	/// Gets the handle of the socket being used.
+	@property AsyncSocketHandle Handle() const {		
+		return _Handle;
+	}
+
 	/// Adds or removes a callback to be invoked upon the first disconnect of this socket.
 	/// A socket is disconnected either when Disconnect is called, or when an error occurs.
 	/// Because errors leave sockets in an undefined state, it is assumed to be disconnected after all errors.
 	/// If the error did not leave it disconnected, it will be automatically disconnected.
 	void RegisterNotifyDisconnected(void* State, SocketCloseNotificationCallback Callback) {
-		synchronized(this){
+		synchronized(this) {
 			EnforceDisposed();
 			foreach(ref Sub; DisconnectNotifiers)
 				if(Sub.Callback == Callback)
@@ -143,6 +166,8 @@ public:
 	/// Ditto
 	void RemoveNotifyDisconnected(SocketCloseNotificationCallback Callback) {
 		synchronized(this) {
+			if(!DisconnectNotifiers)
+				return;
 			foreach(ref Sub, Node; DisconnectNotifiers) {
 				if(Sub.Callback == Callback) {
 					DisconnectNotifiers.Remove(Node);
@@ -220,48 +245,28 @@ public:
 		} else static assert(0);		
 	}
 
-	/// Gets the current state of the socket.
-	/// This is zero, one, or more of the bits in the SocketState enum.
-	/// This is accurate as of the last operation explicitly invoked that changes state.
-	@property SocketState State() const {		
-		return _State;
-	}
-
-	/// Gets the Address of the remote or local endpoint for this socket.
-	/// Though this call is synchronous, the provider attempts to cache them from an accept, bind, or connect whenever possible.
-	@property Address RemoteAddress() {
-		return _RemoteAddr;
-	}
-
-	/// Ditto
-	@property Address LocalAddress() {
-		return _LocalAddr;
-	}
-
 	/// Begins listening for connections to this socket, invoking Callback upon receiving one.
 	/// This operation is not asynchronous, and instead blocks.
-	void Listen(int Backlog = 128) {		
-		synchronized(this){			
-			EnforceDisposed();
-			if(listen(cast(SOCKET)_Handle, Backlog) == SOCKET_ERROR)
-				HandleSocketException();			
-			_State = SocketState.Listening;
-		}
+	void Listen(int Backlog = 128) {				
+		EnforceDisposed();
+		if(!cas(cast(shared)&_State, cast(shared)SocketState.Bound, cast(shared)SocketState.Listening))
+			throw new SocketException("The socket must have Bind called upon it in order to start listening.");
+		if(listen(cast(SOCKET)_Handle, Backlog) == SOCKET_ERROR)
+			HandleSocketException();		
 	}
 
 	/// Binds this socket to the given address.
 	/// This operation is not asynchronous, and instead blocks.
 	/// Params:
 	/// 	Addr = The address to bind to.
-	void Bind(Address Addr) {		
-		synchronized(this) {			
-			EnforceDisposed();					
-			if(bind(cast(SOCKET)_Handle, Addr.name(), Addr.nameLen()) == SOCKET_ERROR)			
-				HandleSocketException();
-			_LocalAddr = Addr;
-			_State = SocketState.Bound;		
-			NativeReference.AddReference(cast(void*)this); // Don't want this garbage collected if bound.
-		}
+	void Bind(Address Addr) {				
+		EnforceDisposed();
+		if(!cas(cast(shared)&_State, cast(shared)SocketState.Disconnected, cast(shared)SocketState.Bound))
+			throw new SocketException("The socket must not have been bound yet in order to call Bind.");
+		if(bind(cast(SOCKET)_Handle, Addr.name(), Addr.nameLen()) == SOCKET_ERROR)
+			HandleSocketException();
+		_LocalAddr = Addr;			
+		NativeReference.AddReference(cast(void*)this); // Don't want this garbage collected if bound.		
 	}
 
 	/// Connects to the given address, invoking Callback when ready.
@@ -296,11 +301,6 @@ public:
 			}					
 		} else static assert(0);		
 	}	
-
-	/// Gets the handle of the socket being used.
-	@property AsyncSocketHandle Handle() const {		
-		return _Handle;
-	}
 
 	/// Sets the given socket option to the given value.
 	/// Params:
@@ -386,6 +386,7 @@ public:
 
 protected:
 	void SetHandle(AsyncSocketHandle Handle) {
+		EnforceDisposed();
 		if(Handle == socket_t.init || cast(int)Handle == SOCKET_ERROR) {
 			int LastErr = WSAGetLastError();
 			throw new SocketOSException("Failed to create the socket", LastErr);
@@ -496,22 +497,18 @@ private:
 			throw new SocketException("Attempted to access a disposed socket.");				
 	}
 
-	void NotifyDisconnect(string Reason, int Code) {
-		synchronized(this){
-			if(IsDisposed)
-				return;			
-			IsDisposed = true;
-			//_RemoteAddr = null;
-			//_LocalAddr = null;
-			_State = SocketState.Disconnected;		
-			NativeReference.RemoveReference(cast(void*)this);						
-			foreach(sub; DisconnectNotifiers)
-				sub.Callback(sub.State, Reason, Code);						
-			shutdown(_Handle, 2);
-			Pool.Release(_Handle);			
-			_Handle = AsyncSocketHandle.init;
-			DisconnectNotifiers = null;
-		}
+	void NotifyDisconnect(string Reason, int Code) {	
+		if(!cas(cast(shared)&IsDisposed, cast(shared)false, cast(shared)true))
+			return;							
+		// TODO: Consider what happens when doing things like a send/receive operation that checks disposed originally, passes, then this occurs.
+		_State = SocketState.Disconnected;		
+		NativeReference.RemoveReference(cast(void*)this);								
+		foreach(sub; DisconnectNotifiers)
+			sub.Callback(sub.State, Reason, Code);				
+		this.DisconnectNotifiers = null;
+		shutdown(_Handle, 2);
+		Pool.Release(_Handle);			
+		_Handle = AsyncSocketHandle.init;					
 	}
 
 	void OnDisconnect(void* State, size_t ErrorCode, size_t Unused) {		

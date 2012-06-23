@@ -12,11 +12,12 @@ class IOManager  {
 public:
 	/// Initializes a new instance of the IOManager object.
 	/// Params:
-	///		NumWorkers = The number of threads to process data when available. The default value is half the number of cores.
+	///		NumWorkers = The number of threads to process data when available. A value of zero sets a safe value related to the number of cpus / threads.
 	this(size_t NumWorkers = 0) {			
+		//NumWorkers = 16;
 		//debug NumWorkers = 1;
 		if(NumWorkers == 0)
-			Pool = new TaskPool(max(totalCPUs / 2, 1));
+			Pool = new TaskPool(max(defaultPoolThreads / 1, 1));
 		else
 			Pool = new TaskPool(NumWorkers);		
 		Pool.isDaemon = false; // Make sure all IO operations complete prior to the program ending.			
