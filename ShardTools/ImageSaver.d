@@ -31,12 +31,12 @@
 * of this file under the terms of either the MPL or the GPL.
 *
 * ***** END LICENSE BLOCK ***** */
-
 // LICENSE NOTE:
 // The above license is due to the savePNG function. If you replace the function, the license will not apply.
 module ShardTools.ImageSaver;
 
 import ShardTools.Color;
+//import std.hash.crc32;
 import crc32;
 import core.atomic;
 import core.bitop;
@@ -63,9 +63,12 @@ public:
 			char[4] type;
 			const(void)[] data;
 			uint crc32() {
-				uint crc = strcrc32(type);
-				foreach (ubyte v; cast(ubyte[])data)
+				//uint crc = rangeToCRC32(cast(ubyte[])type[]);
+				uint crc = strcrc32(type[]);
+				foreach (ubyte v; cast(ubyte[])data) {
+					//crc = updateCRC32(crc, v);
 					crc = update_crc32(v, crc);
+				}
 				return ~crc;
 			}
 

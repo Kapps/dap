@@ -1,4 +1,5 @@
 ﻿module ShardTools.AsyncAction;
+private import core.atomic;
 private import std.functional;
 private import std.range;
 private import std.stdio;
@@ -37,6 +38,7 @@ public:
 		NativeReference.AddReference(cast(void*)this);
 		_TimeoutDuration = dur!"hnsecs"(0);
 		_StartTime = Clock.currTime();
+		StateLock = new Mutex();
 	}
 
 	/// Indicates whether this action will ever time out if not completed within TimeoutTime.
@@ -51,7 +53,7 @@ public:
 
 	/// Indicates whether this action is complete, whether successful or aborted.
 	@property bool IsComplete() const {
-		return this.Status == CompletionType.Successful;
+		return this.Status != CompletionType.Incomplete;
 	}
 
 	/// Gets or sets the amount of time that an action can run before timing out.
@@ -84,12 +86,10 @@ public:
 	/// Gets the result of the completion for this command.
 	/// The type of the data is unknown, but is generally what the synchronous version would return, or an instance of Throwable.
 	/// Accessing this property before the action is complete will result in an InvalidOperationException being thrown.
-	@property void* CompletionData() {
-		synchronized(this) {
-			if(Status == CompletionType.Incomplete)
-				throw new InvalidOperationException("Unable to access completion data prior to the action being complete.");
-			return _CompletionData;
-		}
+	@property void* CompletionData() {		
+		if(Status == CompletionType.Incomplete)
+			throw new InvalidOperationException("Unable to access completion data prior to the action being complete.");
+		return _CompletionData;		
 	}
 
 	/// Invokes the given callback when this action is complete or aborted.
@@ -98,13 +98,16 @@ public:
 	/// 	State = A user-defined value to pass in to Callback.
 	/// 	Callback = The callback to invoke.
 	void NotifyOnComplete(void* State, CompletionCallback Callback) {
-		synchronized(this) {
-			if(_Status == CompletionType.Incomplete) {
+		bool InvokeImmediately = false;
+		synchronized(StateLock) {
+			if(!IsComplete)
 				CompletionSubscribers ~= cast(typeof(CompletionSubscribers[0]))tuple(State, Callback);
-			} else {
-				Callback(State, this, _Status);
-			}
+			else
+				InvokeImmediately = true;						
 		}
+		// Callback gets invoked outside lock.
+		if(InvokeImmediately)
+			Callback(State, this, _Status);
 	}
 
 	/// Attempts to cancel this operation, either synchronously or asynchronously.
@@ -115,13 +118,15 @@ public:
 	/// Returns:
 	/// 	Whether the action was successfully aborted; false if the action was already complete.
 	bool Abort() {
-		synchronized(this) {
+		// TODO: Important to remove this lock.
+		// TODO: Remove it in a way that actually makes sense. -_-
+		//synchronized(StateLock) {
 			if(!CanAbort)
 				throw new NotSupportedException("Attempted to abort an AsyncAction that does not support the Abort operation.");
 			if(Status != CompletionType.Incomplete)
 				return false;			
 			return PerformAbort();
-		}
+		//}
 	}
 
 	/// Blocks the calling thread until this action completes.
@@ -135,14 +140,15 @@ public:
 			SysTime Current = Clock.currTime();
 			if(TimesOut && (Current - Start) > Timeout)
 				throw new TimeoutException();
-			else if((Current - Start) > dur!"msecs"(2)) {
+			/+else if((Current - Start) > dur!"msecs"(2)) {
 				// Basically, we don't want to waste a huge amount of CPU time, but at the same time we want faster than 1 MS precision.
 				// We can't do faster than 1MS precision for sleeps however, so what we do is first not sleep at all.
 				// Then, after 2 milliseconds, we can assume the precision isn't a huge deal, so sleep for 1 MS at a time.
 				// Update: This is probably a bad idea. So, we'll try for sub-ms precision at the start; it works on Linux in theory!
 				Thread.sleep(dur!"msecs"(1));
 			}
-			Thread.sleep(dur!"usecs"(100));
+			Thread.sleep(dur!"usecs"(100));+/
+			Thread.sleep(dur!"msecs"(1));
 			//Thread.yield();
 			// TODO: We can significantly increase performance by using a Fiber here.
 			// Basically, we use WaitForCompletion to wrap a fiber that does the actual work.
@@ -164,31 +170,34 @@ protected:
 
 	/// Called when this action is completed.
 	void OnComplete(CompletionType Status) {
-		synchronized(this) {
-			foreach(ref Subscriber; CompletionSubscribers) {
-				Subscriber.Callback(Subscriber.State, this, Status);
-			}
-		}
+		// No need to lock here; our status is set to complete, so adding a subscriber will be invoked immediately, not added to the list.		
+		foreach(ref Subscriber; CompletionSubscribers) {
+			Subscriber.Callback(Subscriber.State, this, Status);
+		}			
+		CompletionSubscribers = null; // Prevent any references causing memory leaks.		
 	}
 	
 	/// Notifies this AsyncAction that the operation was completed.
 	void NotifyComplete(CompletionType Status, void* CompletionData) {
-		synchronized(this) {
-			enforce(!IsComplete);
-			enforce(Status == CompletionType.Successful || Status == CompletionType.Aborted);
-			this._Status = Status;		
-			this._CompletionData = CompletionData;		
-			NativeReference.RemoveReference(cast(void*)this);
-			OnComplete(Status);
-		}
+		enforce(Status == CompletionType.Successful || Status == CompletionType.Aborted);
+		// Lock here for adding subscribers.
+		synchronized(StateLock) {
+			if(IsComplete)
+				throw new InvalidOperationException("The action was already in a completed state.");
+			this._Status = Status;
+			this._CompletionData = CompletionData;
+		}		
+		NativeReference.RemoveReference(cast(void*)this);
+		OnComplete(Status);		
 	}
 
 private:
 	CompletionType _Status;
 	Duration _TimeoutDuration;
-	Tuple!(void*, "State", CompletionCallback, "Callback")[] CompletionSubscribers;
+	Tuple!(void*, "State", CompletionCallback, "Callback")[] CompletionSubscribers;	
 	SysTime _StartTime;
 	void* _CompletionData;
+	Mutex StateLock;
 }
 
 private class ActionManager {

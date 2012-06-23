@@ -1,4 +1,8 @@
 module ShardTools.Event;
+private import core.memory;
+private import ShardTools.BufferPool;
+private import ShardTools.Buffer;
+private import std.traits;
 private import ShardTools.List;
 
 /// Represents an event with zero or more parameters, and optionally a return value.
@@ -21,7 +25,7 @@ class Event(RetValue, Params...) {
 	 *	sender = The object invoking this callback.
 	 *	Params = The parameters for the callback.
 	*/
-	static if(!is(RetValue == void)) {
+	/+static if(!is(RetValue == void)) {
 		//TD: Remove lock. Use a concurrent singly linkde list instead.
 		// Just duplicating inside a lock is slower...
 		RetValue[] Execute(Params Parameters) {
@@ -44,27 +48,39 @@ class Event(RetValue, Params...) {
 					dg(Parameters);
 			}
 		}
-	}
-	/*
-	* 	  	Select!(is(RetValue == void), void, RetValue[]) Execute(Params Parameters) {		
-		// TODO: Use a threadsafe linked list for this.		
+	}+/
+
+	Select!(is(RetValue == void), void, RetValue[]) Execute(Params Parameters) {		
+		// Fun! Turns out, doing this is actually creating a huge amount of garbage.
+		// So... we are going to use a whole lot of manual memory management and hacks.
+		// This could all be solved by a thread-safe singly linked list... but that's more complicated and may not solve the issue really.
 		CallbackType[] Pointers;
-		synchronized(this)
-			Pointers = this.Callbacks.Elements.dup;					
+		Buffer PointerBuffer = BufferPool.Global.Acquire(this.Callbacks.Count * CallbackType.sizeof);
+		//GC.disable(); // Because our buffers are not scanned for pointers, we disable the garbage collector until we do the callback...
+		scope(exit) { 
+			BufferPool.Global.Release(PointerBuffer);
+			//GC.enable();
+		}
+		synchronized(this) {			
+			foreach(ref CallbackType Callback; this.Callbacks)
+				PointerBuffer.Write(Callback);
+			Pointers = cast(CallbackType[])PointerBuffer.Data;
+		}			
 		static if(!is(RetValue == void)) {
 			if(Pointers.length == 0)
 				return null;
 			RetValue[] Result = new RetValue[Pointers.length];
-			for(size_t i = 0; i < Pointers.length; i++)
-				Result[i] = Pointers[i](Parameters);
+			//for(size_t i = 0; i < Pointers.length; i++)
+			foreach(i, ref Callback; Pointers)
+				Result[i] = Callback(Parameters);
 			return Result;					
 		} else {
 			if(Pointers.length == 0)
 				return;
-			foreach(CallbackType Pointer; Pointers)
+			foreach(ref CallbackType Pointer; Pointers)
 				Pointer(Parameters);
 		}		
-	}*/
+	}
 			
 	/**
 	 * Adds the specified callback to the collection.

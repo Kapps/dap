@@ -26,6 +26,12 @@ public:
 		Elements = Elements[1..$].dup;
 		return Result;
 	}
+
+	T peek(lazy T DefaultValue = T.init) {
+		if(Elements.length == 0)
+			return DefaultValue();
+		return Elements[0];
+	}
 	
 private:
 	T[] Elements;

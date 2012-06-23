@@ -14,16 +14,19 @@ public:
 	}
 
 	/// Gets the first node within the list.
+	/// This operation is O(1).
 	@property LinkedListNode Head() {
 		return _Head;
 	}
 
 	/// Gets the last node within the list.
+	/// This operation is O(1).
 	@property LinkedListNode Tail() {
 		return _Tail;
 	}
 
 	/// Gets the number of elements this collection contains.
+	/// This operation is O(1).
 	@property size_t Count() const {
 		return _Count;
 	}
@@ -55,6 +58,7 @@ public:
 	}
 
 	/// Appends the given value to the back of the list.
+	/// This operation is O(1).
 	void Add(T Value) {
 		LinkedListNode Node = new LinkedListNode();
 		Node._Previous = _Tail;
@@ -68,6 +72,7 @@ public:
 	}
 
 	/// Appends the given value to the front of the list.
+	/// This operation is O(1).
 	void AddFront(T Value) {
 		LinkedListNode Node = new LinkedListNode();
 		Node._Previous = null;
@@ -80,7 +85,15 @@ public:
 		_Count++;
 	}	
 
+	/// Removes all nodes from the list.
+	/// This operation is O(1) as nodes do not get detached.
+	void Clear() {
+		_Head = _Tail = null;
+		_Count = 0;
+	}
+
 	/// Removes the given element from the list.
+	/// This operation is O(N).
 	bool Remove(T Value) {
 		LinkedListNode Node = GetNode(Value);
 		if(Node is null)
@@ -101,6 +114,7 @@ public:
 
 	/// Removes the given node from the list.
 	/// The node itself is not altered, thus this is safe to call from a loop.
+	/// This operation is O(1).
 	void Remove(LinkedListNode Node) {
 		assert(GetNode(Node._Value) !is null, "Node was not part of this linked list.");
 		if(Node._Previous)
@@ -115,6 +129,7 @@ public:
 	}
 
 	/// Gets the node that contains the given value, or null if no node contained the given value.
+	/// This operation is O(N).
 	LinkedListNode GetNode(T Value) {
 		for(LinkedListNode Node = this._Head; Node !is null; Node = Node.Next) {
 			if(Node._Value == Value)

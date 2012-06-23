@@ -126,6 +126,8 @@ private:
 	size_t StoredBuffers;	
 
 	size_t IndexForBuffer(size_t NumBytes) {
+		if(NumBytes == 0)
+			return 0;
 		real Log = log2(NumBytes);
 		// The % 2 is there for floating point precision issues. Not sure if it's needed, nor if it's a good idea...
 		// Still, it leans towards a larger buffer than necessary, which is fine. It's also rare that it'd affect the result.

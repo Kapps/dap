@@ -331,7 +331,7 @@ public:
 		version(Windows) {
 			synchronized(SyncLock) {
 				char[] Result = new char[MAX_PATH];			
-				uint Length = enforce(GetCurrentDirectoryA(Result.length, Result.ptr));			
+				uint Length = enforce(GetCurrentDirectoryA(cast(uint)Result.length, Result.ptr));			
 				Result.length = Length;
 				return Result;			
 			}

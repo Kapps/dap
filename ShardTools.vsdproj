@@ -20,6 +20,9 @@
     <Compile Include="ShardTools\AsyncIterator.d">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ShardTools\HybridLock.d">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ShardTools\LocalMemoryCache.d">
       <SubType>Code</SubType>
     </Compile>
@@ -119,6 +122,9 @@
     <Compile Include="ShardTools\SortedList.d">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ShardTools\Spinlock.d">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ShardTools\Stack.d">
       <SubType>Code</SubType>
     </Compile>
@@ -135,6 +141,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ShardTools\StringMatcher.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\TaskRepeater.d">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ShardTools\TimeSpan.d">
@@ -174,6 +183,13 @@
   <ItemGroup>
     <Folder Include="ShardTools\" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ShardMath\ShardMath.vsdproj">
+      <Name>ShardMath</Name>
+      <Project>{e7f11097-01cb-46f8-bdfa-077747169bbf}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{b4b4a7d7-80ca-4a81-875d-406c1952562a}</ProjectGuid>
     <AssemblyName>ShardTools</AssemblyName>
@@ -181,10 +197,10 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
     <GenerateDocumentation>True</GenerateDocumentation>
-    <OutputPath>bin\x86\Release</OutputPath>
+    <OutputPath>bin\x86\Debug</OutputPath>
     <BuildType>Library</BuildType>
     <OutputType>Lib</OutputType>
-    <LastBuilt>24/01/2012 3:58:25 AM</LastBuilt>
+    <LastBuilt>03/06/2012 9:26:09 PM</LastBuilt>
     <AdditionalParameters />
     <SkipLibraryStage>True</SkipLibraryStage>
     <DefaultImports />

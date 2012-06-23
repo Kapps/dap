@@ -7,7 +7,7 @@ public import ShardTools.Event;
 
 
 /// EventArgs used to provide information about a message being logged using a Logger.
-immutable class MessageLoggedEventArgs {
+class MessageLoggedEventArgs {
 	
 public:	
 	/// Initializes a new instance of the MessageLoggedEventArgs object.

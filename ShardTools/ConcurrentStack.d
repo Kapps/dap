@@ -1,5 +1,6 @@
 ﻿module ShardTools.ConcurrentStack;
 private import core.atomic;
+//import abc;
 
 /// Provides a thread-safe and lock-free implementation of a Stack.
 /// BUGS:
@@ -24,6 +25,24 @@ public:
 		}
 	}		
 
+	/// Returns the number of elements in this stack.
+	/// This value is subject to some race conditions, and as such is not completely accurate.
+	@property size_t Count() const {
+		return _Count;
+	}
+
+	version(GNU) {
+		T casimp(T, V1, V2)(shared(T*) here, shared(T) ifThis, shared(T) writeThis) {
+			synchronized {
+				if(*here == ifThis)
+					*here = writeThis;
+				return *here;
+			}
+		}	
+	} else {
+		private alias core.atomic.cas casimp;
+	}
+
 	/// Pushes the given value to the top of the stack.
 	/// This operation is O(1), thread-safe, and lock-free.
 	/// Params:
@@ -34,7 +53,8 @@ public:
 		do {
 			OldNode = Root;
 			NewNode.Next = OldNode;
-		} while(!cas(cast(shared)&Root, cast(shared)OldNode, cast(shared)NewNode));
+		} while(!casimp(cast(shared)&Root, cast(shared)OldNode, cast(shared)NewNode));
+		atomicOp!("+=", size_t, int)(_Count, 1);
 	}
 
 	/// Pops the given value from the top of the stack.
@@ -57,8 +77,9 @@ public:
 			if(!OldNode)
 				return false;
 			Result = OldNode.Value;
-		} while(!cas(cast(shared)&Root, cast(shared)OldNode, cast(shared)OldNode.Next));
+		} while(!casimp(cast(shared)&Root, cast(shared)OldNode, cast(shared)OldNode.Next));
 		Value = Result;
+		atomicOp!("-=", size_t, int)(_Count, 1);
 		return true;
 	}
 
@@ -81,4 +102,5 @@ public:
 	
 private:
 	Node* Root;	
+	size_t _Count;
 }
