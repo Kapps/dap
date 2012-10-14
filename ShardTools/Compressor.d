@@ -1,6 +1,8 @@
 ﻿module ShardTools.Compressor;
 import etc.c.zlib;
 import std.zlib;
+import std.c.stdlib;
+import std.c.string;
 
 /// A class used to compress data.
 public class Compressor  {
@@ -10,7 +12,8 @@ public:
 	static void[] ToDeflate(void[] Data, bool IncludeMagicNumber = false) {		
 		void[] Result = cast(void[])compress(Data);
 		char* Ptr = cast(char*)Result.ptr;
-		if(!IncludeMagicNumber && Ptr[0] == 0x78 && Ptr[1] == 0x9C)
+		assert(Ptr[0] == 0x78 && Ptr[1] == 0x9C);
+		if(!IncludeMagicNumber)
 			Result = Result[2..$]; // Strip off magic number.
 		return Result;
 	}
@@ -48,28 +51,31 @@ public:
 	}
 
 	private static void[] ToGzipInternal(void[] Deflated, ulong OriginalLength, uint OriginalCRC) {
-		ubyte[10] Header;
-		Header[0] = 0x1F; // Magic Number (2 bytes).
-		Header[1] = 0x8B;
-		Header[2] = 8; // Deflate algorithm.
-		Header[3] = 0; // Flags. None.
-		Header[4] = 0; // Timestamp indicating last change (4 bytes).
-		Header[5] = 0;
-		Header[6] = 0;
-		Header[7] = 0;
-		Header[8] = 0; // Extra flags. None.
+		enum size_t HeaderSize = 10;
+		enum size_t FooterSize = 8;
+		ubyte[] Result = new ubyte[HeaderSize + FooterSize + Deflated.length];		
+		Result[0] = 0x1F; // Magic Number (2 bytes).
+		Result[1] = 0x8B;
+		Result[2] = 8; // Deflate algorithm.
+		Result[3] = 0; // Flags. None.
+		Result[4] = 0; // Timestamp indicating last change (4 bytes).
+		Result[5] = 0;
+		Result[6] = 0;
+		Result[7] = 0;
+		Result[8] = 0; // Extra flags. None.
 		version(Windows)
-			Header[9] = 0;
+			Result[9] = 0;
 		else version(Posix)
-			Header[9] = 3;		
+			Result[9] = 3;		
 		else
-			Header[9] = 255;
+			Result[9] = 255;
+		memcpy(Result.ptr + HeaderSize, Deflated.ptr, Deflated.length);
 		uint[2] Footer;
 		Footer[0] = OriginalCRC;
 		Footer[1] = cast(uint)(OriginalLength % uint.max);
+		memcpy(Result.ptr + HeaderSize + Deflated.length, Footer.ptr, FooterSize);
 		void[] FooterVoid = cast(void[])Footer;
-
-		return cast(void[])Header ~ Deflated ~ FooterVoid;
+		return cast(void[])Result;
 	}
 	
 private:

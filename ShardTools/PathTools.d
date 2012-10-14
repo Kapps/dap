@@ -74,11 +74,11 @@ public:
 				return cast(inout)(Trimmed ~ '\\');
 			return cast(inout)Trimmed;
 		} else {
-			char[] Result = dirname(MakeAbsolute(FilePath).dup);
+			char[] Result = dirName(MakeAbsolute(FilePath).dup);
 			if(cmp(Result, ".") == 0)
 				return cast(inout)"/".dup;
 			return cast(inout)Result;
-		}			
+		}		
 	}
 
 
@@ -177,9 +177,9 @@ public:
 			return cast(inout)Result.TrimReturn;
 		} else {
 			char[] Result;
-			if(isabs(Path))
+			if(IsAbsolute(Path))
 				Result = Path.dup;
-			Result = rel2abs(cast(immutable)Path).dup;
+			Result = absolutePath(cast(immutable)Path).dup;
 			Result = buildNormalizedPath(Result).dup;
 			//if(IsDirectory(Result))
 				//Result = AddTrailingSlash(Result);
@@ -203,7 +203,7 @@ public:
 			char[] Copy = Terminate(Path);
 			return !PathIsRelativeA(Copy.ptr);			
 		} else
-			return isabs(Path);
+			return isAbsolute(Path);
 	}
 	
 	unittest {
@@ -327,16 +327,16 @@ public:
 	}
 		
 	/// Returns the current working directory.
-	@property static char[] CurrentDirectory() { // TODO: Make thread safe.
+	@property static string CurrentDirectory() { // TODO: Make thread safe.
 		version(Windows) {
 			synchronized(SyncLock) {
 				char[] Result = new char[MAX_PATH];			
 				uint Length = enforce(GetCurrentDirectoryA(cast(uint)Result.length, Result.ptr));			
 				Result.length = Length;
-				return Result;			
+				return cast(immutable)Result;			
 			}
 		} else {
-			return curdir.dup;
+			return getcwd();
 		}
 	}
 	

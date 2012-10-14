@@ -1,8 +1,13 @@
 ﻿module ShardTools.LinkedList;
 private import std.functional;
 
+// TODO: Change everything here to malloc and free for nodes.
+// Even though the user can access them, they can still be cleared when removed.
+// TODO: Make the node a struct not a class.
+// TODO: Add the thread-safe template parameter.
 
-/// A basic doubly linked list.
+/// A basic doubly linked list. Any time an item is added to the list, the node is returned.
+/// The node can then be removed directly for O(1) removals given an instance.
 /// Params:
 /// 	T = The type of the elements within the list.
 final class LinkedList(T) {
@@ -59,7 +64,7 @@ public:
 
 	/// Appends the given value to the back of the list.
 	/// This operation is O(1).
-	void Add(T Value) {
+	LinkedListNode Add(T Value) {
 		LinkedListNode Node = new LinkedListNode();
 		Node._Previous = _Tail;
 		if(_Tail)
@@ -69,11 +74,12 @@ public:
 			_Head = Node;
 		Node._Value = Value;
 		_Count++;
+		return Node;
 	}
 
 	/// Appends the given value to the front of the list.
-	/// This operation is O(1).
-	void AddFront(T Value) {
+	/// This operation is O(1).	
+	LinkedListNode AddFront(T Value) {
 		LinkedListNode Node = new LinkedListNode();
 		Node._Previous = null;
 		if(_Head)
@@ -83,6 +89,7 @@ public:
 			_Tail = Node;
 		Node._Value = Value;
 		_Count++;
+		return Node;
 	}	
 
 	/// Removes all nodes from the list.
@@ -138,6 +145,7 @@ public:
 		return null;
 	}
 
+	// TODO: Make this a struct!
 	static class LinkedListNode {
 		/// Gets the node prior to this node.
 		@property LinkedListNode Previous() {

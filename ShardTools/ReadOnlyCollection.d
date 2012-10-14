@@ -16,6 +16,16 @@ public:
 		this.Underlying = Collection;
 	}
 
+	static if(__traits(hasMember, CollectionType, "length")) {
+		@property size_t length() const {
+			return Underlying.length;
+		}
+	} else static if(__traits(hasMember, CollectionType, "Count")) {
+		@property size_t length() const {
+			return Underlying.Count;
+		}
+	}
+
 	/// Provides foreach access to the collection.
 	int opApply(int delegate(ref T) Callback) {
 		int Result = 0;

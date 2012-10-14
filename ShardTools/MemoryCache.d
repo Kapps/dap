@@ -1,6 +1,6 @@
 ﻿module ShardTools.MemoryCache;
-private import ShardTools.LocalMemoryCache;
 private import std.functional;
+import std.datetime;
 
 // TODO: Consider a Least Recently Used approach.
 
@@ -20,15 +20,14 @@ public:
 	}
 
 	/// Gets the maximum size of a single object stored in the cache.
-	/// Objects with a higher size than this will never be stored.
+	/// Objects with a larger size than this will never be stored.
 	@property size_t MaxSizePerObject() const {
 		return _MaxSizePerObject;
 	}
 
-	/// Returns a global memory cache instance to use. The actual implementation used is undefined.
-	/// Once this property has been accessed, it is unable to be changed.
-	/// However, it may be set prior to being accessed.
+	/// Returns a global memory cache instance to use.
 	/// If a specific instance is not assigned prior to being accessed, a LocalMemoryCache of 64 megabytes is used.
+	/// It is possible to change this value once it has already been created, but the old cache will remain until garbage collected.
 	@property static MemoryCache Global() {
 		if(_Global is null) {
 			synchronized(typeid(typeof(this))) {
@@ -100,6 +99,8 @@ private:
 class CachedObject {
 	size_t SizeInBytes;
 	size_t NumAccesses;
+	SysTime Expires;
+	SysTime Created;
 	void* CachedValue;
 	bool IsCached;
 }

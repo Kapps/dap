@@ -93,7 +93,7 @@ public:
 				PNGCompressionMethod compressionMethod;
 				PNGFilterMethod filterMethod;
 				PNGInterlaceMethod interlaceMethod;
-				static assert(PNGHeader.sizeof == 13);
+				//static assert(PNGHeader.sizeof == 13);
 		}
 
 		alias typeof(Color.init.tupleof[0]) CHANNEL_TYPE;

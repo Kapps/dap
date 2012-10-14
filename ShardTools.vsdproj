@@ -20,10 +20,10 @@
     <Compile Include="ShardTools\AsyncIterator.d">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="ShardTools\HybridLock.d">
+    <Compile Include="ShardTools\AsyncTask.d">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="ShardTools\LocalMemoryCache.d">
+    <Compile Include="ShardTools\HybridLock.d">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ShardTools\MemoryCache.d">
@@ -119,6 +119,15 @@
     <Compile Include="ShardTools\SharedMemoryCache.d">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ShardTools\SignaledTask.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\SleepTask.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\SoftReference.d">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ShardTools\SortedList.d">
       <SubType>Code</SubType>
     </Compile>
@@ -141,6 +150,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ShardTools\StringMatcher.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\TaskManager.d">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ShardTools\TaskRepeater.d">
@@ -174,6 +186,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ShardTools\UnmanagedBuffer.d">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShardTools\Untyped.d">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ShardTools\WeakReference.d">

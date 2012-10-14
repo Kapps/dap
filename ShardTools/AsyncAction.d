@@ -1,5 +1,6 @@
 ﻿module ShardTools.AsyncAction;
-private import core.atomic;
+private import core.atomic;import ShardTools.Untyped;
+
 private import std.functional;
 private import std.range;
 private import std.stdio;
@@ -24,14 +25,17 @@ enum CompletionType {
 	Successful = 2
 }
 
-mixin(MakeException("TimeoutException", "An operation has timed out prior to completion."));
-
 /// Provides information about an action that executes asynchronously.
 abstract class AsyncAction  {
 
 public:
+
+	// TODO: Rename AsyncAction to Task?
+	// Problem is std.parallelism.
+	// Probably do AsyncTask actually.
+	// ...or just leave it as is at that point.
 	
-	alias void delegate(void*, AsyncAction, CompletionType) CompletionCallback;
+	alias void delegate(Untyped, AsyncAction, CompletionType) CompletionCallback;
 
 	/// Initializes a new instance of the AsyncAction object.
 	this() {
@@ -83,10 +87,21 @@ public:
 		return _Status;
 	}
 
+	/// Gets a value indicating whether this action has started being processed.
+	@property bool HasBegun() const {
+		return _HasBegun;
+	}
+
+	/// Begins this operation asynchronously.	
+	void Start() {
+		if(!cas(cast(shared)&_HasBegun, cast(shared)false, cast(shared)true))
+			throw new InvalidOperationException("The IO Operation had already been started.");		
+	}	
+
 	/// Gets the result of the completion for this command.
 	/// The type of the data is unknown, but is generally what the synchronous version would return, or an instance of Throwable.
 	/// Accessing this property before the action is complete will result in an InvalidOperationException being thrown.
-	@property void* CompletionData() {		
+	@property Untyped CompletionData() {		
 		if(Status == CompletionType.Incomplete)
 			throw new InvalidOperationException("Unable to access completion data prior to the action being complete.");
 		return _CompletionData;		
@@ -97,7 +112,7 @@ public:
 	/// Params:
 	/// 	State = A user-defined value to pass in to Callback.
 	/// 	Callback = The callback to invoke.
-	void NotifyOnComplete(void* State, CompletionCallback Callback) {
+	void NotifyOnComplete(Untyped State, CompletionCallback Callback) {
 		bool InvokeImmediately = false;
 		synchronized(StateLock) {
 			if(!IsComplete)
@@ -119,14 +134,15 @@ public:
 	/// 	Whether the action was successfully aborted; false if the action was already complete.
 	bool Abort() {
 		// TODO: Important to remove this lock.
-		// TODO: Remove it in a way that actually makes sense. -_-
-		//synchronized(StateLock) {
+		//	...why exactly?
+		//	Perhaps was causing a deadlock before, but if it was, that's not related to the lock but the implementatio of PerformAbort.
+		synchronized(StateLock) {
 			if(!CanAbort)
 				throw new NotSupportedException("Attempted to abort an AsyncAction that does not support the Abort operation.");
 			if(Status != CompletionType.Incomplete)
 				return false;			
 			return PerformAbort();
-		//}
+		}
 	}
 
 	/// Blocks the calling thread until this action completes.
@@ -178,7 +194,7 @@ protected:
 	}
 	
 	/// Notifies this AsyncAction that the operation was completed.
-	void NotifyComplete(CompletionType Status, void* CompletionData) {
+	void NotifyComplete(CompletionType Status, Untyped CompletionData) {
 		enforce(Status == CompletionType.Successful || Status == CompletionType.Aborted);
 		// Lock here for adding subscribers.
 		synchronized(StateLock) {
@@ -194,9 +210,10 @@ protected:
 private:
 	CompletionType _Status;
 	Duration _TimeoutDuration;
-	Tuple!(void*, "State", CompletionCallback, "Callback")[] CompletionSubscribers;	
+	Tuple!(Untyped, "State", CompletionCallback, "Callback")[] CompletionSubscribers;	
 	SysTime _StartTime;
-	void* _CompletionData;
+	Untyped _CompletionData;
+	bool _HasBegun;
 	Mutex StateLock;
 }
 
@@ -210,10 +227,10 @@ private class ActionManager {
 
 	static void RegisterAction(AsyncAction Action) {
 		ToAdd.Push(Action);
-		Action.NotifyOnComplete(null, toDelegate(&ActionComplete));
+		Action.NotifyOnComplete(Untyped.init, toDelegate(&ActionComplete));
 	}
 
-	static void ActionComplete(void* State, AsyncAction Action, CompletionType Status) {
+	static void ActionComplete(Untyped State, AsyncAction Action, CompletionType Status) {
 		ToRemove.Push(Action);
 	}
 

@@ -80,7 +80,7 @@ private:
 			this.Key = Key;
 		}
 		
-		override int opCmp(Object other) {			
+		override int opCmp(const(Object) other) const @trusted pure nothrow {			
 			SortedListItem item = cast(SortedListItem)other;
 			return Key > item.Key ? 1 : Key == item.Key ? 0 : -1;			
 		}
