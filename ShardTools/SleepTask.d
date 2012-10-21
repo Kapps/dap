@@ -3,7 +3,7 @@
 import ShardTools.AsyncAction;
 
 
-class SleepTask : AsyncAction {
+@disable class SleepTask : AsyncAction {
 
 public:
 	/// Initializes a new instance of the SleepTask object.

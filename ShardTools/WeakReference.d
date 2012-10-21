@@ -5,12 +5,13 @@ import ShardTools.ExceptionTools;
 
 mixin(MakeException("ObjectDestroyedException", "Attempted to access the value of an already collected weak handle."));
 
-
 private alias void delegate(Object) DEvent;
 private extern (C) void rt_attachDisposeEvent(Object h, DEvent e);
 private extern (C) void rt_detachDisposeEvent(Object h, DEvent e);
 
 /// Provides a weak reference to a single object.
+/// BUGS:
+///		This class is largely untested.
 class WeakReference(T) {
 
 public:

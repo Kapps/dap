@@ -3,7 +3,7 @@ public import ShardTools.AsyncAction;
 
 
 /// Provides a task that can be run asynchronously.
-struct AsyncTask(ReturnType, ArgType...) if(is(ReturnType == void) || is(ReturnType == Variant)) {
+@disable struct AsyncTask(ReturnType, ArgType...) if(is(ReturnType == void) || is(ReturnType == Variant)) {
 
 public:
 	/// Initializes a new instance of the AsyncTask object to call the given function pointer or delegate.
@@ -41,11 +41,11 @@ private:
 }
 
 /// Creates a new AsyncTask with the given return type and argument type.
-AsyncTask MakeTask(ReturnType, ArgType...)(ReturnType function(ArgType) ExecuteFunction, ArgType Args) {
+@disable AsyncTask MakeTask(ReturnType, ArgType...)(ReturnType function(ArgType) ExecuteFunction, ArgType Args) {
 	return AsyncTask!(ReturnType, ArgType)(ExecuteFunction, Args);
 }
 
 /// Creates a new AsyncTask with the given return type and argument type.
-AsyncTask MakeTask(ReturnType, ArgType...)(ReturnType delegate(ArgType) ExecuteDelegate, ArgType Args) {
+@disable AsyncTask MakeTask(ReturnType, ArgType...)(ReturnType delegate(ArgType) ExecuteDelegate, ArgType Args) {
 	return AsyncTask!(ReturnType, ArgType)(ExecuteDelegate, Args);
 }

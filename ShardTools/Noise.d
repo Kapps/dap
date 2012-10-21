@@ -6,7 +6,7 @@ private import std.random;
 private import std.array;
 
 /// Provides generators for creating random noise, such as perlin noise.
-static class Noise  {
+@disable static class Noise  {
 
 public:	
 

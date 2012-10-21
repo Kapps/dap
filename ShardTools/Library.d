@@ -8,7 +8,7 @@ import core.runtime;
 /// If so, the derived class should be global, usually with the name of the library.
 /// For example, using a library for ShardTools would mean 'class ShardTools : Library' in the global namespace.
 /// Then it would be accessed with 'ShardTools.SomeGlobalMethod(2);'.
-class Library  {
+@disable class Library  {
 
 // TODO: How do we handle creating instances of classes and such?
 // Ideally, should be able to do new SomeClass(2) for example. At worst, new MyLibrary.SomeClass(2).

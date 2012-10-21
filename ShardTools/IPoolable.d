@@ -1,7 +1,7 @@
 ﻿module ShardTools.IPoolable;
 
 /// An interface used to represent an object capable of being pooled.
-interface IPoolable {
+@disable interface IPoolable {
 
 	/// Initializes this object. Called when an object requests it from the pool either for the first time,
 	/// or after it was released.

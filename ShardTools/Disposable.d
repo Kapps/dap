@@ -1,6 +1,8 @@
 module ShardTools.Disposable;
 public import ShardTools.IDisposable;
 
+// TODO: Not sure if this should exist. Consider phasing out.
+
 /// An abstract class providing a basic implementation of the IDisposable interface.
 abstract class Disposable : IDisposable {
 	

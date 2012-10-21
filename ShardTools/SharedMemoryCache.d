@@ -3,7 +3,7 @@ public import ShardTools.MemoryCache;
 
 version(None) {
 /// Represents a MemoryCache implementation that uses shared memory to store objects.
-class SharedMemoryCache : MemoryCache {
+@disable class SharedMemoryCache : MemoryCache {
 
 public:
 	/// Initializes a new instance of the SharedMemoryCache object.

@@ -12,7 +12,7 @@ import std.algorithm;
 ///		Range = The type of the input ranges. Currently, all recursed ranges must be of this type.
 ///				If desired, fun could be made to map into the InputRange interface with that being Range to support multiple types.
 version(None) {
-struct RecursiveRange(alias fun, Range) {
+@disable struct RecursiveRange(alias fun, Range) {
 
 public:
 

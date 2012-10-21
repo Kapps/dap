@@ -23,6 +23,7 @@ import ShardTools.ExceptionTools;
 mixin(MakeException("PoolDestroyedException", "Unable to place new tasks into a TaskManager that is being destroyed."));
 
 // TODO: Consider renaming to TaskQueue; seems nicer.
+// Also, TaskManager could be interpreted as something similar to Windows' Task Manager.
 
 /// Provides a collection of threads which can execute tasks (AsyncActions) across multiple threads.
 /// The number of threads used can be dynamically altered, and threads will be created or destroyed automatically as required.
@@ -241,15 +242,17 @@ enum ResumeStyle {
 /// This method is only valid when called from a TaskManager thread.
 /// Note that while the task is being run in a Fiber, this method MUST be used instead of Fiber.yield. Calling yield will not resume the task.
 /// BUGS:
-///		This method may NOT be called from within a lock. If attempted, the lock will never be released.
-Untyped Await(AsyncAction Action, ResumeStyle ResumeType, size_t StackSize = 0) {
-	TaskManager.TaskThread ManThread = cast(TaskManager.TaskThread)Thread.getThis();
-	TaskManager.TaskFiber ManFiber = cast(TaskManager.TaskFiber)Fiber.getThis();
+///		This method may NOT be called from within a lock. If attempted, deadlocks are very likely.
+T await(T = Untyped)(AsyncAction Action, ResumeStyle ResumeType, size_t StackSize = 0) {
+	// TODO: Special case the action being done already.
+	auto ManThread = cast(TaskManager.TaskThread)Thread.getThis();
+	auto ManFiber = cast(TaskManager.TaskFiber)Fiber.getThis();
 	ManFiber.WasTaskYielded = true;
 	ManFiber.AwaitedAction = Action;
 	ManFiber.ResumeType = ResumeType;
 	Fiber.yield(); // Aka, resume from RunTask.
-	return ManFiber.CurrentResult;
+	static if(!is(T == void))
+		return cast(T)ManFiber.CurrentResult;
 }
 
 /* /// Synchronously executes any task that is waiting to be executed, blocking until the task is done or it yields.

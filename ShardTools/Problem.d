@@ -5,6 +5,9 @@ private import ShardTools.ArrayOps;
 private import std.exception;
 private import ShardTools.SortedList;
 private import std.variant;
+
+// TODO: This module is pretty important for some other things, such as networking and databases. Try to implement it.
+
 /+
 
 /// Indicates the way that a single handler attempted to solve a problem.

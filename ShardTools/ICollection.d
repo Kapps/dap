@@ -3,6 +3,8 @@ import ShardTools.List;
 import std.conv;
 import std.exception;
 
+// TODO: Phase this out and remove it.
+
 /// An interface for a mutable collection accessible by index.
 interface ICollection(T) {
 

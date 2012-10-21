@@ -11,6 +11,9 @@ private import std.algorithm;
 import std.c.string;
 import ShardTools.ExceptionTools;
 
+// TODO: Either implement or delete this. It's not currently in use anywhere, and was always disabled.
+// Probably delete; InputSource and OutputSource replace streams.
+
 mixin(MakeException("StreamException", "An error has occurred in the stream."));
 
 /// Determines how to perform a seek.
@@ -46,7 +49,7 @@ enum StreamMode {
 /// 	For now, solve that by just completely not supporting reads and writes combined.
 /// Bugs:
 ///		ReadWrite Mode is not yet supported. Only Read or Write.
-abstract class Stream  {
+@disable abstract class Stream  {
 
 public:
 	/// Initializes a new instance of the Stream object.

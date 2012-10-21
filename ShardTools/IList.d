@@ -1,6 +1,8 @@
 ﻿module ShardTools.IList;
 import ShardTools.ICollection;
 
+// TODO: Phase this out and remove it.
+
 /// The base interface for a collection accessible by index.
 /// Params:
 /// 	T = The type of the elements in this list.

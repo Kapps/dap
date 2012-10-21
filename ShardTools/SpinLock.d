@@ -2,6 +2,9 @@
 private import core.thread;
 private import core.atomic;
 
+// TODO: Should probably have a SlimSpinLock that's just a single boolean.
+// Use an alias, and use UFCS.
+
 /// Provides a monitor that continuously attempts to acquire a lock until it succeeds.
 /// Unlike Mutex, a single unlock will make the SpinLock available, until another lock call is made.
 /// This means that SpinLock's are not re-entrant. SpinLocks also do not have any guaranteed ordering.
