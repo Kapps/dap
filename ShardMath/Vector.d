@@ -5,7 +5,7 @@ private import std.math;
 private import std.traits;
 
 /// A structure representing an N-Dimensional vector of T type.
-align(16) struct Vector(int N, T) if(N >= 2) {	
+struct Vector(int N, T) if(N >= 2) {	
 	
 private:		
 
@@ -200,34 +200,40 @@ public:
 	}
 	
 	/// Returns the sum of this vector and the specified other vector.
-	Vector!(N, T) opAdd(Vector!(N, T) other) const {				
+	Vector opAdd(Vector other) const {				
 		Vector!(N, T) Result = this;	
 		Result.AddInline(other);
 		return Result;		
 	}
 
-	Vector!(N, T) opAdd(T Scalar) {
+	Vector opAdd(T Scalar) {
 		Vector!(N, T) Result = this;
 		mixin(ScalarBinaryMixin("Result", "Scalar", "+"));
 		return Result;
 	}
 	
 	/// Implements the subtraction operator.
-	Vector!(N, T) opSub(Vector!(N, T) other) const {
+	Vector opSub(Vector other) const {
 		Vector!(N, T) Result = this;
 		Result.SubtractInline(other);
 		return Result;
 	}
 	
 	/// Implements the multiply operator.
-	Vector!(N, T) opMul(Vector!(N, T) other) const {
+	Vector opMul(Vector other) {
 		Vector!(N, T) Result = this;
 		Result.MultiplyInline(other);
 		return Result;
 	}
+
+	Vector opMul(T scalar) {
+		Vector!(N, T) Result = this;		
+		mixin(ScalarBinaryMixin("Result", "scalar", "*"));
+		return Result;
+	}
 	
 	/// Implements the divide operator.
-	Vector!(N, T) opDiv(Vector!(N, T) other) const {		
+	Vector opDiv(Vector other) const {		
 		Vector!(N, T) Result = this;			
 		Result.DivideInline(other);
 		return Result;
@@ -582,9 +588,11 @@ public:
 		return false;
 	}
 	
-	static if((N * T.sizeof % 16) == 0) {
-		align(16):
-	}
+	//static if(((N * T.sizeof) % 16) == 0) {
+		//align(16):
+		//private enum bool UseAlignedSSE = true;
+	//} else
+		private enum bool UseAlignedSSE = false;
 			
 	// Union for X/Y/Z/W.
 	static if(N == 2) {

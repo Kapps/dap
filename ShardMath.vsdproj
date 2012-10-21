@@ -40,10 +40,10 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
     <GenerateDocumentation>True</GenerateDocumentation>
-    <OutputPath>bin\x86\Release</OutputPath>
+    <OutputPath>bin\x86\Debug</OutputPath>
     <BuildType>Library</BuildType>
     <OutputType>Lib</OutputType>
-    <LastBuilt>24/01/2012 3:58:24 AM</LastBuilt>
+    <LastBuilt>03/06/2012 9:26:04 PM</LastBuilt>
     <SkipLibraryStage>True</SkipLibraryStage>
     <DefaultImports />
   </PropertyGroup>

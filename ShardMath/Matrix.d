@@ -441,7 +441,7 @@ public:
 		string Expected = "[1, 2]" ~ "\n" ~ "[3, 4]";
 		assert(to!string(Test) == Expected);
 	}
-
+	 
 	private static string ElementMixin() {
 		string Result = "union { T[N * N] ElementsSingleDim; T[N][N] Elements;\r\nstruct {";
 		for(int y = 1; y <= N; y++) {
