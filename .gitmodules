@@ -1,0 +1,3 @@
+[submodule "shardtools"]
+	path = shardtools
+	url = https://bitbucket.org/Kapps/shardtools
