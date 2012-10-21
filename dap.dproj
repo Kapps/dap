@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>10.0.0</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{57D537EB-2A01-4CC5-8A88-C03F35DD8686}</ProjectGuid>
+    <UseDefaultCompiler>True</UseDefaultCompiler>
+    <IncrementalLinking>True</IncrementalLinking>
+    <PreferOneStepBuild>True</PreferOneStepBuild>
+    <DependentProjectIds>
+      <DependentProjectIds>
+        <String>{C8A0A998-D461-451B-B3C6-76ACA512CCA9}</String>
+        <String>{F7F06EF1-3CA0-407A-81D4-72CC896D465B}</String>
+        <String>{CD545729-B167-45C9-B834-09DCE7637A52}</String>
+      </DependentProjectIds>
+    </DependentProjectIds>
+    <Compiler>DMD</Compiler>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>True</DebugSymbols>
+    <OutputPath>bin\Debug</OutputPath>
+    <ObjectsDirectory>obj/Debug</ObjectsDirectory>
+    <OutputName>dap</OutputName>
+    <Target>Executable</Target>
+    <Externalconsole>True</Externalconsole>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>bin\Release</OutputPath>
+    <ObjectsDirectory>obj/Release</ObjectsDirectory>
+    <OutputName>dap</OutputName>
+    <Target>Executable</Target>
+    <Externalconsole>True</Externalconsole>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Unittest|AnyCPU' ">
+    <DebugSymbols>True</DebugSymbols>
+    <OutputPath>bin\Unittest</OutputPath>
+    <ExtraCompilerArguments>-unittest </ExtraCompilerArguments>
+    <ObjectsDirectory>obj/Unittest</ObjectsDirectory>
+    <Target>Executable</Target>
+    <OutputName>dap</OutputName>
+    <Externalconsole>True</Externalconsole>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="dap\Asset.d" />
+    <Compile Include="dap\AssetBuilder.d" />
+    <Compile Include="dap\AssetContainer.d" />
+    <Compile Include="dap\AssetStore.d" />
+    <Compile Include="dap\Standalone.d" />
+    <Compile Include="dap\FileStore.d" />
+    <Compile Include="dap\AssetSettings.d" />
+    <Compile Include="dap\HierarchyNode.d" />
+    <Compile Include="dap\NodeReference.d" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="dap\" />
+  </ItemGroup>
+</Project>
