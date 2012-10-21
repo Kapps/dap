@@ -1,3 +1,6 @@
 [submodule "shardtools"]
 	path = shardtools
 	url = https://bitbucket.org/Kapps/shardtools
+[submodule "shardio"]
+	path = shardio
+	url = https://bitbucket.org/Kapps/shardio
