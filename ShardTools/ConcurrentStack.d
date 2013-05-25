@@ -54,6 +54,7 @@ public:
 			OldNode = Root;
 			NewNode.Next = OldNode;
 		} while(!casimp(cast(shared)&Root, cast(shared)OldNode, cast(shared)NewNode));
+		//atomicOp!("+=", size_t, int)(_Count, 1);
 		atomicOp!("+=", size_t, int)(_Count, 1);
 	}
 
@@ -102,5 +103,5 @@ public:
 	
 private:
 	Node* Root;	
-	size_t _Count;
+	shared size_t _Count;
 }

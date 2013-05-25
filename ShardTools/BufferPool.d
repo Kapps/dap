@@ -122,8 +122,8 @@ private:
 
 	size_t _MaxSize;
 	size_t _MaxIndividualSize;
-	size_t CurrentSize;	
-	size_t StoredBuffers;	
+	shared size_t CurrentSize;	
+	shared size_t StoredBuffers;	
 
 	size_t IndexForBuffer(size_t NumBytes) {
 		if(NumBytes == 0)
@@ -131,6 +131,7 @@ private:
 		real Log = log2(NumBytes);
 		// The % 2 is there for floating point precision issues. Not sure if it's needed, nor if it's a good idea...
 		// Still, it leans towards a larger buffer than necessary, which is fine. It's also rare that it'd affect the result.
+		// TODO: Instead of the approach currently used, which is flat out incorrect (though works), just use a bitmask to calculate it.
 		return Log - cast(size_t)Log == 0 && NumBytes % 2 == 0 ? cast(int)Log : cast(int)Log + 1;
 	}
 

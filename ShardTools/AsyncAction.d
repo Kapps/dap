@@ -27,16 +27,16 @@ enum CompletionType {
 
 /// Provides information about an action that executes asynchronously.
 abstract class AsyncAction  {
-
+	
 public:
-
+	
 	// TODO: Rename AsyncAction to Task?
 	// Problem is std.parallelism.
 	// Probably do AsyncTask actually.
 	// ...or just leave it as is at that point.
 	
 	alias void delegate(Untyped, AsyncAction, CompletionType) CompletionCallback;
-
+	
 	/// Initializes a new instance of the AsyncAction object.
 	this() {
 		NativeReference.AddReference(cast(void*)this);
@@ -44,60 +44,60 @@ public:
 		_StartTime = Clock.currTime();
 		StateLock = new Mutex();
 	}
-
+	
 	/// Indicates whether this action will ever time out if not completed within TimeoutTime.
 	@property bool CanTimeout() const {
 		return _TimeoutDuration.total!("hnsecs") > 0;
 	}
-
+	
 	/// Indicates whether this action can be canceled, disregarding the current completion state of the action.
 	@property bool CanAbort() const {
 		return true;
 	}
-
+	
 	/// Indicates whether this action is complete, whether successful or aborted.
 	@property bool IsComplete() const {
 		return this.Status != CompletionType.Incomplete;
 	}
-
+	
 	/// Gets or sets the amount of time that an action can run before timing out.
 	/// If CanTimeout is false, this will return zero.
 	/// If set to zero, indicates no timeout occurs.
 	@property Duration TimeoutTime() const {
 		return _TimeoutDuration;
 	}
-
+	
 	/// Ditto
 	@property void TimeoutTime(Duration Value) {
 		_TimeoutDuration = Value;
 	}
-
+	
 	/// Indicates when this action was started.
 	@property const(SysTime) StartTime() const {
 		return _StartTime;
 	}
-
+	
 	/// Indicates how long has passed since the creation of this action.
 	@property Duration Elapsed() const {
 		return Clock.currTime() - _StartTime;
 	}
-
+	
 	/// Indicates the status of this operation.
 	@property CompletionType Status() const {
 		return _Status;
 	}
-
+	
 	/// Gets a value indicating whether this action has started being processed.
 	@property bool HasBegun() const {
 		return _HasBegun;
 	}
-
+	
 	/// Begins this operation asynchronously.	
 	void Start() {
 		if(!cas(cast(shared)&_HasBegun, cast(shared)false, cast(shared)true))
 			throw new InvalidOperationException("The IO Operation had already been started.");		
 	}	
-
+	
 	/// Gets the result of the completion for this command.
 	/// The type of the data is unknown, but is generally what the synchronous version would return, or an instance of Throwable.
 	/// Accessing this property before the action is complete will result in an InvalidOperationException being thrown.
@@ -106,7 +106,7 @@ public:
 			throw new InvalidOperationException("Unable to access completion data prior to the action being complete.");
 		return _CompletionData;		
 	}
-
+	
 	/// Invokes the given callback when this action is complete or aborted.
 	/// If the operation is already finished, Callback is invoked immediately and synchronously.
 	/// Params:
@@ -124,7 +124,7 @@ public:
 		if(InvokeImmediately)
 			Callback(State, this, _Status);
 	}
-
+	
 	/// Attempts to cancel this operation, either synchronously or asynchronously.
 	/// Because this may be executed asynchronously, it is possible that the action will complete prior to being cancelled.
 	/// If this is the case, the cancel operation will effectively do nothing.	
@@ -135,7 +135,8 @@ public:
 	bool Abort() {
 		// TODO: Important to remove this lock.
 		//	...why exactly?
-		//	Perhaps was causing a deadlock before, but if it was, that's not related to the lock but the implementatio of PerformAbort.
+		//	Perhaps was causing a deadlock before, but if it was, that's not related to the lock but the implementation of PerformAbort.
+		// Still, PerformAbort should be the thing that handles this...
 		synchronized(StateLock) {
 			if(!CanAbort)
 				throw new NotSupportedException("Attempted to abort an AsyncAction that does not support the Abort operation.");
@@ -144,7 +145,7 @@ public:
 			return PerformAbort();
 		}
 	}
-
+	
 	/// Blocks the calling thread until this action completes.
 	/// Returns the way in which this action was completed.
 	/// Params:
@@ -157,13 +158,13 @@ public:
 			if(TimesOut && (Current - Start) > Timeout)
 				throw new TimeoutException();
 			/+else if((Current - Start) > dur!"msecs"(2)) {
-				// Basically, we don't want to waste a huge amount of CPU time, but at the same time we want faster than 1 MS precision.
-				// We can't do faster than 1MS precision for sleeps however, so what we do is first not sleep at all.
-				// Then, after 2 milliseconds, we can assume the precision isn't a huge deal, so sleep for 1 MS at a time.
-				// Update: This is probably a bad idea. So, we'll try for sub-ms precision at the start; it works on Linux in theory!
-				Thread.sleep(dur!"msecs"(1));
-			}
-			Thread.sleep(dur!"usecs"(100));+/
+			 // Basically, we don't want to waste a huge amount of CPU time, but at the same time we want faster than 1 MS precision.
+			 // We can't do faster than 1MS precision for sleeps however, so what we do is first not sleep at all.
+			 // Then, after 2 milliseconds, we can assume the precision isn't a huge deal, so sleep for 1 MS at a time.
+			 // Update: This is probably a bad idea. So, we'll try for sub-ms precision at the start; it works on Linux in theory!
+			 Thread.sleep(dur!"msecs"(1));
+			 }
+			 Thread.sleep(dur!"usecs"(100));+/
 			Thread.sleep(dur!"msecs"(1));
 			//Thread.yield();
 			// TODO: We can significantly increase performance by using a Fiber here.
@@ -177,13 +178,13 @@ public:
 		}
 		return _Status;
 	}
-
+	
 protected:
 	
 	/// Implement to handle the actual cancellation of the action.
 	/// If an action does not support cancellation, CanAbort should return false, and this method should throw an error.
 	abstract bool PerformAbort();
-
+	
 	/// Called when this action is completed.
 	void OnComplete(CompletionType Status) {
 		// No need to lock here; our status is set to complete, so adding a subscriber will be invoked immediately, not added to the list.		
@@ -206,7 +207,7 @@ protected:
 		NativeReference.RemoveReference(cast(void*)this);
 		OnComplete(Status);		
 	}
-
+	
 private:
 	CompletionType _Status;
 	Duration _TimeoutDuration;
@@ -218,27 +219,28 @@ private:
 }
 
 private class ActionManager {
-
+	
 	shared static this() {
 		Actions = new RedBlackTree!AsyncAction();
 		ToAdd = new ConcurrentStack!AsyncAction();
 		ToRemove = new ConcurrentStack!AsyncAction();
 	}
-
+	
 	static void RegisterAction(AsyncAction Action) {
 		ToAdd.Push(Action);
 		Action.NotifyOnComplete(Untyped.init, toDelegate(&ActionComplete));
 	}
-
+	
 	static void ActionComplete(Untyped State, AsyncAction Action, CompletionType Status) {
 		ToRemove.Push(Action);
 	}
-
+	
 	static void RunLoop() {
 		while(true) {
 			// Note that ToAdd must be first, in case it gets removed prior to a call.
-			foreach(AsyncAction Action; ToAdd)
+			foreach(AsyncAction Action; ToAdd) {
 				Actions.insert(Action);
+			}
 			foreach(AsyncAction Action; ToRemove)
 				enforce(Actions.removeKey(Action) == 1);
 			foreach(AsyncAction Action; Actions) {
@@ -255,12 +257,12 @@ private class ActionManager {
 			Thread.sleep(dur!"seconds"(1));
 		}
 	}
-
+	
 	// We want to make sure to not force a synchronize and thus delay any action from running yet blocking.
 	// So, we wait until after Actions is accessed, and then carry out the calls that were made.
 	private static __gshared ConcurrentStack!AsyncAction ToAdd;
 	private static __gshared ConcurrentStack!AsyncAction ToRemove;
-
+	
 	private static __gshared RedBlackTree!AsyncAction Actions;
-		
+	
 }

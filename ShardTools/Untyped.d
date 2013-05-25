@@ -5,11 +5,11 @@ import std.traits;
 import ShardTools.ExceptionTools;
 import std.exception;
 
-mixin(MakeException("InvalidCastError", "The type stored in Untyped did not match the given type.", "Error"));
+mixin(MakeException("InvalidCastError", "The type stored in Untyped did not match the given type."));
 
 /// Provides a lightweight structure to store a value without type information.
 /// The result must be the exact same type as was passed in.
-/// The value is always stored on the heap.
+/// Details on how the data is stored are subject to change and should not be relied upon.
 struct Untyped  {	
 
 	this(T)(T Value) {
@@ -29,6 +29,11 @@ struct Untyped  {
 
 	T opCast(T)() {
 		return get!T;
+	}
+	
+	/// Gets the type that's stored within this instance.
+	@property TypeInfo type() {
+		return StoredType;	
 	}
 
 	/// Gets the underlying value as the given type.

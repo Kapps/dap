@@ -1,5 +1,4 @@
 ﻿module ShardTools.Noise;
-private import ShardMath.Vector;
 private import std.math;
 private import std.traits;
 private import std.random;
@@ -7,9 +6,9 @@ private import std.array;
 
 /// Provides generators for creating random noise, such as perlin noise.
 @disable static class Noise  {
-
+	
 public:	
-
+	
 	private uint Next(ref Random rnd) {
 		uint Result = rnd.front;
 		rnd.popFront();
@@ -32,46 +31,46 @@ public:
 		if(Seed == 0)
 			Seed = unpredictableSeed;
 		Random rnd = Random(Seed);
-
+		
 		void Set(ptrdiff_t X, ptrdiff_t Y, T Value) {
 			Elements[Y * Size + X] = Value;
 		}
 		T Get(ptrdiff_t X, ptrdiff_t Y) {
 			return Elements[Y * Size + X];
 		}
-
+		
 		Set(0, 0, CornerValue);
 		Set(Size - 1, 0, CornerValue);
 		Set(0, Size - 1, CornerValue);
 		Set(Size - 1, Size - 1, CornerValue);
 		/+for(ptrdiff_t SideLength = Size - 1; SideLength >= 2; SideLength /= 2, Roughness /= 2) {
-			ptrdiff_t HalfSide = SideLength / 2;
-			for(ptrdiff_t X = 0; X < Size - 1; X += SideLength) {
-				for(ptrdiff_t Y = 0; Y < Size - 1; Y += SideLength) {
-					T Avg = Get(X, Y) + Get(X + SideLength, Y) + Get(X, Y + SideLength) + Get(X + SideLength, Y + SideLength);
-					Avg /= cast(T)4.0;
-					T Rand = uniform(cast(T)0.0, cast(T)1.0, rnd);
-					Set(X + HalfSide, Y + HalfSide, Avg + (Rand * 2 * Roughness) - Roughness);
-				}
-			}
-			for(ptrdiff_t X = 0; X < Size - 1; X += HalfSide) {
-				for(ptrdiff_t Y = (X + HalfSide) % SideLength; Y < Size - 1; Y += SideLength) {
-					double Avg = 
-						Get((X - HalfSide + Size - 1) % (Size - 1), Y) +
-						Get((X + HalfSide) % (Size - 1), Y) +
-						Get(X, (Y + HalfSide) % (Size - 1)) +
-						Get(X, (Y - HalfSide + Size - 1) % (Size - 1));
-					Avg /= cast(T)4.0;
-					T Rand = uniform(cast(T)0.0, cast(T)1.0, rnd);
-					Avg = Avg + (Rand * 2 * Roughness) - Roughness;
-					Set(X, Y, Avg);
-					if(X == 0)
-						Set(Size - 1, Y, Avg);
-					if(Y == 0)
-						Set(X, Size - 1, Avg);
-				}
-			}
-		}+/
+		 ptrdiff_t HalfSide = SideLength / 2;
+		 for(ptrdiff_t X = 0; X < Size - 1; X += SideLength) {
+		 for(ptrdiff_t Y = 0; Y < Size - 1; Y += SideLength) {
+		 T Avg = Get(X, Y) + Get(X + SideLength, Y) + Get(X, Y + SideLength) + Get(X + SideLength, Y + SideLength);
+		 Avg /= cast(T)4.0;
+		 T Rand = uniform(cast(T)0.0, cast(T)1.0, rnd);
+		 Set(X + HalfSide, Y + HalfSide, Avg + (Rand * 2 * Roughness) - Roughness);
+		 }
+		 }
+		 for(ptrdiff_t X = 0; X < Size - 1; X += HalfSide) {
+		 for(ptrdiff_t Y = (X + HalfSide) % SideLength; Y < Size - 1; Y += SideLength) {
+		 double Avg = 
+		 Get((X - HalfSide + Size - 1) % (Size - 1), Y) +
+		 Get((X + HalfSide) % (Size - 1), Y) +
+		 Get(X, (Y + HalfSide) % (Size - 1)) +
+		 Get(X, (Y - HalfSide + Size - 1) % (Size - 1));
+		 Avg /= cast(T)4.0;
+		 T Rand = uniform(cast(T)0.0, cast(T)1.0, rnd);
+		 Avg = Avg + (Rand * 2 * Roughness) - Roughness;
+		 Set(X, Y, Avg);
+		 if(X == 0)
+		 Set(Size - 1, Y, Avg);
+		 if(Y == 0)
+		 Set(X, Size - 1, Avg);
+		 }
+		 }
+		 }+/
 		void ComputeColor(ptrdiff_t X, ptrdiff_t Y, ref Vector2p[4] Points) {
 			T C = 0;
 			for(ptrdiff_t i = 0; i < 4; i++) {
@@ -98,7 +97,7 @@ public:
 			else if(Y == Size - 1)
 				Set(X, 0, C);			
 		}
-
+		
 		while(Step > 1) {
 			ptrdiff_t HalfStep = Step / 2;
 			for(ptrdiff_t X = 0; X < Size - 1; X += Step) {
@@ -130,13 +129,13 @@ public:
 					ComputeColor(X2, Y2, Points2);
 				}
 			}
-
+			
 			Range /= 2;
 			Step /= 2;
 		}
 		return Elements;
 	}
-
+	
 	/// Generates an array of floats from zero to Amplitude, using a perlin noise generator.
 	/// Params:
 	/// 	Width = The width of the noise map.
@@ -163,13 +162,13 @@ public:
 			}
 			return t;
 		}
-
+		
 		static pure double GetValue(double X, double Y) {
 			int Xint = cast(int)X;
 			int Yint = cast(int)Y;
 			double Xfrac = X - Xint;
 			double Yfrac = Y - Yint;
-
+			
 			//noise values
 			double n01 = Noise(Xint-1, Yint-1);
 			double n02 = Noise(Xint+1, Yint-1);
@@ -180,31 +179,31 @@ public:
 			double n07 = Noise(Xint, Yint-1);
 			double n08 = Noise(Xint, Yint+1);
 			double n09 = Noise(Xint, Yint);
-	
+			
 			double n12 = Noise(Xint+2, Yint-1);
 			double n14 = Noise(Xint+2, Yint+1);
 			double n16 = Noise(Xint+2, Yint);
-	
+			
 			double n23 = Noise(Xint-1, Yint+2);
 			double n24 = Noise(Xint+1, Yint+2);
 			double n28 = Noise(Xint, Yint+2);
-	
-			 double n34 = Noise(Xint+2, Yint+2);
-				
+			
+			double n34 = Noise(Xint+2, Yint+2);
+			
 			//find the noise values of the four corners
 			double x0y0 = 0.0625*(n01+n02+n03+n04) + 0.125*(n05+n06+n07+n08) + 0.25*(n09);  
 			double x1y0 = 0.0625*(n07+n12+n08+n14) + 0.125*(n09+n16+n02+n04) + 0.25*(n06);  
 			double x0y1 = 0.0625*(n05+n06+n23+n24) + 0.125*(n03+n04+n09+n28) + 0.25*(n08);  
 			double x1y1 = 0.0625*(n09+n16+n28+n34) + 0.125*(n08+n14+n06+n24) + 0.25*(n04);  
-
+			
 			//interpolate between those values according to the x and y fractions
 			double v1 = Interpolate(x0y0, x1y0, Xfrac); //interpolate in x direction (y)
 			double v2 = Interpolate(x0y1, x1y1, Xfrac); //interpolate in x direction (y+1)
 			double fin = Interpolate(v1, v2, Yfrac);  //interpolate in y direction
-
+			
 			return fin;
 		}
-
+		
 		static pure double Interpolate(double X, double Y, double A) {
 			double NA = 1.0 - A;
 			double NAS = NA * NA;
@@ -213,14 +212,14 @@ public:
 			double F2 = 3.0 * AS - 2.0 * (AS * A);
 			return X * F1 + Y * F2;
 		}
-
+		
 		static pure double Noise(int X, int Y) {
 			int n = X + Y * 57;
 			n = (n << 13) ^ n;
 			double t = (n * (n * n * 15731 + 789221) + 1376312589) & 0x7FFFFFFF;
 			return 1.0 - t * 0.931322574615478515625E-9;
 		}
-
+		
 		T[] Elements = uninitializedArray!(T[])(Width * Height);
 		if(Seed == 0)
 			Seed = unpredictableSeed;

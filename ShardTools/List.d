@@ -1,4 +1,6 @@
-﻿module ShardTools.List;
+﻿/// Provides a simple array-list implementation.
+/// This class should be considered deprecated.
+module ShardTools.List;
 private import ShardTools.IList;
 import std.conv;
 import ShardTools.ICollection;

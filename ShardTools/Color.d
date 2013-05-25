@@ -1,8 +1,8 @@
 module ShardTools.Color;
-version=ShardMath;
 
-version(ShardMath)
+//version(ShardMath) {
 	private import ShardMath.Vector;
+//}
 
 /// Represents a color with four components ranging from 0 to 255.
 struct Color {
@@ -14,7 +14,7 @@ struct Color {
 	 *	B = The blue component for this color.
 	 *	G = The green component for this color.
 	 *	A = The alpha component for this color.
-	*/
+	 */
 	this(ubyte R, ubyte G, ubyte B, ubyte A = 255) {
 		this.R = R;
 		this.G = G;
@@ -22,8 +22,10 @@ struct Color {
 		this.A = A;
 	}
 
-	version(ShardMath) {
-
+	// While this would be nice, making EVERY SINGLE library that imports ShardTools be forced to define ShardMath is just stupid.
+	// Would be nice if only ShardMath had to define it...
+	//version(ShardMath) {
+		
 		/// Initializes a new instance of the Color struct.
 		///	Params:
 		///		Vector = The vector, with components ranging from 0 to 1, to create the Color from, where X is Red, and W is Alpha.
@@ -34,7 +36,7 @@ struct Color {
 			this.B = cast(ubyte)(Vector.Z * 255);
 			this.A = cast(ubyte)(Vector.W * 255);
 		}
-
+		
 		/// Initializes a new instance of the Color struct.
 		///	Params:
 		///		Vector = The vector, with components ranging from 0 to 1, to create the Color from, where X is Red, and Z is Blue.
@@ -45,39 +47,39 @@ struct Color {
 			this.B = cast(ubyte)(Vector.Z * 255);
 			this.A = 255;
 		}
-	
+		
 		/// Returns a Vector2 representation of this object, with components ranging from zero to one, where X is Red and W is Alpha.
 		Vector3f ToVector3() const {
 			return Vector3f(R / 255f, G / 255f, B / 255f);
 		}
-
+		
 		/// Returns a Vector4 representation of this object, with components ranging from zero to one, where X is Red and W is Alpha.
 		Vector4f ToVector4() const {
 			return Vector4f(R / 255f, G / 255f, B / 255F, A / 255f);
 		}
-
-	}
+		
+	//}
 	
 	/// Returns a pre-defined Color with this name.
 	@property static Color Aqua() {
 		return Color(0, 255, 255);
 	}
-
+	
 	/// Returns a pre-defined Color with this name.
 	@property static Color Fuschia() {
 		return Color(0, 255, 0, 255);
 	}
-
+	
 	/// Returns a pre-defined Color with this name.
 	@property static Color Black() {
 		return Color(0, 0, 0, 255);
 	}
-
+	
 	/// Returns a pre-defined Color with this name.
 	@property static Color Blue() {
 		return Color(0, 0, 255, 255);
 	}
-
+	
 	/// Returns a pre-defined Color with this name.
 	@property static Color Red() {
 		return Color(255, 0, 0, 255);
@@ -89,22 +91,22 @@ struct Color {
 	@property static Color Green() {
 		return Color(0, 128, 0);
 	}
-
+	
 	/// Returns a pre-defined Color with this name.
 	@property static Color Gray() {
 		return Color(128, 128, 128);
 	}
-
+	
 	/// Returns a pre-defined Color with this name.
 	@property static Color TransparentBlack() {
 		return Color(0, 0, 0, 0);
 	}
-
+	
 	/// Returns a pre-defined Color with this name.	
 	@property static Color Lime() {
 		return Color(0, 255, 0);
 	}
-
+	
 	/// Returns a pre-defined Color with this name.	
 	@property static Color Maroon() {
 		return Color(128, 0, 0);
@@ -145,13 +147,13 @@ struct Color {
 		return Color(255, 255, 0);
 	}
 	
-	align(1):		
-		/// The Blue component for this color.
-		ubyte B;
-		/// The Green component for this color.
-		ubyte G;					
-		/// The Red component for this color.
-		ubyte R;
-		/// The Alpha component for this color.
-		ubyte A;
+align(1):		
+	/// The Blue component for this color.
+	ubyte B;
+	/// The Green component for this color.
+	ubyte G;					
+	/// The Red component for this color.
+	ubyte R;
+	/// The Alpha component for this color.
+	ubyte A;
 }

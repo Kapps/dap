@@ -1,5 +1,10 @@
 ﻿module ShardTools.IPoolable;
 
+// This should be redone.
+// It's inelegant and doesn't take advantage of D.
+// Perhaps something with destroy and __ctor or emplace should be used, and arguments being specified in Get? But then that kinda defeats the purpose in a way.
+// Also, Pool should just take a template type and no need for IPoolable at all, as it can be checked at compile-time.
+
 /// An interface used to represent an object capable of being pooled.
 @disable interface IPoolable {
 

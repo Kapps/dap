@@ -41,7 +41,7 @@ public:
 		return Result;
 	}
 
-	static if(is(typeof(CollectionType[0]))) {
+	static if(is(typeof(Underlying[0]))) {
 		/// Provides index access to the underlying collection.
 		@property T opIndex(size_t Index) {
 			return Underlying[Index];

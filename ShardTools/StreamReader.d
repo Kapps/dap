@@ -1,6 +1,8 @@
-﻿module ShardTools.StreamReader;
+﻿/// Scheduled to be deprecated upon completion of StreamOutput.
+module ShardTools.StreamReader;
 private import std.exception;
 import core.stdc.string;
+import std.traits;
 
 /// Helper class to read a stream of bytes.
 class StreamReader  {
@@ -32,7 +34,7 @@ public:
 	/// Reads a struct of the given type from the stream.
 	/// Params:
 	/// 	T = The type of struct to read.
-	@property T Read(T)() if(!is(T == class) && !is(T == interface)) {
+	@property T Read(T)() if(!is(T == class) && !is(T == interface) && !isArray!T) {
 		ensure(Available >= T.sizeof);
 		ubyte[] Slice = Data[Position..Position + T.sizeof];
 		ubyte* ptr = Slice.ptr;	
@@ -52,7 +54,9 @@ public:
 	}
 	
 	/// Reads a null terminated string.
-	@property string ReadTerminatedString() {
+	string ReadTerminatedString() {
+		// TODO: What a terrible implementation; optimize it.
+		// Do just a slice, not N appends.
 		string Result = "";
 		for(size_t i = Position; i < Data.length; i++) {
 			if(Data[i] == 0) {
@@ -89,8 +93,7 @@ public:
 	/// 	T = The type of the struct to read.
 	@property T[] ReadPrefixed(T)() if(!is(T == class) && !is(T == interface)) {
 		ensure(int.sizeof <= Available);
-		int Count = Read!int;
-		ensure(Count * T.sizeof <= Available);
+		uint Count = Read!uint;
 		return ReadArray!T(Count);
 	}
 

@@ -6,7 +6,7 @@ private import std.string;
 class Map(Key, Value) {
 
 public:
-	/// Initializes a new instance of the Dictionary object.
+	/// Initializes a new instance of the Map object.
 	this() {
 		
 	}
@@ -15,8 +15,6 @@ public:
 	/// Params:
 	///		Key = The key to get the element associated with.
 	Value Get(Key Key, lazy Value DefaultValue = Value.init) {		
-	//	static if(is(Key == typeof(string)))
-	//		Key = toStringz(Key);
 		Value* Result = (Key in Elements);
 		if(Result is null)
 			return DefaultValue;

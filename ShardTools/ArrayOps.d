@@ -1,4 +1,7 @@
-﻿module ShardTools.ArrayOps;
+﻿/// Provides simple operations that act upon collections with foreach, as opposed to ranges.
+/// The operations that mimic std.algorithm are intended to be faster, as they allow use of array foreach, which is the fastest form of iteration.
+/// This module is stable in design, but not tested enough to be stable in implementation. Many methods are completely untested.
+module ShardTools.ArrayOps;
 private import std.traits;
 import std.parallelism;
 import std.functional;
@@ -6,7 +9,7 @@ import std.functional;
 
 /// Determines whether Range contains any element such that Condition for that element and Element evaluates to true.
 /// Params:
-/// 	Condition = The condition to evaluate. When this evaluates as true, the function returns true.
+/// 	Condition = The condition to evaluate, where the first parameter is the element in the collection, and the second is Element. When this evaluates as true, the function returns true.
 /// 	Collection = The type of the collection to use for this Range.
 /// 	T = The type of the Element to compare to.
 /// 	Range = The range to perform this operation on.
@@ -16,24 +19,38 @@ bool Contains(alias Condition = "a == b", Collection, T)(Collection Range, T Ele
 		if(binaryFun!Condition(a, Element))
 			return true;
 	return false;
+} unittest {
+	int[] elements = [1, 2, 3, 4];
+	assert(elements.Contains(2));
+	assert(!elements.Contains(5));
+	assert(elements.Contains!("a == b * b")(2));
+	assert(!elements.Contains!("a * a == b")(3));
 }
 
 /// Determines the number of elements in the collection that satisfy the given action.
+/// This method may accept a condition that only includes elements that evaluate to true.
+/// If the condition is left blank, and the range contains a length or Count member, the result of that will be returned instead of iterating over the collection.
 /// Params:
 ///		Condition = The condition to evaluate. When this evalutes as true, the result is incremented.
 ///		Collection = The type of the collection to use for Range.
 ///		Range = The range to perform this operation on.
 size_t Count(alias Condition = "true", Collection)(Collection Range) if(is(typeof(unaryFun!Condition))) {
-	static if(hasMember!(Collection, "length")) {
-		if(Condition == "true")
-			return Range.length;
-	}	
+	static if(hasMember!(Collection, "length") && (Condition == "true")) {
+		return Range.length;
+	} else static if(hasMember!(Collection, "Count") && (Condition == "true")) {
+		return Range.Count;
+	}
 	size_t Result = 0;
 	foreach(ref a; Range)
 		if(unaryFun!Condition(a))
 			Result++;
 	return Result;
-} 
+} unittest {
+	int[] elements = [1, 2, 3, 4];
+	assert(elements.Count == 4);
+	assert(elements.Count!(a => a > 2) == 2);
+	assert(elements.Count!(a => a > 5) == 0);
+}
 
 /// Determines the first index within Range such that Condition is true, or -1 if Condition never evaluated to true.
 /// Params:
@@ -47,6 +64,11 @@ size_t IndexOf(alias Condition = "a == b", Collection, T)(Collection Range, T El
 		if(binaryFun!Condition(a, Element))
 			return Index;
 	return -1;
+} unittest {
+	int[] elements = [1, 2, 3, 4];
+	assert(elements.IndexOf(2) == 1);
+	assert(elements.IndexOf(0) == -1);
+	assert(elements.IndexOf!("a * a == b")(4) == 1);	
 }
  
 /// Performs the specified operation on all elements in Range (with each element aliased as a).
@@ -55,8 +77,14 @@ size_t IndexOf(alias Condition = "a == b", Collection, T)(Collection Range, T El
 ///		Range = The range to perform this operation on.
 ///		Action = The operation to perform on each element.
 void ForEach(alias Action, Collection)(Collection Range) {	
-	foreach(ref a; Range)			
-		(mixin(Action));					
+	foreach(ref a; Range) {
+		unaryFun!Action(a);	
+	}
+} unittest {
+	int[] elements = [1, 2, 3, 4];
+	elements.ForEach!("a *= a");
+	assert(elements == [1, 4, 9, 16]);	
+	elements.ForEach!(c => c *= c);
 }
 
 /// Performs the specified operation on all elements in Range.
@@ -65,12 +93,19 @@ void ForEach(alias Action, Collection)(Collection Range) {
 /// 	ElementType = The type of each element within the range.
 /// 	Collection  = The type of the range.
 /// 	Range       = The range to loop over all elements for.
-/// 	Callback    = A delegate to invoke upo neach element in this range.
+/// 	Callback    = A delegate to invoke upon each element in this range.
 void ForEach(ElementType, Collection)(Collection Range, void delegate(ref ElementType) Callback) {
-	foreach(ref a; parallel(Range))
+	foreach(ref a; Range)
 		Callback(a);
+} unittest {
+	int[] elements = [1, 2, 3, 4];
+	int sum = 0;
+	auto action = (c => sum += c);
+	elements.ForEach(action);
+	assert(sum == 10);
 }
 
+version(none) {
 /// Performs the specified operation on all elements in Range (with each element aliased as a).
 /// Params:
 ///		Collection = The type of the collection to use for Range.
@@ -85,6 +120,7 @@ void ForEach(alias Action, Collection)(Collection Range, int ParallelCount) {
 		foreach(ref a; parallel(Range, ParallelCount))			
 			(mixin(Action));					
 }
+}
 
 
 /// Determines if all of the elements in the given collection satisfy the given predicate.
@@ -97,6 +133,10 @@ bool All(alias Condition, Collection)(Collection Range) if(is(typeof(unaryFun!Co
 		if(!unaryFun!Condition(Element))
 			return false;
 	return true;
+} unittest {
+	int[] elements = [1, 2, 3, 4];
+	assert(elements.All!(c => c >= 1));
+	assert(!elements.All!(c => c >= 2));	
 }
 
 /// Determines if any of the elements in the given collection satisfy the given predicate.
@@ -109,40 +149,20 @@ bool Any(alias Condition, Collection)(Collection Range) if(is(typeof(unaryFun!Co
 		if(unaryFun!Condition(Element))
 			return true;
 	return false;
+} unittest {
+	int[] elements = [1, 2, 3, 4];
+	assert(elements.Any!(c => c >= 4));
+	assert(!elements.Any!(c => c >= 5));	
 }
 
-/// Evaluates condition on all elements in the collection until one evaluates to false, performing Action on all that evaluate to true.
-/// Params:
-///		Condition = The condition to evaluate. When this evalutes to false, no more elements are iterated over.
-///		Collection = The type of the collection to use for Range.
-///		Range = The range to perform this operation on.
-///		Action = The operation to perform on each element.
-void While(alias Action, alias Condition, Collection)(Collection Range) if(is(typeof(unaryFun!Condition))) {
-	foreach(ref a; Range) {
-		if(!mixin(Condition)) 
-			break;
-		mixin(Action);
-	}
-}
-
-/// Performs Action on all elements in the collection until Action evaluates to false. Similar to Until, except that the result of Action is checked instead of a separate condition.
-/// Params:
-///		Collection = The type of the collection to use for Range.
-///		Range = The range to perform this operation on.
-///		Action = The operation to perform on each element. When this evaluates as false, the method returns.
-void WhileTrue(alias Action, Collection)(Collection Range) if(is(typeof(unaryFun!Action))) {
-	foreach(ref a; Range)
-		if(!mixin(Action))
-			break;		
-}
-
+// TODO: Change any code using this to use filter and remove this method.
 /// Lazily iterates over all of the elements in Range that can be explicitly converted to type T.
 /// Because this allows casting, ref is not allowed.
 /// Params:
 /// 	T = The type of the element to cast to.
 /// 	Range = The underlying range to get the elements from.
 /// 	CollectionType = The type of the range.
-auto OfType(T, CollectionType)(CollectionType Range) {
+deprecated auto OfType(T, CollectionType)(CollectionType Range) {
 	struct Result {		
 		@property bool empty() {
 			return Input.empty;
@@ -165,12 +185,13 @@ auto OfType(T, CollectionType)(CollectionType Range) {
 	return Result(Range);
 }
 
+// TODO: Change any code using this to use filter and remove this method.
 /// Returns all of the elements in Range that evaluate to true for Condition.
 /// Params:
 /// 	Condition = The condition to evaluate for each element, with each element being called "a".
 /// 	Collection = The type of the range.
 /// 	Range = The range to perform this operation on.
-auto Where(alias Condition, Collection)(Collection Range) if(is(typeof(unaryFun!Condition))) {
+deprecated auto Where(alias Condition, Collection)(Collection Range) if(is(typeof(unaryFun!Condition))) {
 	struct WhereResult {
 		alias Unqual!Collection R;			
 		@property bool empty() {

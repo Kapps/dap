@@ -1,5 +1,5 @@
-﻿module ShardTools.StreamWriter;
-
+﻿/// To be removed. Do not use.
+module ShardTools.StreamWriter;
 
 /// A helper class used to write to a stream.
 @disable class StreamWriter  {
