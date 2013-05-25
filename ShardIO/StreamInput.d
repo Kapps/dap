@@ -103,6 +103,18 @@ public:
 			CheckFlush();
 		}
 	}
+		
+	/// Writes an array to the Stream, prefixed by an unsigned integer length.
+	/// Params:
+	/// 	T = The type of the elements in the array.
+	///		Data = The array to write.
+	void WritePrefixed(T)(T[] Data) if(!is(T == class) && !is(T == interface) && !isArray!T) {
+		synchronized(this) {
+			enforce(!_ShouldComplete, "Unable to write more data to a stream after waiting for completion.");
+			CurrentBuffer.WritePrefixed(Data);
+			CheckFlush();
+		}
+	}
 
 	/// Indicates that no more input will arrive to the Stream, and completes it after going through the buffered data.
 	void Complete() {

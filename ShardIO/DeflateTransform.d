@@ -4,7 +4,8 @@ private import ShardIO.DataTransformer;
 private import std.zlib;
 
 /// A DataTransformer used to compress or decompress data with the Deflate algorithm.
-class DeflateTransform : DataTransformer {
+/// Currently disabled because it operates individually on each request, as opposed to acting as a larger stream as a DataTransformer should.
+@disable class DeflateTransform : DataTransformer {
 
 public:
 	/// Initializes a new instance of the DeflateTransform object.

@@ -9,23 +9,22 @@ version(Windows) {
 
 package:
 
-alias void delegate(void*, size_t, size_t) AsyncIOCallback;
+alias void delegate(void*, int, size_t) AsyncIOCallback;
 
 /// Creates a structure that stores information for asynchronous operations.
 /// Information contains a garbage collector reference internally until UnwrapOperation or CancelOperation are called.
-/// Not calling UnwrapOoperation will result in memory leaks.
-/// The return type is dependent on the controller used. For example, IOCP returns an OVERLAPPED[Extended]* to be passed in to IOCP calls.
+/// Not calling UnwrapOperation will result in memory leaks.
 Tuple!T* CreateOperation(T...)(T Params) {
 	/+HANDLE Handle;
-	static if(is(T[0] == socket_t))
-		Handle = cast(void*)Params[0];
-	else
-		Handle = Params[0];
-	AsyncIOCallbackDelegate InternalCallback = Params[1];		
-	auto State = new Tuple!(T[2..$])(Params[2..$]);		
-	NativeReference.AddReference(cast(void*)State);		
-	OVERLAPPED* lpOverlap = CreateOverlap(cast(void*)State, cast(HANDLE)Handle, InternalCallback);
-	return lpOverlap;+/
+	 static if(is(T[0] == socket_t))
+	 Handle = cast(void*)Params[0];
+	 else
+	 Handle = Params[0];
+	 AsyncIOCallbackDelegate InternalCallback = Params[1];		
+	 auto State = new Tuple!(T[2..$])(Params[2..$]);		
+	 NativeReference.AddReference(cast(void*)State);		
+	 OVERLAPPED* lpOverlap = CreateOverlap(cast(void*)State, cast(HANDLE)Handle, InternalCallback);
+	 return lpOverlap;+/
 	auto State = new Tuple!T(Params);
 	NativeReference.AddReference(cast(void*)State);
 	return State;

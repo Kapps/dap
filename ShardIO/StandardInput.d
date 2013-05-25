@@ -4,6 +4,7 @@ private import std.parallelism;
 public import ShardIO.InputSource;
 private import ShardTools.Buffer;
 private import std.stdio;
+import ShardTools.Untyped;
 
 /// Provides an input source that reads from the standard input stream on a per-line basis.
 class StandardInput : InputSource {
@@ -51,14 +52,14 @@ public:
 	/// Any DataSources that require access to the IOAction they are part of should use this to do so.
 	protected override void Initialize(IOAction Action) {
 		super.Initialize(Action);
-		Action.NotifyOnComplete(null, &OnActionComplete);
+		Action.NotifyOnComplete(Untyped.init, &OnActionComplete);
 	}
 	
 private:
 	Buffer BufferedData;
 	bool IsComplete = false;
 
-	void OnActionComplete(void* State, AsyncAction Action, CompletionType Type) {
+	void OnActionComplete(Untyped State, AsyncAction Action, CompletionType Type) {
 		IsComplete = true;
 	}
 

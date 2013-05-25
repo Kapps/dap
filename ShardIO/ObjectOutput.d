@@ -1,7 +1,14 @@
 ﻿module ShardIO.ObjectOutput;
 public import ShardTools.Event;
 public import ShardIO.OutputSource;
+import ShardTools.Buffer;
 
+/+/// Provides an ObjectOutput to parse an object written by MessagePack.
+public T ParseMessagePackedObject(T)(ubyte[] data) {
+	// return NotEnoughBytes to make next Data have more bytes avail.
+	// Provide a max number of bytes stored, and if too many, abort the parse.
+	return T.init;
+}+/
 
 /// Represents an OutputSource that parses input data to create an object, then operates on the completed objects.
 /// Params:

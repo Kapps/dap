@@ -15,13 +15,18 @@ version(Windows) {
 	extern(Windows) {
 		SOCKET WSASocketA(int, int, int, void*, size_t, size_t);
 	}
+} else {
+	import core.sys.posix.unistd;
+	import std.c.linux.socket;
 }
+import ShardIO.AsyncSocket;
 
 /// Provides a pool of created sockets of a given AddressFamily, Protocol, and SocketType.
 /// There are default singleton instances for the basic types, created on demand.
 class SocketPool  {
 
 private enum ExpectedIncrementDuration = dur!"seconds"(30);
+private enum int SOCKET_ERROR = -1;
 
 public:
 
@@ -55,9 +60,9 @@ public:
 
 	/// Acquires an initialized socket from the pool.
 	/// If no sockets are available, a new one will be created while more are being generated.
-	socket_t Acquire() {		
+	AsyncSocket.AsyncSocketHandle Acquire() {		
 		//return CreateSocket();
-		socket_t sock;
+		AsyncSocket.AsyncSocketHandle sock;
 		if(!Sockets.TryPop(sock)) {
 			PerformGenerate();
 			sock = CreateSocket();
@@ -67,8 +72,12 @@ public:
 
 	/// Releases the given socket, freeing resources associated with it.
 	/// The socket is expected to have been shut down already, if needed.
-	void Release(socket_t sock) {
-		int ShutdownResult = closesocket(sock);	
+	void Release(AsyncSocket.AsyncSocketHandle sock) {
+		version(Windows) {
+			int ShutdownResult = closesocket(sock);	
+		} else {
+			int ShutdownResult = close(sock);
+		}
 		if(ShutdownResult != 0)
 			throw new SocketOSException("Unable to release the socket");		
 	}
@@ -92,7 +101,7 @@ public:
 	}
 	
 private:
-	ConcurrentStack!socket_t Sockets;
+	ConcurrentStack!(AsyncSocket.AsyncSocketHandle) Sockets;
 	size_t _Increment;
 	bool IsGenerating;
 	Mutex AcquireLock;
@@ -131,7 +140,7 @@ private:
 			_Increment += DefaultIncrement;
 		_Increment = max(min(_Increment, 4096), 16);			
 		for(size_t i = 0; i < _Increment; i++) {
-			socket_t sock = CreateSocket();
+			auto sock = CreateSocket();
 			Sockets.Push(sock);
 		}
 		synchronized(this) {
@@ -139,14 +148,14 @@ private:
 		}		
 	}
 
-	socket_t CreateSocket() {
-		socket_t sock;
+	AsyncSocket.AsyncSocketHandle CreateSocket() {
+		AsyncSocket.AsyncSocketHandle sock;
 		version(Windows) {
-			sock = cast(socket_t)WSASocketA(cast(int)_Family, cast(int)_Type, cast(int)_Protocol, null, 0, WSA_FLAG_OVERLAPPED);
+			sock = cast(AsyncSocket.AsyncSocketHandle)WSASocketA(cast(int)_Family, cast(int)_Type, cast(int)_Protocol, null, 0, WSA_FLAG_OVERLAPPED);
 		} else {
-			sock = cast(socket_t)socket(cast(int)_Family, cast(int)_Type, cast(int)_Protocol);
+			sock = cast(AsyncSocket.AsyncSocketHandle)socket(cast(int)_Family, cast(int)_Type, cast(int)_Protocol);
 		}
-		if(sock == socket_t.init)
+		if(sock == SOCKET_ERROR)
 			throw new SocketOSException("Unable to create a socket to pool.", sock);
 		return sock;
 	}

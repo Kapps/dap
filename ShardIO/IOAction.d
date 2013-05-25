@@ -17,12 +17,17 @@ private import ShardTools.Buffer;
 public import ShardIO.OutputSource;
 public import ShardIO.InputSource; 
 import std.array;
+import ShardTools.Untyped;
 
 /// Indicates an operation retrieving input from an InputSource and then outputting it to an OutputSource.
 /// All public methods in this class are thread-safe.
 class IOAction : AsyncAction {
 
 public:
+
+	// TODO: Remove IOManager, and instead use the TaskManager.
+	// Just yield when there's no input ready.
+	// Consider using a TaskRepeater to check for a delegate, and have an AsyncAction that does that.	
 
 	/// Initializes a new instance of the IOAction object.
 	this(InputSource Input, OutputSource Output) {				
@@ -47,12 +52,7 @@ public:
 	/// Gets the output for this action.
 	@property OutputSource Output() {
 		return _Output;
-	}
-
-	/// Gets a value indicating whether this action has started being processed.
-	@property bool IsStarted() const {
-		return HasBegun;
-	}
+	}	
 
 	/// Gets or sets the default value for ChunkSize for new IOActions.
 	static @property size_t DefaultChunkSize() {
@@ -99,14 +99,6 @@ public:
 	@property void MaxChunks(size_t Value) {
 		enforce(Value > 0);
 		_MaxChunks = Value;
-	}
-	
-	/// Begins this operation asynchronously.	
-	void Start() {
-		if(!cas(cast(shared)&HasBegun, cast(shared)false, cast(shared)true))
-			throw new InvalidOperationException("The IO Operation had already been started.");									
-		cas(cast(shared)&_Manager, cast(shared)null, cast(shared)IOManager.Default);
-		ProcessIfNeeded();		
 	}	
 
 	/// Gets or sets the IO Manager executing this action.
@@ -122,13 +114,18 @@ public:
 		_Manager = Value;
 	}
 
+	/// Begins this operation asynchronously.
+	override void Start() {
+		super.Start();
+		cas(cast(shared)&_Manager, cast(shared)null, cast(shared)IOManager.Default);
+		ProcessIfNeeded();
+	}
+
 package:
-	// TODO: Would be nice to remove the locks on Notify____Ready without breaking everything in race conditions. Even with atomics though it breaks.
-	// The actual process / input checks can stay locked, that's not a big deal. We just want to know that input/output is ready without needing a lock.
 	void NotifyInputReady() {					
 		synchronized(DataLock, StateLock) {		
 			if(!HasBegun)
-				return;			
+				throw new InvalidOperationException("An action that has not yet begun should not be notified of being ready.");
 			if((WaitingOn & DataOperation.Read) == 0) 
 				return;			
 			WaitingOn &= ~DataOperation.Read;
@@ -153,7 +150,7 @@ protected:
 	
 	void OnDataReceived(ubyte[] Data, DataFlags Flags) {			
 		if((Flags & DataFlags.AllowStorage) == 0) {
-			Data = Data.dup; // TODO: Try to optimize this. But how?
+			Data = Data.dup; // TODO: Try to optimize this. But how? At the least we could use a buffer. Could also try processing some first.
 			Flags |= DataFlags.AllowStorage;
 		}
 		bool Buffered = false;
@@ -206,8 +203,6 @@ private:
 	CompletionType OutputCompletionCallbackState; // When using asynchronous output, need to know what type of completion we're waiting on.	
 
 	bool AreBuffersFull() {
-		// Called from process thread; automatically thread-safe.
-
 		// TODO: Consider optimizing. Probably not needed.
 		size_t ResultSize = 0;
 		foreach(Buffer b; Buffers)
@@ -238,6 +233,7 @@ private:
 					Data = Data[AmountToCopy .. $];
 				}
 				// The data that remains all goes into a possibly larger-than-chunksize buffer.
+				// Note: Requires a dup because AllowStorage is false in this else if, but we can still optimize by using an existing buffer and copying into it.
 				Buffer Next = Buffer.FromExistingData(Data.dup);
 				Buffers ~= Next;
 			}
@@ -318,13 +314,14 @@ private:
 				}				
 				if(CompleteOnBreakType != CompletionType.Incomplete) {
 					Result = true;
-					NotifyComplete(CompleteOnBreakType, null);
+					NotifyComplete(CompleteOnBreakType, Untyped.init);
 				}				
 				return Result;
 			}
 		}
 			
 		// TODO: These have to become atomic. So it has to become TryRead and TryWrite, to write or read into a buffer.
+		// ..probably should have given more information as to the why above, given that I'm not sure now.
 		bool CanRead() {	
 			synchronized(this) {			
 				return !AreBuffersFull() && (WaitingOn & DataOperation.Read) == 0 && !IsInputComplete && CompleteOnBreakType == CompletionType.Incomplete;
@@ -335,8 +332,7 @@ private:
 				return Buffers.Count > 0 && (WaitingOn & DataOperation.Write) == 0 && CompleteOnBreakType == CompletionType.Incomplete;				
 			}
 		}	
-		// TODO: Very important to get rid of this lock, for performance reasons.		
-		// TODO: These scattered CheckCompletions probably aren't doing anyone any favours...
+
 		synchronized(this) {
 			scope(exit)
 				InDataOperation = false;
@@ -363,10 +359,8 @@ private:
 						} 
 						// 0 bytes handled; nothing to do here. So, just break. They probably should return Complete or Waiting, but not necessarily.
 						// But, we may as well read some more data if needed to give them a bit more time.
-						if(!ProcessFlags(Flags, DataOperation.Write)) {
-							CheckCompletion();
+						if(!ProcessFlags(Flags, DataOperation.Write))
 							break;
-						}
 					}
 
 					if(CheckCompletion())
@@ -383,7 +377,7 @@ private:
 				if(CheckCompletion())
 						return;			
 			} catch (Throwable e) {
-				NotifyComplete(CompletionType.Aborted, cast(void*)e);				
+				NotifyComplete(CompletionType.Aborted, Untyped(e));				
 				throw e;
 			}					
 		}
@@ -396,7 +390,7 @@ private:
 			if(InDataOperation)			
 				CompleteOnBreakType = Type;
 			else
-				NotifyComplete(Type, null);
+				NotifyComplete(Type, Untyped.init);
 			return true;
 		}
 	}

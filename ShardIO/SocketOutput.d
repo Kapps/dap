@@ -64,7 +64,9 @@ protected:
 	/// For example, when using overlapped IO, the callback would be invoked after the actual write is complete, as opposed to queueing the write.
 	/// The base method should not be called if overridden.
 	override void NotifyOnCompletion(void delegate() Callback) {		
-		CompletionCallback = Callback;
+		synchronized(StateLock) {
+			CompletionCallback = Callback;
+		}
 		AttemptCompletion();		
 	}
 
@@ -78,8 +80,8 @@ protected:
 	
 private:
 	AsyncSocket _Socket;	
-	size_t NumSent;
-	size_t NumReceived;
+	shared size_t NumSent;
+	shared size_t NumReceived;
 	void delegate() CompletionCallback;
 	bool IsComplete = false;
 	Mutex StateLock;

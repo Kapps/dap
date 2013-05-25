@@ -1,11 +1,12 @@
 ﻿module ShardIO.AsyncSocket;
 private import core.stdc.errno;
-private import ShardIO.SelectNotifier;
+private import ShardIO.NetworkNotifier;
 private import ShardTools.ConcurrentStack;
 private import core.atomic;
 private import std.typecons;
 private import ShardTools.LinkedList;
 private import ShardTools.ArrayOps;
+import std.exception;
 private import ShardTools.Event;
 private import std.stdio;
 private import std.parallelism;
@@ -13,25 +14,26 @@ private import ShardTools.NativeReference;
 private import ShardIO.AsyncFile;
 private import ShardIO.SocketPool;
 private import std.exception;
-private import ShardIO.SelectNotifier;
+import ShardTools.ExceptionTools;
 public import std.socket;
 import std.c.stdlib;
 import std.c.string;
+import ShardIO.Internals;
 
 
 version(Windows) {	
 	import ShardIO.IOCP;
 	import std.c.windows.winsock;
 	import std.c.windows.windows;	
-
-	enum : int {
+	
+enum : int {
 		WSAENETDOWN = 10050,
 		WSAEADDRINUSE = 10048,
 		WSAEADDRNOTAVAIL = 10049,
 	}
-
+	
 	enum int ERROR_IO_PENDING = 997;
-
+	
 	extern(Windows) {		
 		struct WSABUF {
 			size_t len;
@@ -45,9 +47,12 @@ version(Windows) {
 		__gshared BOOL function(SOCKET, const sockaddr*, int, void*, DWORD, DWORD*, LPOVERLAPPED) ConnectEx;
 		__gshared BOOL function(SOCKET, LPOVERLAPPED, DWORD, DWORD) DisconnectEx;
 	}		
-		
-} else {
-
+	
+} 
+version(Posix) {
+	import std.c.linux.socket;
+	import core.sys.posix.unistd;
+	import std.traits;
 }
 
 /// Determines the state of a socket.
@@ -78,23 +83,41 @@ enum AsyncSocketHandler {
 /// In this situation, Disconnected will be called.
 /// Note that a bound AsyncSocket is not eligible for garbage collection until it is closed.
 class AsyncSocket {
-
+	
+	// TODO: Switch to using a SpinLock; generally there should be no lock contention (and if there is, it will be short lived), but parallelism may be important.
+	
 public:
-
+	
 	alias void delegate(void* State, AsyncSocket NewSocket) AcceptCallbackDelegate;
 	alias void delegate(void* State, Address RemoteEndPoint) ConnectCallbackDelegate;	
 	alias void delegate(void* State, size_t BytesSent) SocketWriteCallbackDelegate;
 	alias void delegate(void* State, ubyte[] DataRead) SocketReadCallbackDelegate;	
 	alias void delegate(void* State, string Reason, int PlatformCode) SocketCloseNotificationCallback;
-
+	
 	/// Indicates the controller being used for handling files.
 	version(Windows) {
 		enum AsyncSocketHandler Controller = AsyncSocketHandler.IOCP;
-		alias socket_t AsyncSocketHandle;
-	} else {
-		enum AsyncSocketHandler Controller = AsyncSocketHandler.Select;
-		alias socket_t AsyncSocketHandle;
+		alias SOCKET AsyncSocketHandle;
+	} else version(linux) {
+		alias NetworkNotifier ControllerNotifier;
+		enum AsyncSocketHandler Controller = AsyncSocketHandler.EPoll;
+		alias int AsyncSocketHandle;
+	} else version(OSX) {
+		alias NetworkNotifier ControllerNotifier;
+		enum AsyncSocketHandler Controller = AsyncSocketHandler.KQueue;
+		alias int AsyncSocketHandle;
 	}	
+	
+	static if(Controller == AsyncSocketHandler.IOCP) {
+		private alias WSAGetLastError _lasterr;
+		private alias closesocket _close;
+	} else {
+		private alias errno _lasterr;
+		private alias close _close;
+		private enum int SOCKET_ERROR = -1;
+	}
+	
+	enum bool UsesNetworkNotifier = (Controller == AsyncSocketHandler.EPoll || Controller == AsyncSocketHandler.KQueue || Controller == AsyncSocketHandler.Select);
 	
 	/// Creates a new AsyncSocket capable of connecting to a remote endpoint or receiving an arbitrary number of connections.
 	/// Params:
@@ -102,17 +125,17 @@ public:
 	/// 	Type = The type of the socket. For TCP, this is Stream.
 	/// 	Protocol = The protocol the socket uses; this is usually TCP or UDP.
 	this(AddressFamily Family, SocketType Type, ProtocolType Protocol) {		
-		socket_t sock = SocketPool.GetPool(Family, Type, Protocol).Acquire();
+		AsyncSocketHandle sock = SocketPool.GetPool(Family, Type, Protocol).Acquire();
 		this(Family, Type, Protocol, SocketState.Disconnected, sock);				
 	}
-
-	private this(AsyncSocket Parent, socket_t Handle) {
+	
+	private this(AsyncSocket Parent, AsyncSocketHandle Handle) {
 		this(Parent._Family, Parent._Type, Parent._Protocol, SocketState.Connected, Handle);	
 		// If we're being created with a parent socket, this socket is already be open; prevent gc taking it.
 		NativeReference.AddReference(cast(void*)this);			
 	}
-
-	private this(AddressFamily Family, SocketType Type, ProtocolType Protocol, SocketState State, socket_t Handle) {
+	
+	private this(AddressFamily Family, SocketType Type, ProtocolType Protocol, SocketState State, AsyncSocketHandle Handle) {
 		this._Family = Family;
 		this._Type = Type;
 		this._Protocol = Protocol;
@@ -120,32 +143,33 @@ public:
 		_State = State;		
 		SetHandle(Handle);
 		this.DisconnectNotifiers = new typeof(DisconnectNotifiers)();
-		IOCP.RegisterHandle(cast(HANDLE)_Handle);		
+		version(Windows)
+			IOCP.RegisterHandle(cast(HANDLE)_Handle);		
 	}
-
+	
 	/// Gets the current state of the socket.
 	/// This is zero, one, or more of the bits in the SocketState enum.
 	/// This is accurate as of the last operation explicitly invoked that changes state.
 	@property SocketState State() const {		
 		return _State;
 	}
-
+	
 	/// Gets the Address of the remote or local endpoint for this socket.
 	/// Though this call is synchronous, the provider attempts to cache them from an accept, bind, or connect whenever possible.
 	@property Address RemoteAddress() {
 		return _RemoteAddr;
 	}
-
+	
 	/// Ditto
 	@property Address LocalAddress() {
 		return _LocalAddr;
 	}
-
+	
 	/// Gets the handle of the socket being used.
-	@property AsyncSocketHandle Handle() const {		
+	@property AsyncSocketHandle Handle() {		
 		return _Handle;
 	}
-
+	
 	/// Adds or removes a callback to be invoked upon the first disconnect of this socket.
 	/// A socket is disconnected either when Disconnect is called, or when an error occurs.
 	/// Because errors leave sockets in an undefined state, it is assumed to be disconnected after all errors.
@@ -162,7 +186,7 @@ public:
 			this.DisconnectNotifiers.Add(sub);
 		}
 	}
-
+	
 	/// Ditto
 	void RemoveNotifyDisconnected(SocketCloseNotificationCallback Callback) {
 		synchronized(this) {
@@ -176,20 +200,28 @@ public:
 			}
 		}
 	}
-
+	
 	/// Receives the next data sent by the socket in to the given buffer.
 	/// Note that with certain protocols (such as TCP), the data being received may be split. 
 	/// As such, the caller will likely want to put in their own message length system to determine when a message is finished.
-	/// Also, the messages may be combined, leading to the same result as above.
-	/// Also note that buffer is considered owned by this socket until Callback is invoked, and as such should not be altered nor deleted by the user.
+	/// The messages may also be combined, leading to the same result as above.
+	/// Note that Buffer is considered owned by this socket until Callback is invoked, and as such should not be altered nor deleted by the user.
 	/// Params:
-	/// 	Buffer = A buffer to read the resulting data in to. At most Buffer.length bytes are read.
+	/// 	Buffer = A buffer to read the resulting data in to. At most Buffer.length bytes are read, but less may be read.
 	/// 	State = A user-defined object to pass in to Callback. Can be null.
 	/// 	Callback = The callback to invoke with State and the resulting read data (a slice of Buffer with the length being the number of bytes read). Must not be null. It is not safe to queue many more operations from this callback.
 	void Receive(ubyte[] Buffer, void* State, SocketReadCallbackDelegate Callback) {				
-		EnforceDisposed();
-		enforce(this.State == SocketState.Connected, "Unable to receive data on a socket that is not connected.");
+		synchronized(this) {
+			// TODO: Raise a condition or something instead of throwing.
+			EnforceDisposed();
+			if(this.State != SocketState.Connected)
+				throw new SocketException("Unable to receive data on a socket that is not connected.");			
+		}
 		enforce(Callback !is null, "Callback must not be null.");
+		if(!cas(cast(shared)&ReceivePending, false, true))
+			throw new InvalidOperationException("A receive operation was already pending on this socket. This likely indicates a race condition on a Receive call.");
+		scope(failure)
+			enforce(cas(cast(shared)&ReceivePending, true, false));
 		static if(Controller == AsyncSocketHandler.IOCP) {
 			WSABUF* Buf = cast(WSABUF*)malloc(WSABUF.sizeof);
 			Buf.buf = cast(char*)Buffer.ptr;
@@ -203,17 +235,17 @@ public:
 					OnSocketError("Unable to prepare to receive data", LastErr, false);
 				}
 			}
-					
-		} else static if(Controller == AsyncSocketHandler.Select) {
-			auto Op = CreateOperation(Callback, State, Buffer);
 			
+		} else static if(UsesNetworkNotifier) {
+			auto Op = CreateOperation(Callback, State, Buffer);
+			// TODO. This shall be annoying.
 		} else static assert(0);
 	}
-
+	
 	/// Sends the given data asynchronously. It is possible for the data to be split if the send buffer is full, or even for zero bytes to be sent.
 	/// This method returns the number of bytes sent; the rest must be handled by the caller.
 	/// It is safe to assume that once Callback is invoked, the send buffer is no longer full.
-	/// It is the responsibility of the caller to ensure that split messages are delivered in order, as the remote endpoint will get them in the order they are received.
+	/// It is the responsibility of the caller to ensure that split messages are delivered in order. The results of concurrent sends with the Ready callback are undefined.
 	/// Note that Data is transfered ownership to the socket until Callback is invoked.
 	/// Params:
 	/// 	Data = The data to send. This data is now taken over by the socket, and the application may not modify nor delete it.
@@ -222,15 +254,20 @@ public:
 	/// Returns:
 	/// 	The actual number of bytes sent, or -1 in case of error.
 	size_t Send(ubyte[] Data, void* State, SocketWriteCallbackDelegate Callback) {								
-		EnforceDisposed();
-		enforce(this.State == SocketState.Connected, "Unable to send to a not-connected socket.");		
+		synchronized(this) {
+			EnforceDisposed();		
+			if(this.State != SocketState.Connected)
+				return -1;
+			//enforce(this.State == SocketState.Connected, "Unable to send to a not-connected socket.");		
+		}
 		static if(Controller == AsyncSocketHandler.IOCP) {
 			// TODO: IMPORTANT: Attempt to detect if sending too large a buffer, and then split it if so. Use SO_MAX_MSG_SIZE.
+			// Not sure if this is neccessary... probably not.
 			WSABUF* buf = cast(WSABUF*)malloc(WSABUF.sizeof);
 			buf.buf = cast(char*)Data.ptr;
 			buf.len = Data.length;
-			auto lpOverlap = CreateOverlapOp(cast(HANDLE)_Handle, &OnSend, Callback, buf, State);			
-			size_t BytesSent;
+			auto lpOverlap = CreateOverlapOp(_Handle, &OnSend, Callback, buf, State);			
+			uint BytesSent;
 			int Result = WSASend(cast(SOCKET)_Handle, buf, 1, &BytesSent, 0, lpOverlap, null);
 			if(Result != 0) {
 				int LastErr = WSAGetLastError();
@@ -242,19 +279,23 @@ public:
 				}
 			}
 			return Data.length;
-		} else static assert(0);		
+		} else static if(UsesNetworkNotifier) {
+			throw new NotImplementedError("Send (Select)");
+			
+		} else 
+			static assert(0);		
 	}
-
+	
 	/// Begins listening for connections to this socket, invoking Callback upon receiving one.
 	/// This operation is not asynchronous, and instead blocks.
 	void Listen(int Backlog = 128) {				
 		EnforceDisposed();
 		if(!cas(cast(shared)&_State, cast(shared)SocketState.Bound, cast(shared)SocketState.Listening))
 			throw new SocketException("The socket must have Bind called upon it in order to start listening.");
-		if(listen(cast(SOCKET)_Handle, Backlog) == SOCKET_ERROR)
+		if(listen(_Handle, Backlog) != 0)
 			HandleSocketException();		
 	}
-
+	
 	/// Binds this socket to the given address.
 	/// This operation is not asynchronous, and instead blocks.
 	/// Params:
@@ -263,12 +304,12 @@ public:
 		EnforceDisposed();
 		if(!cas(cast(shared)&_State, cast(shared)SocketState.Disconnected, cast(shared)SocketState.Bound))
 			throw new SocketException("The socket must not have been bound yet in order to call Bind.");
-		if(bind(cast(SOCKET)_Handle, Addr.name(), Addr.nameLen()) == SOCKET_ERROR)
+		if(bind(Handle, Addr.name(), Addr.nameLen()) != 0)
 			HandleSocketException();
 		_LocalAddr = Addr;			
 		NativeReference.AddReference(cast(void*)this); // Don't want this garbage collected if bound.		
 	}
-
+	
 	/// Connects to the given address, invoking Callback when ready.
 	/// If the socket is not currently bound and the AddressFamily is INET or INET6, it is bound to any address.
 	/// Otherwise, depending on the controller, the operation may succeed (by binding to any address) or fail with an exception.
@@ -299,9 +340,11 @@ public:
 					OnSocketError("Unable to connect to the server", LastErr, false);					
 				}
 			}					
-		} else static assert(0);		
+		} else static if(UsesNetworkNotifier) {
+			throw new NotImplementedError("Connect");
+		}
 	}	
-
+	
 	/// Sets the given socket option to the given value.
 	/// Params:
 	/// 	Option = The option to set.
@@ -309,15 +352,15 @@ public:
 	/// 	Level = The level to set the option at.
 	void SetSocketOption(SocketOptionLevel Level, SocketOption Option, void[] Value) {
 		EnforceDisposed();
-		if(setsockopt(_Handle, cast(int)Level, cast(int)Option, Value.ptr, cast(uint)Value.length) == SOCKET_ERROR)
+		if(setsockopt(_Handle, cast(int)Level, cast(int)Option, Value.ptr, cast(uint)Value.length) != 0)
 			HandleSocketException();
 	}
-
+	
 	/// Ditto
 	void SetSocketOption(SocketOptionLevel Level, SocketOption Option, int Value) {
 		SetSocketOption(Level, Option, (&Value)[0..1]);
 	}
-
+	
 	/// Gets the value of the given socket option.
 	/// Params:
 	/// 	Level = The level to get the option at.
@@ -328,11 +371,11 @@ public:
 	int GetSocketOption(SocketOptionLevel Level, SocketOption Option, void[] Output) {
 		EnforceDisposed();
 		socklen_t Length = cast(uint)Output.length;
-		if(getsockopt(_Handle, cast(int)Level, cast(int)Option, Output.ptr, &Length) == SOCKET_ERROR)
+		if(getsockopt(_Handle, cast(int)Level, cast(int)Option, Output.ptr, &Length) != 0)
 			HandleSocketException();
 		return Length;
 	}
-
+	
 	/// Ditto
 	void GetSocketOption(SocketOptionLevel Level, SocketOption Option, out uint Output) {
 		int Result = GetSocketOption(Level, Option, (&Output)[0..1]);
@@ -347,11 +390,9 @@ public:
 		EnforceDisposed();
 		enforce(!IsAccepting, "Already accepting connections.");
 		IsAccepting = true;
-		static if(Controller == AsyncSocketHandler.IOCP) {						
-			Accept(State, Callback);	
-		} else static assert(0);
+		Accept(State, Callback);	
 	}
-
+	
 	/// Disconnects this socket.
 	/// The socket must be either Connected or Listening in order to be disconnected.
 	/// Params:
@@ -361,7 +402,7 @@ public:
 		EnforceDisposed();
 		Disconnect(Reason, 0, State, Callback, false);
 	}
-
+	
 	/// Gets a value indicating whether this socket is currently listening or connected.
 	/// This operation blocks, and updates State if need be.
 	bool IsAlive() {		
@@ -369,33 +410,36 @@ public:
 			return false;
 		int type;
 		socklen_t typesize = cast(socklen_t)type.sizeof;
-		bool Result = !getsockopt(cast(SOCKET)_Handle, SOL_SOCKET, SO_TYPE, cast(char*)&type, &typesize);
+		bool Result = !getsockopt(_Handle, SOL_SOCKET, SO_TYPE, cast(char*)&type, &typesize);
 		if(!Result)
 			_State = SocketState.Disconnected;
 		else if(_State == SocketState.Disconnected)
 			_State = SocketState.Connected;
 		return Result;		
 	}
-
+	
 	~this() {
 		if(_Handle != AsyncSocketHandle.init) {
 			shutdown(_Handle, 2);
-			closesocket(_Handle);
+			_close(Handle);
 		}
 	}
-
+	
 protected:
 	void SetHandle(AsyncSocketHandle Handle) {
 		EnforceDisposed();
-		if(Handle == socket_t.init || cast(int)Handle == SOCKET_ERROR) {
-			int LastErr = WSAGetLastError();
+		if(Handle == SOCKET_ERROR) {
+			int LastErr = _lasterr();
 			throw new SocketOSException("Failed to create the socket", LastErr);
 		}
 		this._Handle = Handle;
 		// TODO: OSX fix from std.socket.
 		static if (is(typeof(SO_NOSIGPIPE))) {
-            SetSocketOption(SocketOptionLevel.SOCKET, cast(SocketOption)SO_NOSIGPIPE, 1);
-        }
+			SetSocketOption(SocketOptionLevel.SOCKET, cast(SocketOption)SO_NOSIGPIPE, 1);
+		}
+		static if(UsesNetworkNotifier) {
+			Notifier.AddSocket(this);
+		}
 	}
 	
 private:
@@ -409,15 +453,11 @@ private:
 	SocketPool Pool;
 	bool IsAccepting = false;
 	bool IsDisposed;	
+	bool ReceivePending;
 	LinkedList!(DisconnectSubscriber*) DisconnectNotifiers;
-
-	static if(Controller == AsyncSocketHandler.Select) {
-		bool SendPending = false;
-		bool ReceivePending = false;
-		ConcurrentStack!SelectOperation SendQueue;
-		ConcurrentStack!SelectOperation ReceiveQueue;
-	}
-
+	package void* InternalState; /// Used by the NetworkNotifier to track this socket.
+	static __gshared NetworkNotifier Notifier;
+	
 	void OnSocketError(string Message, int ErrorCode, bool Throw) {	
 		//Disconnect(Message, ErrorCode, null, null, false);
 		//debug static __gshared size_t NumErrors = 0;
@@ -426,12 +466,10 @@ private:
 		if(Throw)
 			throw new SocketOSException(Message, ErrorCode);
 	}
-
+	
 	void HandleSocketException(int ErrorCode = int.max) {		
-		version(Windows) {
-			if(ErrorCode == -1)
-				ErrorCode = WSAGetLastError();
-		}
+		if(ErrorCode == -1)
+			ErrorCode = _lasterr;
 		if(ErrorCode == int.max)
 			throw new SocketOSException("A socket exception has occurred");
 		version(Windows) {
@@ -465,7 +503,7 @@ private:
 		void* State;
 		SocketCloseNotificationCallback Callback;
 	}
-
+	
 	void Disconnect(string Message, int ErrorCode, void* State, SocketCloseNotificationCallback Callback, bool ThrowIfDisconnected) {		
 		if(!IsAlive()) {
 			if(ThrowIfDisconnected)
@@ -489,14 +527,16 @@ private:
 					Callback(State, Message, ErrorCode);						
 				}
 			}					
-		} else static assert(0);
+		} else static if(UsesNetworkNotifier) {
+			throw new NotImplementedError("Disconnect");
+		}		
 	}
-
+	
 	void EnforceDisposed() {			
 		if(IsDisposed)
 			throw new SocketException("Attempted to access a disposed socket.");				
 	}
-
+	
 	void NotifyDisconnect(string Reason, int Code) {	
 		if(!cas(cast(shared)&IsDisposed, cast(shared)false, cast(shared)true))
 			return;							
@@ -505,13 +545,16 @@ private:
 		NativeReference.RemoveReference(cast(void*)this);								
 		foreach(sub; DisconnectNotifiers)
 			sub.Callback(sub.State, Reason, Code);				
+		static if(UsesNetworkNotifier) {
+			Notifier.RemoveSocket(this);
+		}
 		this.DisconnectNotifiers = null;
 		shutdown(_Handle, 2);
 		Pool.Release(_Handle);			
 		_Handle = AsyncSocketHandle.init;					
 	}
-
-	void OnDisconnect(void* State, size_t ErrorCode, size_t Unused) {		
+	
+	void OnDisconnect(void* State, int ErrorCode, size_t Unused) {		
 		if(IsDisposed)
 			return;					
 		auto Op = UnwrapOperation!(SocketCloseNotificationCallback, "Callback", void*, "State", ubyte[], "Data")(State);		
@@ -521,8 +564,8 @@ private:
 			Op.Callback(State, Reason, ErrorCode);				
 		NotifyDisconnect(Reason, ErrorCode);								
 	}
-
-	void OnConnect(void* State, size_t ErrorCode, size_t Unused) {		
+	
+	void OnConnect(void* State, int ErrorCode, size_t Unused) {		
 		_State = SocketState.Connected;						
 		auto Op = UnwrapOperation!(ConnectCallbackDelegate, "Callback", void*, "State", Address, "EndPoint")(State);		
 		if(ErrorCode != 0) {
@@ -533,9 +576,9 @@ private:
 			Op.Callback(Op.State, Op.EndPoint);		
 	}
 	
-
+	
 	void Accept(void* State, AcceptCallbackDelegate Callback) {		
-		socket_t Sock = Pool.Acquire();		
+		AsyncSocketHandle Sock = Pool.Acquire();		
 		static if(Controller == AsyncSocketHandler.IOCP) {	
 			enum int BufferSize = 128;
 			ubyte[] InBuffer = cast(ubyte[])(malloc(BufferSize)[0 .. BufferSize]);
@@ -550,18 +593,21 @@ private:
 					return;
 				}
 			}			
-		} else static assert(0);
+		} else static if(UsesNetworkNotifier) {
+			throw new NotImplementedError("Accept");
+		}
 	}		
-
-	private void OnAccept(void* State, size_t ErrorCode, size_t Unused) {				
+	
+	private void OnAccept(void* State, int ErrorCode, size_t Unused) {				
+		// When using Windows / IOCP, we don't use the standard C socket API.
+		// Instead, we use Win32 calls so we can better handle IOCP operations.
+		auto Op = UnwrapOperation!(AcceptCallbackDelegate, "Callback", void*, "State", AsyncSocketHandle, "Socket", ubyte[], "InBuffer")(State);
 		static if(Controller == AsyncSocketHandler.IOCP) {						
-			auto Op = UnwrapOperation!(AcceptCallbackDelegate, "Callback", void*, "State", socket_t, "Socket", ubyte[], "InBuffer")(State);
 			Address Local =  CreateEmptyAddress(), Remote = CreateEmptyAddress();
-
 			try {								
 				int LocalLength, RemoteLength;
 				sockaddr* lpLocal = Local.name(), lpRemote = Remote.name();								
-				GetAcceptExSockaddrs(Op.InBuffer.ptr, 0, Op.InBuffer.length / 2, Op.InBuffer.length / 2, &lpLocal, &LocalLength, &lpRemote, &RemoteLength);							
+				GetAcceptExSockaddrs(Op.InBuffer.ptr, 0, cast(uint)Op.InBuffer.length / 2, cast(uint)Op.InBuffer.length / 2, &lpLocal, &LocalLength, &lpRemote, &RemoteLength);							
 				if(LocalLength > Local.nameLen() || RemoteLength > Remote.nameLen())
 					throw new SocketException("Unable to get local or remote address; name too long.");								
 				memcpy(Local.name(), lpLocal, LocalLength);
@@ -576,36 +622,35 @@ private:
 				if(Op.Callback)	
 					Op.Callback(Op.State, NewSock);
 			}
-			// Bad things will happen if we constantly queue more operations from a completion thread.
+			// Not supposed to constantly queue more IOCP operations on the thread that received the event.
 			taskPool.put(task(&Accept, Op.State, Op.Callback));			
-		} else static if(Controller == AsyncSocketHandler.Select) {
+		} else static if(Controller == AsyncSocketHandler.Select || Controller == AsyncSocketHandler.EPoll || Controller == AsyncSocketHandler.KQueue) {
 			Address Remote = CreateEmptyAddress(), Local = CreateEmptyAddress();
 			sockaddr* RemoteAddr = Remote.name(), LocalAddr = Local.name();
 			socklen_t RemoteLength, LocalLength;
-			socket_t SockDesc = accept(_Handle, RemoteAddr, &RemoteLength);
+			AsyncSocketHandle SockDesc = accept(_Handle, RemoteAddr, &RemoteLength);
 			if(SockDesc != -1) {
 				if(RemoteLength > Remote.nameLen())
 					throw new SocketException("Remote address name length too long.");
-				AsyncSocket Sock = new AsyncSocket(this, SockDesc);
-				Sock._RemoteAddr = Remote;
-
-				if(Op.Callback)
-					Op.Callback(Op.State, Sock);
-				Sock._LocalAddr = Local;
 				if(getsockname(SockDesc, LocalAddr, &LocalLength) != 0)
 					throw new SocketOSException("Unable to get local address");
 				if(LocalLength > Local.nameLen())
 					throw new SocketException("Unable to get local address; name too long.");
 				memcpy(Local.name(), LocalAddr, LocalLength);
 				memcpy(Remote.name(), RemoteAddr, RemoteLength);
+				AsyncSocket Sock = new AsyncSocket(this, SockDesc);
+				Sock._RemoteAddr = Remote;				
+				Sock._LocalAddr = Local;
+				if(Op.Callback)
+					Op.Callback(Op.State, Sock);
 			} else if(errno != EAGAIN) {
-				// TODO: Consider EWOULDBLOCK as well. Should be same though. Not portable. Not defined. 
+				// TODO: Consider EWOULDBLOCK as well. Should be same though. Not defined at the moment; requires research into making sure it's the same everywhere.
 				throw new SocketOSException("Unable to accept a new socket");
 			}
 			Accept(Op.State, Op.Callback);
 		} else static assert(0);
 	}
-
+	
 	private Address CreateEmptyAddress() {
 		switch(_Family) {
 			case AddressFamily.INET:
@@ -616,15 +661,15 @@ private:
 				return new UnknownAddress();
 		}	
 	}
-
-	private void OnSend(void* State, size_t ErrorCode, size_t BytesSent) {				
+	
+	private void OnSend(void* State, int ErrorCode, size_t BytesSent) {				
 		static if(Controller == AsyncSocketHandler.IOCP) {			
 			auto Op = UnwrapOperation!(SocketWriteCallbackDelegate, "Callback", WSABUF*, "Buffer", void*, "State")(State);
 			ubyte[] OrigData = cast(ubyte[])Op.Buffer.buf[0 .. Op.Buffer.len];
 			if(OrigData.length != 0 && BytesSent == 0)
 				throw new SocketException("Attempted to send more bytes than possible. This is an internal error as it should have been split automatically.");			
 			free(Op.Buffer);			
-		} else static if(Controller == AsyncSocketHandler.Select) {
+		} else static if(UsesNetworkNotifier) {
 			auto Op = UnwrapOperation!(SocketWriteCallbackDelegate, "Callback", ubyte[], "Buffer", void*, "State")(State);			
 			ubyte[] OrigData = Op.Buffer;
 		} else static assert(0);		
@@ -635,12 +680,27 @@ private:
 		bool OperationComplete = OrigData.length == BytesSent;
 		if(OperationComplete && Op.Callback)
 			Op.Callback(Op.State, BytesSent);
-		else if(!OperationComplete) // We didn't finish; queue the remaining bytes, but in a different thread.
+		else if(!OperationComplete) { 
+			// We didn't finish; queue the remaining bytes, but in a different thread.
+			// Note that this doesn't mess up ordering because we're not invoking Callback yet, indicating the buffer isn't ready for another write.
+			// Though the caller could ignore that...
 			taskPool.put(task(&Send, OrigData[BytesSent .. $], Op.State, Op.Callback));						
+		}
 	}
-
-	private void OnReceive(void* State, size_t ErrorCode, size_t BytesRead) {				
-		auto Op = UnwrapOperation!(SocketReadCallbackDelegate, "Callback", void*, "State", WSABUF*, "Buffer")(State);		
+	
+	private void OnReceive(void* State, int ErrorCode, size_t BytesRead) {				
+		if(!cas(cast(shared)&ReceivePending, true, false))
+			throw new Error("Expected a receive to be pending on a receive callback.");
+		static if(Controller == AsyncSocketHandler.IOCP)
+			alias WSABUF* BufferType;
+		else
+			alias ubyte[] BufferType;
+		auto Op = UnwrapOperation!(SocketReadCallbackDelegate, "Callback", void*, "State", BufferType, "Buffer")(State);		
+		static if(Controller == AsyncSocketHandler.IOCP) {
+			// For IOCP, we need to free the WSABUF* instance.
+			scope(exit)
+				free(Op.Buffer);
+		}
 		if(ErrorCode != 0) {				
 			OnSocketError("Error receiving data from endpoint", ErrorCode, false);
 			return;
@@ -652,9 +712,8 @@ private:
 		}
 		static if(Controller == AsyncSocketHandler.IOCP) {			
 			ubyte[] ReceivedData = cast(ubyte[])Op.Buffer.buf[0 .. BytesRead];
-			free(Op.Buffer);			
-		} else static if(Controller == AsyncSocketHandler.Select) {
-			int Read = recv(_Handle, Op.Buffer.ptr, Op.Buffer.length, 0);
+		} else static if(UsesNetworkNotifier) {
+			ptrdiff_t Read = recv(_Handle, Op.Buffer.ptr, Op.Buffer.length, 0);
 			if(Read == -1) {
 				OnSocketError("Error receiving data from endpoint.", errno, false);
 				return;
@@ -662,39 +721,38 @@ private:
 			BytesRead = Read;
 			ubyte[] ReceivedData = Op.Buffer[0 .. BytesRead];
 		} else static assert(0);
-		
 		assert(Op.Callback);
 		Op.Callback(Op.State, ReceivedData);
 	}
-
+	
 	// IOCP and Windows specific methods.
 	version(Windows) {
 		// Some functions have to be loaded at runtime for windows sockets or IOCP.
 		// We do that here.
-		private static void EnsureFunctionLoaded(T)(T* Func, lazy ubyte[] GUID) {
+		private static void EnsureFunctionLoaded(T)(T* Func, ref ubyte[16] Guid) {
 			if(*Func !is null)
 				return;
 			synchronized(typeid(AsyncSocket)){
 				if(*Func !is null)
 					return;
 				enum int SIO_GET_EXTENSION_FUNCTON_POINTER = -939524090; 
-				ubyte[] ID = GUID();
-				assert(ID.length == 16);
 				SOCKET FakeSock = socket(cast(int)AddressFamily.INET, cast(int)SocketType.STREAM, cast(int)ProtocolType.TCP);			
-				size_t ReturnedSize;
-				int Result = WSAIoctl(FakeSock, SIO_GET_EXTENSION_FUNCTON_POINTER, ID.ptr, ID.length, Func, Func.sizeof, &ReturnedSize, null, null);
+				uint ReturnedSize;
+				int Result = WSAIoctl(FakeSock, SIO_GET_EXTENSION_FUNCTON_POINTER, Guid.ptr, Guid.length, Func, Func.sizeof, &ReturnedSize, null, null);
 				if(Result != 0)
 					throw new SocketOSException("Unable to acquire function pointer for socket operation.");
 				if(*Func is null)
 					throw new SocketException("Unable to acquire function pointer for socket operation; returned value was null.");
 			}
 		}
-
+		
 		private static void EnsureConnectExPtr() {		
-			EnsureFunctionLoaded(&ConnectEx, cast(ubyte[])[185, 7, 162, 37, 243, 221, 96, 70, 142, 233, 118, 229, 140, 116, 6, 62]);	
+			ubyte[16] GuidBytes = [185, 7, 162, 37, 243, 221, 96, 70, 142, 233, 118, 229, 140, 116, 6, 62];
+			EnsureFunctionLoaded(&ConnectEx, GuidBytes);	
 		}
 		private static void EnsureDisconnectExPtr() {
-			EnsureFunctionLoaded(&DisconnectEx, cast(ubyte[])[17, 46, 218, 127, 48, 134, 111, 67, 160, 49, 245, 54, 166, 238, 193, 87]);
+			ubyte[16] GuidBytes = [17, 46, 218, 127, 48, 134, 111, 67, 160, 49, 245, 54, 166, 238, 193, 87];
+			EnsureFunctionLoaded(&DisconnectEx, GuidBytes);
 		}				
 	}
 }
