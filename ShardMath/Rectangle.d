@@ -37,8 +37,7 @@ struct Rectangle(T) {
 			return Rectangle();
 		T minX = T.max, minY = T.max; 
 		T maxX = T.min, maxY = T.min;		
-		for(size_t i = 0; i < Points.length; i++) {
-			const Point point = Points[i];
+		foreach(ref point; Points) {
 			minX = point.X < minX ? point.X : minX;
 			minY = point.Y < minY ? point.Y : minY;
 			maxX = point.X > maxX ? point.X : maxX;

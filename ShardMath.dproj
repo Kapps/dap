@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>10.0.0</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{CD545729-B167-45C9-B834-09DCE7637A52}</ProjectGuid>
+    <UseDefaultCompiler>True</UseDefaultCompiler>
+    <IncrementalLinking>True</IncrementalLinking>
+    <PreferOneStepBuild>true</PreferOneStepBuild>
+    <Compiler>DMD2</Compiler>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>True</DebugSymbols>
+    <OutputPath>bin\Debug</OutputPath>
+    <ObjectsDirectory>obj/Debug</ObjectsDirectory>
+    <OutputName>libShardMath</OutputName>
+    <Target>StaticLibrary</Target>
+    <UnittestMode>false</UnittestMode>
+    <DebugLevel>0</DebugLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>bin\Release</OutputPath>
+    <ObjectsDirectory>obj/Release</ObjectsDirectory>
+    <OutputName>libShardMath</OutputName>
+    <Target>StaticLibrary</Target>
+    <UnittestMode>false</UnittestMode>
+    <DebugLevel>0</DebugLevel>
+    <ExtraCompilerArguments>-inline</ExtraCompilerArguments>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Unittest|AnyCPU' ">
+    <DebugSymbols>True</DebugSymbols>
+    <OutputPath>bin\Unittest</OutputPath>
+    <ExtraCompilerArguments>-unittest </ExtraCompilerArguments>
+    <ObjectsDirectory>obj/Unittest</ObjectsDirectory>
+    <Target>StaticLibrary</Target>
+    <OutputName>libShardMath</OutputName>
+    <UnittestMode>false</UnittestMode>
+    <DebugLevel>0</DebugLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="ShardMath\BoundingBox.d">
+      <LastGenOutput>obj\Release\ShardMath.BoundingBox.obj</LastGenOutput>
+    </Compile>
+    <Compile Include="ShardMath\BoundingFrustum.d">
+      <LastGenOutput>obj\Release\ShardMath.BoundingFrustum.obj</LastGenOutput>
+    </Compile>
+    <Compile Include="ShardMath\Matrix.d">
+      <LastGenOutput>obj\Release\ShardMath.Matrix.obj</LastGenOutput>
+    </Compile>
+    <Compile Include="ShardMath\Quaternion.d">
+      <LastGenOutput>obj\Release\ShardMath.Quaternion.obj</LastGenOutput>
+    </Compile>
+    <Compile Include="ShardMath\Rectangle.d">
+      <LastGenOutput>obj\Release\ShardMath.Rectangle.obj</LastGenOutput>
+    </Compile>
+    <Compile Include="ShardMath\Vector.d">
+      <LastGenOutput>obj\Release\ShardMath.Vector.obj</LastGenOutput>
+    </Compile>
+  </ItemGroup>
+</Project>

@@ -8,7 +8,7 @@ private import std.traits;
 struct Vector(int N, T) if(N >= 2) {	
 	
 private:		
-
+	
 	/// If T is a floating point type, this is alased to T; otherwise, float.
 	/// This is used for operations that do not have a meaningful result for integer vectors.
 	alias Select!(isFloatingPoint!(T), T, float) DecimalType;	
@@ -16,79 +16,79 @@ private:
 	// To allow outside classes to access.
 	alias T ElementType;
 	alias N NumElements;
+	static if(is(T == float) || is(T == double) || is(T == real)) {
+		bool compareElement(size_t index, T value) const {
+			return approxEqual(Elements[index], value);
+		}
+	} else {
+		bool compareElement(size_t index, T value) const {
+			return Elements[index] == value;
+		}
+	}
+	
+	unittest {
 		static if(is(T == float) || is(T == double) || is(T == real)) {
-			bool compareElement(size_t index, T value) const {
-				return approxEqual(Elements[index], value);
-			}
-		} else {
-			bool compareElement(size_t index, T value) const {
-				return Elements[index] == value;
-			}
+			// TODO?
+			/+Vector4f testVector = Vector4f(1.12f, 2.34f, 3.45f, 4.56f);
+			 assert(testVector.compareElement(0, 1.12f));
+			 assert(testVector.compareElement(1, 2.34f));
+			 assert(testVector.compareElement(2, testVector.Z));
+			 assert(testVector.compareElement(3, testVector.W));+/
 		}
-
-		unittest {
-			static if(is(T == float) || is(T == double) || is(T == real)) {
-				// TODO?
-				/+Vector4f testVector = Vector4f(1.12f, 2.34f, 3.45f, 4.56f);
-				assert(testVector.compareElement(0, 1.12f));
-				assert(testVector.compareElement(1, 2.34f));
-				assert(testVector.compareElement(2, testVector.Z));
-				assert(testVector.compareElement(3, testVector.W));+/
-			}
-		}	
-
-		T opIndex(size_t Index) const {
-			return this.Elements[Index];
-		}
-
-		void opIndexAssign(size_t Index, T Value) {
-			this.Elements[Index] = Value;
-		}
-
-		int opApply(int delegate(ref T) dg) {
-			int Result;
-			foreach(ref T Element; this.Elements)
-				if((Result = dg(Element)) != 0)
-					break;
-			return Result;
-		}
-
-		/// Adds the specified vector to this vector, altering the values of this vector.
-		/// Params: other = The other vector to use for this operation.
-		void AddInline(ref Vector!(N, T) other) {
-			version(Windows) {
-				static if(N == 4 && is(T == float)) {	
-					float* ptrA = &Elements[0];
-					float* ptrB = &other.Elements[0];
-					asm {				
-						mov EAX, ptrA;
-						mov EBX, ptrB;
-						movups XMM0, [EAX];	
-						movups XMM1, [EBX];
-						addps XMM0, XMM1;
-						movups [EAX], XMM0;
-					}
-					return;
+	}	
+	
+	T opIndex(size_t Index) const {
+		return this.Elements[Index];
+	}
+	
+	void opIndexAssign(size_t Index, T Value) {
+		this.Elements[Index] = Value;
+	}
+	
+	int opApply(int delegate(ref T) dg) {
+		int Result;
+		foreach(ref T Element; this.Elements)
+			if((Result = dg(Element)) != 0)
+				break;
+		return Result;
+	}
+	
+	/// Adds the specified vector to this vector, altering the values of this vector.
+	/// Params: other = The other vector to use for this operation.
+	void AddInline(ref Vector!(N, T) other) {
+		version(IsWin32) {
+			static if(N == 4 && is(T == float)) {	
+				float* ptrA = &Elements[0];
+				float* ptrB = &other.Elements[0];
+				asm {				
+					mov EAX, ptrA;
+					mov EBX, ptrB;
+					movups XMM0, [EAX];	
+					movups XMM1, [EBX];
+					addps XMM0, XMM1;
+					movups [EAX], XMM0;
 				}
+				return;
 			}
-			static if(N >= 2) {
-				Elements[0] += other.Elements[0];	
-				Elements[1] += other.Elements[1];
-			} static if(N >= 3) {
-				Elements[2] += other.Elements[2];	
-			} static if(N >= 4) {
-				Elements[3] += other.Elements[3];	
-			} static if(N > 4) {
-				for(size_t i = 4; i < N; i++)
-					Elements[i] += other.Elements[i];
-			}	
-		}		
-
-		static string GenOpInline(string Operation, string SimdOp) {
-			// TODO: Aligned, check if stack alignment is fixed yet.
-			// TODO: Optimize SIMD for non-floats.						
-			static if(N == 4 && is(T == float) && IsWin32) {
-				return "
+		}
+		static if(N >= 2) {
+			Elements[0] += other.Elements[0];	
+			Elements[1] += other.Elements[1];
+		} static if(N >= 3) {
+			Elements[2] += other.Elements[2];	
+		} static if(N >= 4) {
+			Elements[3] += other.Elements[3];	
+		} static if(N > 4) {
+			for(size_t i = 4; i < N; i++)
+				Elements[i] += other.Elements[i];
+		}	
+	}		
+	
+	static string GenOpInline(string Operation, string SimdOp) {
+		// TODO: Aligned, check if stack alignment is fixed yet.
+		// TODO: Optimize SIMD for non-floats.						
+		static if(N == 4 && is(T == float) && IsWin32) {
+			return "
 					float* ptrA = &Elements[0];
 					float* ptrB = &other.Elements[0];
 					asm {							
@@ -100,9 +100,9 @@ private:
 						movups [EAX], XMM0;
 					}
 				";									
-			} else {
-				// We do some manual loop unrolling here because DMD doesn't do it even for static arrays.
-				return "
+		} else {
+			// We do some manual loop unrolling here because DMD doesn't do it even for static arrays.
+			return "
 					static if(N >= 2) {						
 						X " ~ Operation ~ "= other.X;
 						Y " ~ Operation ~ "= other.Y;
@@ -115,10 +115,10 @@ private:
 							Elements[i] " ~ Operation ~ "= other.Elements[i];
 					}					
 				";		
-			}	
-		}		
+		}	
+	}		
 public:
-
+	
 	/// Initializes a nwe instance of the Vector structure.
 	/// Params: Value = The value to initialize all elements to.
 	this(T Value) {
@@ -190,7 +190,7 @@ public:
 		}				
 		return this;
 	}
-
+	
 	string toString() const {
 		string Result = "[";
 		for(int i = 0; i < N; i++)
@@ -205,7 +205,7 @@ public:
 		Result.AddInline(other);
 		return Result;		
 	}
-
+	
 	Vector opAdd(T Scalar) {
 		Vector!(N, T) Result = this;
 		mixin(ScalarBinaryMixin("Result", "Scalar", "+"));
@@ -225,7 +225,7 @@ public:
 		Result.MultiplyInline(other);
 		return Result;
 	}
-
+	
 	Vector opMul(T scalar) {
 		Vector!(N, T) Result = this;		
 		mixin(ScalarBinaryMixin("Result", "scalar", "*"));
@@ -238,13 +238,13 @@ public:
 		Result.DivideInline(other);
 		return Result;
 	}		
-
+	
 	Vector opBinary(string Op)(T Scalar) {
 		Vector Result = this;
 		mixin(ScalarBinaryMixin("Result", "Scalar", Op));
 		return Result;
 	}
-
+	
 	private static string ScalarBinaryMixin(string Left, string Right, string Op) {
 		string Result = "";
 		for(int i = 0; i < N; i++) {
@@ -252,7 +252,7 @@ public:
 		}
 		return Result;
 	}
-
+	
 	/// Implements the addition by assignment operator.
 	void opAddAssign(Vector!(N, T) other) {
 		AddInline(other);			
@@ -304,7 +304,7 @@ public:
 	bool Equals(const ref Vector!(N, T) other) const {
 		for(size_t i = 0; i < N; i++)
 			if(!compareElement(i, other.Elements[i]))
-			   return false;
+				return false;
 		return true;	
 	}
 	
@@ -312,7 +312,7 @@ public:
 	bool opEquals(const ref Vector!(N, T) other) const {
 		return Equals(other);
 	}
-
+	
 	/// Adds the specified vectors together, returning a new vector with the sum.
 	/// Params:
 	///		First = The first vector to use in the operation.
@@ -442,12 +442,12 @@ public:
 			return Vector!(N, T)(Elements);
 		}
 	}
-
+	
 	/// Gets the magnitude, or length, of this Vector.
 	@property DecimalType Magnitude() const {		
 		return cast(DecimalType)sqrt(cast(DecimalType)MagnitudeSquared);
 	}
-
+	
 	/// Gets the Magnitude, or length, of this Vector without performing a square-root operation on the end result.
 	@property T MagnitudeSquared() const {
 		T Result = 0;
@@ -459,7 +459,7 @@ public:
 		}
 		return Result;
 	}
-
+	
 	/// Returns whether this Vector is normalized (aka, a unit vector).
 	@property bool IsNormalized() const {
 		return abs(MagnitudeSquared - 1) < 0.001;
@@ -576,7 +576,7 @@ public:
 				First.Y * Second.Z - Second.Y * First.Z, 
 				First.Z * Second.X - Second.Z * First.X,
 				First.X * Second.Y - Second.X * First.Y
-			);
+				);
 		}		
 	}
 	
@@ -589,11 +589,11 @@ public:
 	}
 	
 	//static if(((N * T.sizeof) % 16) == 0) {
-		//align(16):
-		//private enum bool UseAlignedSSE = true;
+	//align(16):
+	//private enum bool UseAlignedSSE = true;
 	//} else
-		private enum bool UseAlignedSSE = false;
-			
+	private enum bool UseAlignedSSE = false;
+	
 	// Union for X/Y/Z/W.
 	static if(N == 2) {
 		union {
@@ -646,7 +646,7 @@ alias Vector!(2, size_t) Vector2t;
 alias Vector!(2, ptrdiff_t) Vector2p;
 //alias Vector!(2, bool) Vector2b;
 
-version(Windows)
-	enum bool IsWin32 = true;
-else
-	enum bool IsWin32 = false;
+//version(Windows)
+//	enum bool IsWin32 = true;
+//else
+enum bool IsWin32 = false;
