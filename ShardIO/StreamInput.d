@@ -14,7 +14,7 @@ enum StreamFlushType {
 }
 
 /// Indicates the way a Stream will be flushed, and when.
-const struct FlushMode {
+struct FlushMode {
 	const StreamFlushType Type;
 	const size_t Parameter;
 

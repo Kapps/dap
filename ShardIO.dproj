@@ -25,6 +25,7 @@
     <Externalconsole>True</Externalconsole>
     <UnittestMode>False</UnittestMode>
     <DebugLevel>0</DebugLevel>
+    <ExtraCompilerArguments>-m64</ExtraCompilerArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <OutputPath>bin\Release</OutputPath>

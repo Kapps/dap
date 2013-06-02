@@ -156,7 +156,7 @@ private:
 			sock = cast(AsyncSocket.AsyncSocketHandle)socket(cast(int)_Family, cast(int)_Type, cast(int)_Protocol);
 		}
 		if(sock == SOCKET_ERROR)
-			throw new SocketOSException("Unable to create a socket to pool.", sock);
+			throw new SocketOSException("Unable to create a socket to pool.", cast(int)sock);
 		return sock;
 	}
 }
