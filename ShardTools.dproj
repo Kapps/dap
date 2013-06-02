@@ -30,6 +30,7 @@
         <String>ShardMath</String>
       </VersionIds>
     </VersionIds>
+    <ExtraCompilerArguments>-m64</ExtraCompilerArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <OutputPath>bin\Release</OutputPath>
@@ -242,6 +243,7 @@
     <Compile Include="ShardTools\Property.d">
       <LastGenOutput>obj\Release\ShardTools.Property.obj</LastGenOutput>
     </Compile>
+    <Compile Include="ShardTools\Initializers.d" />
   </ItemGroup>
   <ItemGroup>
     <None Include="License Info.txt" />
