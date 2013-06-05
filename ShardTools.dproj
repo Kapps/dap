@@ -54,195 +54,69 @@
     <DebugLevel>0</DebugLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="ShardTools\ArrayOps.d">
-      <LastGenOutput>obj\Release\ShardTools.ArrayOps.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\AsyncAction.d">
-      <LastGenOutput>obj\Release\ShardTools.AsyncAction.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\AsyncIterator.d">
-      <LastGenOutput>obj\Release\ShardTools.AsyncIterator.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\AsyncTask.d">
-      <LastGenOutput>obj\Release\ShardTools.AsyncTask.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\BitOps.d">
-      <LastGenOutput>obj\Release\ShardTools.BitOps.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\Buffer.d">
-      <LastGenOutput>obj\Release\ShardTools.Buffer.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\BufferPool.d">
-      <LastGenOutput>obj\Release\ShardTools.BufferPool.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\Color.d">
-      <LastGenOutput>obj\Release\ShardTools.Color.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\CompositeEvent.d">
-      <LastGenOutput>obj\Release\ShardTools.CompositeEvent.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\Compressor.d">
-      <LastGenOutput>obj\Release\ShardTools.Compressor.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\ConcurrentStack.d">
-      <LastGenOutput>obj\Release\ShardTools.ConcurrentStack.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\DateParse.d">
-      <LastGenOutput>obj\Release\ShardTools.DateParse.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\Disposable.d">
-      <LastGenOutput>obj\Release\ShardTools.Disposable.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\Enforce.d">
-      <LastGenOutput>obj\Release\ShardTools.Enforce.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\Event.d">
-      <LastGenOutput>obj\Release\ShardTools.Event.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\ExceptionTools.d">
-      <LastGenOutput>obj\Release\ShardTools.ExceptionTools.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\FileLogger.d">
-      <LastGenOutput>obj\Release\ShardTools.FileLogger.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\HybridLock.d">
-      <LastGenOutput>obj\Release\ShardTools.HybridLock.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\ICollection.d">
-      <LastGenOutput>obj\Release\ShardTools.ICollection.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\IDisposable.d">
-      <LastGenOutput>obj\Release\ShardTools.IDisposable.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\IList.d">
-      <LastGenOutput>obj\Release\ShardTools.IList.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\IPoolable.d">
-      <LastGenOutput>obj\Release\ShardTools.IPoolable.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\ImageSaver.d">
-      <LastGenOutput>obj\Release\ShardTools.ImageSaver.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\Library.d">
-      <LastGenOutput>obj\Release\ShardTools.Library.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\LinkedList.d">
-      <LastGenOutput>obj\Release\ShardTools.LinkedList.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\List.d">
-      <LastGenOutput>obj\Release\ShardTools.List.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\Logger.d">
-      <LastGenOutput>obj\Release\ShardTools.Logger.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\ManagedList.d">
-      <LastGenOutput>obj\Release\ShardTools.ManagedList.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\Map.d">
-      <LastGenOutput>obj\Release\ShardTools.Map.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\MemoryCache.d">
-      <LastGenOutput>obj\Release\ShardTools.MemoryCache.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\MemoryStream.d">
-      <LastGenOutput>obj\Release\ShardTools.MemoryStream.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\Mixins.d">
-      <LastGenOutput>obj\Release\ShardTools.Mixins.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\NativeReference.d">
-      <LastGenOutput>obj\Release\ShardTools.NativeReference.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\Noise.d">
-      <LastGenOutput>obj\Release\ShardTools.Noise.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\PathTools.d">
-      <LastGenOutput>obj\Release\ShardTools.PathTools.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\Pool.d">
-      <LastGenOutput>obj\Release\ShardTools.Pool.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\PrioritizedEvent.d">
-      <LastGenOutput>obj\Release\ShardTools.PrioritizedEvent.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\Problem.d">
-      <LastGenOutput>obj\Release\ShardTools.Problem.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\Queue.d">
-      <LastGenOutput>obj\Release\ShardTools.Queue.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\ReadOnlyCollection.d">
-      <LastGenOutput>obj\Release\ShardTools.ReadOnlyCollection.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\RecursiveRange.d">
-      <LastGenOutput>obj\Release\ShardTools.RecursiveRange.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\SharedMemoryCache.d">
-      <LastGenOutput>obj\Release\ShardTools.SharedMemoryCache.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\SignaledTask.d">
-      <LastGenOutput>obj\Release\ShardTools.SignaledTask.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\SleepTask.d">
-      <LastGenOutput>obj\Release\ShardTools.SleepTask.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\SoftReference.d">
-      <LastGenOutput>obj\Release\ShardTools.SoftReference.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\SortedList.d">
-      <LastGenOutput>obj\Release\ShardTools.SortedList.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\SpinLock.d">
-      <LastGenOutput>obj\Release\ShardTools.SpinLock.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\Stack.d">
-      <LastGenOutput>obj\Release\ShardTools.Stack.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\Stream.d">
-      <LastGenOutput>obj\Release\ShardTools.Stream.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\StreamReader.d">
-      <LastGenOutput>obj\Release\ShardTools.StreamReader.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\StreamWriter.d">
-      <LastGenOutput>obj\Release\ShardTools.StreamWriter.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\StringMap.d">
-      <LastGenOutput>obj\Release\ShardTools.StringMap.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\StringMatcher.d">
-      <LastGenOutput>obj\Release\ShardTools.StringMatcher.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\StringTools.d">
-      <LastGenOutput>obj\Release\ShardTools.StringTools.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\TaskManager.d">
-      <LastGenOutput>obj\Release\ShardTools.TaskManager.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\TaskRepeater.d">
-      <LastGenOutput>obj\Release\ShardTools.TaskRepeater.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\TimeSpan.d">
-      <LastGenOutput>obj\Release\ShardTools.TimeSpan.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\Timer.d">
-      <LastGenOutput>obj\Release\ShardTools.Timer.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\UnmanagedBuffer.d">
-      <LastGenOutput>obj\Release\ShardTools.UnmanagedBuffer.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\Untyped.d">
-      <LastGenOutput>obj\Release\ShardTools.Untyped.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\WeakReference.d">
-      <LastGenOutput>obj\Release\ShardTools.WeakReference.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\MessagePack.d">
-      <LastGenOutput>obj\Release\ShardTools.MessagePack.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardTools\Property.d">
-      <LastGenOutput>obj\Release\ShardTools.Property.obj</LastGenOutput>
-    </Compile>
+    <Compile Include="ShardTools\ArrayOps.d" />
+    <Compile Include="ShardTools\AsyncAction.d" />
+    <Compile Include="ShardTools\AsyncIterator.d" />
+    <Compile Include="ShardTools\AsyncTask.d" />
+    <Compile Include="ShardTools\BitOps.d" />
+    <Compile Include="ShardTools\Buffer.d" />
+    <Compile Include="ShardTools\BufferPool.d" />
+    <Compile Include="ShardTools\Color.d" />
+    <Compile Include="ShardTools\CompositeEvent.d" />
+    <Compile Include="ShardTools\Compressor.d" />
+    <Compile Include="ShardTools\ConcurrentStack.d" />
+    <Compile Include="ShardTools\DateParse.d" />
+    <Compile Include="ShardTools\Disposable.d" />
+    <Compile Include="ShardTools\Enforce.d" />
+    <Compile Include="ShardTools\Event.d" />
+    <Compile Include="ShardTools\ExceptionTools.d" />
+    <Compile Include="ShardTools\FileLogger.d" />
+    <Compile Include="ShardTools\HybridLock.d" />
+    <Compile Include="ShardTools\ICollection.d" />
+    <Compile Include="ShardTools\IDisposable.d" />
+    <Compile Include="ShardTools\IList.d" />
+    <Compile Include="ShardTools\IPoolable.d" />
+    <Compile Include="ShardTools\ImageSaver.d" />
+    <Compile Include="ShardTools\Library.d" />
+    <Compile Include="ShardTools\LinkedList.d" />
+    <Compile Include="ShardTools\List.d" />
+    <Compile Include="ShardTools\Logger.d" />
+    <Compile Include="ShardTools\ManagedList.d" />
+    <Compile Include="ShardTools\Map.d" />
+    <Compile Include="ShardTools\MemoryCache.d" />
+    <Compile Include="ShardTools\MemoryStream.d" />
+    <Compile Include="ShardTools\Mixins.d" />
+    <Compile Include="ShardTools\NativeReference.d" />
+    <Compile Include="ShardTools\Noise.d" />
+    <Compile Include="ShardTools\PathTools.d" />
+    <Compile Include="ShardTools\Pool.d" />
+    <Compile Include="ShardTools\PrioritizedEvent.d" />
+    <Compile Include="ShardTools\Problem.d" />
+    <Compile Include="ShardTools\Queue.d" />
+    <Compile Include="ShardTools\ReadOnlyCollection.d" />
+    <Compile Include="ShardTools\RecursiveRange.d" />
+    <Compile Include="ShardTools\SharedMemoryCache.d" />
+    <Compile Include="ShardTools\SignaledTask.d" />
+    <Compile Include="ShardTools\SleepTask.d" />
+    <Compile Include="ShardTools\SoftReference.d" />
+    <Compile Include="ShardTools\SortedList.d" />
+    <Compile Include="ShardTools\SpinLock.d" />
+    <Compile Include="ShardTools\Stack.d" />
+    <Compile Include="ShardTools\Stream.d" />
+    <Compile Include="ShardTools\StreamReader.d" />
+    <Compile Include="ShardTools\StreamWriter.d" />
+    <Compile Include="ShardTools\StringMap.d" />
+    <Compile Include="ShardTools\StringMatcher.d" />
+    <Compile Include="ShardTools\StringTools.d" />
+    <Compile Include="ShardTools\TaskManager.d" />
+    <Compile Include="ShardTools\TaskRepeater.d" />
+    <Compile Include="ShardTools\TimeSpan.d" />
+    <Compile Include="ShardTools\Timer.d" />
+    <Compile Include="ShardTools\UnmanagedBuffer.d" />
+    <Compile Include="ShardTools\Untyped.d" />
+    <Compile Include="ShardTools\WeakReference.d" />
+    <Compile Include="ShardTools\MessagePack.d" />
+    <Compile Include="ShardTools\Property.d" />
     <Compile Include="ShardTools\Initializers.d" />
   </ItemGroup>
   <ItemGroup>
