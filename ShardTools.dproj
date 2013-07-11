@@ -21,6 +21,7 @@
     <UnittestMode>False</UnittestMode>
     <DebugLevel>0</DebugLevel>
     <ExtraCompilerArguments>-m64</ExtraCompilerArguments>
+    <ExtraCompilerArguments>-m64</ExtraCompilerArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <OutputPath>bin\Release</OutputPath>
@@ -236,6 +237,7 @@
     <Compile Include="ShardTools\Initializers.d">
       <LastGenOutput>obj/Debug/ShardTools.Initializers.o</LastGenOutput>
     </Compile>
+    <Compile Include="ShardTools\Initializers.d" />
   </ItemGroup>
   <ItemGroup>
     <None Include="License Info.txt" />
