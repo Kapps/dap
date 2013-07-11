@@ -5,6 +5,7 @@ module ShardTools.ArrayOps;
 private import std.traits;
 import std.parallelism;
 import std.functional;
+import std.conv;
 
 
 /// Determines whether Range contains any element such that Condition for that element and Element evaluates to true.
