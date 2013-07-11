@@ -19,6 +19,7 @@ final class BufferPool  {
 // TODO: Allow support for Paged buffers. Maybe. Maybe not. Probably not. Maybe a constructor that takes alignment though, or allocator.
 // TODO: Try to implement self-load-balancing. Maybe have a balance checker in another thread that checks every few seconds.
 //		 Then, when it sees something has too many or too little, it pops some buffers, splits and combines them, and pushes them back in.
+//       A thread polling is a bad idea, it should actually be every X calls perform a check, and then maybe dispatch a task to clean it up.
 
 public:
 
@@ -131,7 +132,7 @@ private:
 		real Log = log2(NumBytes);
 		// The % 2 is there for floating point precision issues. Not sure if it's needed, nor if it's a good idea...
 		// Still, it leans towards a larger buffer than necessary, which is fine. It's also rare that it'd affect the result.
-		// TODO: Instead of the approach currently used, which is flat out incorrect (though works), just use a bitmask to calculate it.
+		// TODO: Instead of the approach currently used, which is flat out incorrect (though works), just use a bit op to calculate it.
 		return Log - cast(size_t)Log == 0 && NumBytes % 2 == 0 ? cast(int)Log : cast(int)Log + 1;
 	}
 

@@ -78,6 +78,8 @@ public:
 	}
 	
 	/// Indicates how long has passed since the creation of this action.
+	/// The precision of this method is equivalent to the precision of SysTime opSubtract, which is generally 10-20 millisecond precision.
+	/// If higher precision is needed, a Timer should be used instead.
 	@property Duration Elapsed() const {
 		return Clock.currTime() - _StartTime;
 	}

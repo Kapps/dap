@@ -1,8 +1,8 @@
 module ShardTools.Color;
 
-//version(ShardMath) {
+version(ShardMath) {
 	private import ShardMath.Vector;
-//}
+}
 
 /// Represents a color with four components ranging from 0 to 255.
 struct Color {
@@ -24,7 +24,7 @@ struct Color {
 
 	// While this would be nice, making EVERY SINGLE library that imports ShardTools be forced to define ShardMath is just stupid.
 	// Would be nice if only ShardMath had to define it...
-	//version(ShardMath) {
+	version(ShardMath) {
 		
 		/// Initializes a new instance of the Color struct.
 		///	Params:
@@ -58,7 +58,7 @@ struct Color {
 			return Vector4f(R / 255f, G / 255f, B / 255F, A / 255f);
 		}
 		
-	//}
+	}
 	
 	/// Returns a pre-defined Color with this name.
 	@property static Color Aqua() {
