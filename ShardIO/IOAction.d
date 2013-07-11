@@ -115,9 +115,14 @@ public:
 	}
 
 	/// Begins this operation asynchronously.
+	/// If no Manager has been set yet, a default instance will be set now.
 	override void Start() {
 		super.Start();
-		cas(cast(shared)&_Manager, cast(shared)null, cast(shared)IOManager.Default);
+		// TODO: LDC says can not cast from null to IOManager with the below line.
+		// So just make it not thread-safe for now. It seems unlikely to actually be an issue.
+		//cas(cast(shared)&_Manager, cast(shared)null, cast(shared)IOManager.Default);
+		if(_Manager is null)
+			_Manager = IOManager.Default;
 		ProcessIfNeeded();
 	}
 

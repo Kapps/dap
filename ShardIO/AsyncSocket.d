@@ -26,7 +26,7 @@ version(Windows) {
 	import std.c.windows.winsock;
 	import std.c.windows.windows;	
 	
-enum : int {
+	enum : int {
 		WSAENETDOWN = 10050,
 		WSAEADDRINUSE = 10048,
 		WSAEADDRNOTAVAIL = 10049,

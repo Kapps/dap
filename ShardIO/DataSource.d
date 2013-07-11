@@ -26,6 +26,11 @@ enum DataRequestFlags {
 }
 
 /// Provides the base class for either an InputSource or OutputSource.
+/// DataSources are similar to one-way streams, with all methods being asynchronous.
+/// DataSources can read or write a variable amount of data, ideally close to a certain limit.
+/// Any data that can not be operated on immediately is buffered.
+/// Once the buffers are getting close to being emptied, the DataSource requests additional data
+/// from the other source.
 abstract class DataSource  {
 
 public:
