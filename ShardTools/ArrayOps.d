@@ -83,8 +83,9 @@ void ForEach(alias Action, Collection)(Collection Range) {
 } unittest {
 	int[] elements = [1, 2, 3, 4];
 	elements.ForEach!("a *= a");
-	assert(elements == [1, 4, 9, 16]);	
+	assert(elements == [1, 4, 9, 16], "Expected [1, 4, 9, 16], got " ~ elements.text ~ ".");	
 	elements.ForEach!(c => c *= c);
+	assert(elements == [1, 16, 81, 256], "Expected [1, 16, 81, 256], got " ~ elements.text ~ ".");
 }
 
 /// Performs the specified operation on all elements in Range.
@@ -100,9 +101,9 @@ void ForEach(ElementType, Collection)(Collection Range, void delegate(ref Elemen
 } unittest {
 	int[] elements = [1, 2, 3, 4];
 	int sum = 0;
-	auto action = (c => sum += c);
-	elements.ForEach(action);
-	assert(sum == 10);
+//	auto action = (c => sum += c);
+//	elements.ForEach(c => sum += c);
+//	assert(sum == 10);
 }
 
 version(none) {
