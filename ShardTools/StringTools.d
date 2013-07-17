@@ -3,6 +3,8 @@ module ShardTools.StringTools;
 import std.conv;
 import std.string;
 
+// TODO: This module should maybe be phased out. Was from an earlier time.
+
 // The below functions due to awful preformance of std.string's equivalents.
 
 /// Provides a faster toLower implementation for ascii characters.

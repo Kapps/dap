@@ -10,6 +10,9 @@ import std.process;
 import ShardTools.Enforce;
 import ShardTools.ArrayOps;
 
+// TODO: This class comes from a time before sufficient path / file management in Phobos.
+// Should we just switch to that completely?
+
 /+
 /// An enum describing on how to handle a relative path.
 enum PathStyle {

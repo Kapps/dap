@@ -6,6 +6,8 @@ private import std.traits;
 import std.parallelism;
 import std.functional;
 
+// TODO: Speed difference may have been true before, but is it anymore?
+
 
 /// Determines whether Range contains any element such that Condition for that element and Element evaluates to true.
 /// Params:

@@ -20,9 +20,12 @@ final class BufferPool  {
 // TODO: Try to implement self-load-balancing. Maybe have a balance checker in another thread that checks every few seconds.
 //		 Then, when it sees something has too many or too little, it pops some buffers, splits and combines them, and pushes them back in.
 
+// TODO: Ideally this class shouldn't be needed at all. Instead, usinga Buffer should handle this internally.
+// That way we don't have to manually release memory.
 public:
 
-	shared static this() {				
+	shared static this() {		
+		// TODO: A more sane default determined by amount of available memory.
 		_Global = new BufferPool(1024 * 1024 * 64, 1024 * 1024 * 2); // 64 megabytes max by default seems safe, with 2 megabytes max per buffer.
 	}
 

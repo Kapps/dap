@@ -5,6 +5,7 @@ private import ShardTools.ConcurrentStack;
 import ShardTools.IPoolable;
 
 /// A class used to provide simple pooling of objects.
+/// This class is not thread-safe, but a thread-local default instance may be retrieved with the $(D, Default) property.
 class Pool(T) {
 
 public:

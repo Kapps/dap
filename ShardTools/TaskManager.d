@@ -25,11 +25,12 @@ mixin(MakeException("PoolDestroyedException", "Unable to place new tasks into a 
 
 // TODO: Consider renaming to TaskQueue; seems nicer.
 // Also, TaskManager could be interpreted as something similar to Windows' Task Manager.
+// TODO: Actually implement this.
 
 /// Provides a collection of threads which can execute tasks (AsyncActions) across multiple threads.
 /// The number of threads used can be dynamically altered, and threads will be created or destroyed automatically as required.
 /// Unlike the TaskPool, the TaskManager has the capability to prioritize certain tasks, and the capability to pause or resume tasks using Fibers.
-final class TaskManager  {
+@disable final class TaskManager  {
 	
 public:
 	/// Initializes a new instance of the TaskManager object.

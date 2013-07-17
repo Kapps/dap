@@ -4,6 +4,8 @@ private import std.traits;
 private import std.random;
 private import std.array;
 
+// TODO: This class just seems flat out wrong for a lot of things?
+
 /// Provides generators for creating random noise, such as perlin noise.
 @disable static class Noise  {
 	

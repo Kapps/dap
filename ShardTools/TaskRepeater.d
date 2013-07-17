@@ -33,6 +33,7 @@ public:
 
 	/// Gets a default TaskRepeater to use.
 	@property static TaskRepeater Default() {
+		// TODO: Will this be safe in the future? Double-checked locking with no volatile available.
 		if(_Default is null) {
 			synchronized(typeid(typeof(this))) {			
 				if(_Default is null)

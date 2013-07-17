@@ -9,12 +9,19 @@ private alias void delegate(Object) DEvent;
 private extern (C) void rt_attachDisposeEvent(Object h, DEvent e);
 private extern (C) void rt_detachDisposeEvent(Object h, DEvent e);
 
+// TODO: Write unit tests.
+// Can just use WeakReferences and trigger GC's.
+// Make sure to test struct pointers.
+// Also, test 64-bit for sure.
+
 /// Provides a weak reference to a single object.
 /// BUGS:
 ///		This class is largely untested.
 class WeakReference(T) {
 
 public:
+	// Xor value to point outside GC memory.
+	// This is super sketchy.
 	private enum int XorValue = 10101010;
 	/// Creates a new weak reference to an object.
 	/// Params:

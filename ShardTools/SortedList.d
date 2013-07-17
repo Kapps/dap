@@ -2,6 +2,9 @@ module ShardTools.SortedList;
 private import std.exception;
 import std.array;
 
+// TODO: Either phase this class out, or re-do implementation.
+// Current one is far from ideal.
+
 /// Represents a list sorted by an integer key.
 class SortedList(T) {
 	

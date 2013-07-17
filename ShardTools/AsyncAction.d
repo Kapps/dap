@@ -34,12 +34,12 @@ public:
 	// Problem is std.parallelism.
 	// Probably do AsyncTask actually.
 	// ...or just leave it as is at that point.
+	// AsyncTask would actually be a subclass of AsyncAction, likely one that carries out a task in a different fiber/thread.
 	
 	alias void delegate(Untyped, AsyncAction, CompletionType) CompletionCallback;
 	
 	/// Initializes a new instance of the AsyncAction object.
 	this() {
-		NativeReference.AddReference(cast(void*)this);
 		_TimeoutDuration = dur!"hnsecs"(0);
 		_StartTime = Clock.currTime();
 		StateLock = new Mutex();
@@ -95,7 +95,9 @@ public:
 	/// Begins this operation asynchronously.	
 	void Start() {
 		if(!cas(cast(shared)&_HasBegun, cast(shared)false, cast(shared)true))
-			throw new InvalidOperationException("The IO Operation had already been started.");		
+			throw new InvalidOperationException("The AsyncAction has already been started.");		
+		// Make sure we don't get garbage collected after the action has begun.
+		NativeReference.AddReference(cast(void*)this);
 	}	
 	
 	/// Gets the result of the completion for this command.
@@ -133,10 +135,6 @@ public:
 	/// Returns:
 	/// 	Whether the action was successfully aborted; false if the action was already complete.
 	bool Abort() {
-		// TODO: Important to remove this lock.
-		//	...why exactly?
-		//	Perhaps was causing a deadlock before, but if it was, that's not related to the lock but the implementation of PerformAbort.
-		// Still, PerformAbort should be the thing that handles this...
 		synchronized(StateLock) {
 			if(!CanAbort)
 				throw new NotSupportedException("Attempted to abort an AsyncAction that does not support the Abort operation.");
@@ -177,6 +175,13 @@ public:
 			// If we had a FiberPool, it could yield and do something from that pool instead, but we don't.
 		}
 		return _Status;
+	}
+
+	/// Synchronously waits for this action to complete, then returns the result casted as T.
+	/// If the completion type was not successful, an exception is thrown.
+	/// If the completion data was an instance of Throwable, that same instance is rethrown.
+	T GetResult(T)() {
+
 	}
 	
 protected:
@@ -219,6 +224,7 @@ private:
 }
 
 private class ActionManager {
+	// TODO: Replace this with a PollAction? Maybe.
 	
 	shared static this() {
 		Actions = new RedBlackTree!AsyncAction();
