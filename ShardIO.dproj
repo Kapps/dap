@@ -12,7 +12,7 @@
     <Compiler>DMD2</Compiler>
     <Includes>
       <Includes>
-        <Path>C:\Dropbox\Code\Shardsoft\ShardTools</Path>
+        <Path>C:/Dropbox/Code/Shardsoft/ShardTools</Path>
       </Includes>
     </Includes>
   </PropertyGroup>
@@ -138,5 +138,12 @@
     <Compile Include="ShardIO\StreamOutput.d">
       <LastGenOutput>obj\Release\ShardIO.StreamOutput.obj</LastGenOutput>
     </Compile>
+    <Compile Include="ShardIO\Protocols\MemcachedConnection.d" />
+    <Compile Include="ShardIO\Protocols\MemcachedClient.d" />
+    <Compile Include="ShardIO\Protocols\IDistributedConnection.d" />
+    <Compile Include="ShardIO\Protocols\DistributedServerClient.d" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="ShardIO\Protocols\" />
   </ItemGroup>
 </Project>
