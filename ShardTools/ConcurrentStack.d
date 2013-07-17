@@ -31,7 +31,7 @@ public:
 		return _Count;
 	}
 
-	version(GNU) {
+	/+version(GNU) {
 		T casimp(T, V1, V2)(shared(T*) here, shared(T) ifThis, shared(T) writeThis) {
 			synchronized {
 				if(*here == ifThis)
@@ -39,9 +39,9 @@ public:
 				return *here;
 			}
 		}	
-	} else {
+	} else {+/
 		private alias core.atomic.cas casimp;
-	}
+	//}
 
 	/// Pushes the given value to the top of the stack.
 	/// This operation is O(1), thread-safe, and lock-free.
@@ -61,7 +61,7 @@ public:
 	/// Pops the given value from the top of the stack.
 	/// Returns the resulting value, or DefaultValue if the stack is empty.
 	/// This operation is O(1) (if DefaultValue is O(1) or the Stack has elements), thread-safe, and lock-free.
-	T Pop(lazy T DefaultValue = T.init) {		
+	T Pop(scope lazy T DefaultValue = T.init) {		
 		T Result;
 		if(!TryPop(Result))
 			return DefaultValue();

@@ -9,6 +9,7 @@ import std.path;
 import std.process;
 import ShardTools.Enforce;
 import ShardTools.ArrayOps;
+import std.array;
 
 // TODO: This class comes from a time before sufficient path / file management in Phobos.
 // Should we just switch to that completely?
@@ -26,11 +27,7 @@ version(Windows) {
 	import std.c.windows.windows;		
 	static const ushort MAX_PATH = 260;	
 	enum string DirSeparator = "\\";
-	extern(Windows) {						
-		BOOL PathRemoveFileSpecA(LPTSTR);
-		LPTSTR PathAddBackslashA(LPTSTR);
-		BOOL PathIsRelativeA(LPCTSTR);	
-		BOOL PathIsDirectoryA(LPCTSTR);
+	extern(Windows) {
 		BOOL PathRelativePathToA(LPTSTR, LPCTSTR, DWORD, LPCTSTR, DWORD);		
 		BOOL PathStripToRootA(LPTSTR);
 		LPTSTR PathRemoveBackslashA(LPTSTR);
@@ -53,35 +50,10 @@ version(Windows) {
 static class PathTools {
 public:	
 	
-	/// Returns the FilePath without the filename or extension. Does not include a trailing backslash, unless in a root directory.
-	/// Assumes that the filename would have an extension.
+	/// Returns the FilePath without the filename or extension.
 	static inout(char[]) GetDirectoryPath(inout(char[]) FilePath) {	
-	/+	int indexDot = IndexOf(FilePath, '.');
-		if(indexDot != -1)
-			return MakeAbsolute(FilePath);
-		for(int i = indexDot; i >= 0; i--) {
-			if(i == '\\' || i == '/')
-				if(i - 1 == ':')
-					return FilePath[0..i + 1].dup;
-				else
-					return FilePath[0..i].dup;
-		}		
-		throw new Exception("GetDirectoryPath failed for \'" ~ FilePath ~ "\'.");+/										
-		version(Windows) {									
-			char[] Copy = Terminate(MakeAbsolute(FilePath));
-			uint Result = PathRemoveFileSpecA(Copy.ptr);
-			char[] Trimmed = Copy.TrimReturn;
-			if(Trimmed.length > 3) // Not .:\
-				return RemoveTrailingSeparator(cast(inout)Trimmed);
-			else if(Trimmed.length == 2)
-				return cast(inout)(Trimmed ~ '\\');
-			return cast(inout)Trimmed;
-		} else {
-			char[] Result = dirName(MakeAbsolute(FilePath).dup);
-			if(cmp(Result, ".") == 0)
-				return cast(inout)"/".dup;
-			return cast(inout)Result;
-		}		
+		auto Result = MakeAbsolute(cast(char[])dirName(cast(string)FilePath));
+		return cast(inout)Result;
 	}
 
 
@@ -104,17 +76,14 @@ public:
 	}
 	
 	/// Adds a trailing slash on Posix, or backslash on Windows to the specified path if it does not already contain one.
-	static inout(char[]) AddTrailingSlash(inout char[] FilePath) {
-		version(Windows) {
-			char[] Result = Terminate(FilePath);
-			PathAddBackslashA(Result.ptr);
-			return cast(inout)Result.TrimReturn;			
-		} else {
-			char[] Copy = FilePath.dup;
-			if(Copy[Copy.length - 1] != '/')
-				Copy ~= '/';
-			return cast(inout)Copy;
+	static inout(char[]) AddTrailingSeparator(inout char[] FilePath) {
+		if(FilePath.empty) {
+			assert(!CurrentDirectory.empty);
+			return cast(inout(char[]))AddTrailingSeparator(CurrentDirectory.dup);
 		}
+		if(isDirSeparator(FilePath[FilePath.length - 1]))
+			return cast(inout)(FilePath ~ DirSeparator);
+		return FilePath;
 	}
 	
 	unittest {
@@ -202,11 +171,7 @@ public:
 	/// Returns whether the specified path is an absolute path.
 	/// Params: Path = The path to check if absolute.
 	static bool IsAbsolute(in char[] Path) {
-		version(Windows) {
-			char[] Copy = Terminate(Path);
-			return !PathIsRelativeA(Copy.ptr);			
-		} else
-			return isAbsolute(Path);
+		return isAbsolute(Path);
 	}
 	
 	unittest {
@@ -260,34 +225,24 @@ public:
 			static assert(0, "Not yet implemented.");
 	}
 	
-	/// Returns whether the specified path points to a valid directory.	
-	/// If the directory exists, and is a directory, both Windows and Posix return true. If it exists and is not a directory, both Windows and Posix returns false.
-	/// If it does not exist, Windows returns if the path contains a dot. Posix returns if the path ends with a slash.
+	/// Returns whether the specified valid path points to a directory.
+	/// If the directory exists, this is equivalent to std.path.isDir(Path).
+	/// If DirectoryMustExist is false and the path does not exist, returns false.
+	/// Otherwise, returns whether the path ends with a directory separator or is a dot.
 	static bool IsDirectory(in char[] Path, bool DirectoryMustExist = false) {
 		bool Exists = exists(Path);
 		if(DirectoryMustExist && !Exists)
 			return false;
-		version(Windows) {
-			char[] Copy = Terminate(Path);
-			int result = PathIsDirectoryA(Path.ptr);
-			if(result == FILE_ATTRIBUTE_DIRECTORY)
-				return true;
-			if(DirectoryMustExist)
-				return false;
-			if(Exists)
-				return false;
-			return !Path.Contains('.');
-		} else {
-			if(!Exists)
-				return Path[$-1] == '/';
-			return isDir(Path);
-		}
+		if(!Exists)
+			return Path[$-1] == '/' || Path == ".";
+		return isDir(Path);
 	}
 	
 	unittest {
 		assert(!IsDirectory("D:/Test/Test.exe"));
 		assert(IsDirectory("C:/Windows/"));
 		assert(IsDirectory("D:/TestageDir/"));
+		assert(IsDirectory("./"));
 	}	
 	
 	/// Returns the relative path required to reach EndPath from StartPath.

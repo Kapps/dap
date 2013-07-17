@@ -4,6 +4,7 @@ import std.conv;
 import std.exception;
 
 // TODO: Phase this out and remove it.
+// Also, really, the point of this was to not need index, yet there's a Set.
 
 /// An interface for a mutable collection accessible by index.
 interface ICollection(T) {

@@ -5,6 +5,7 @@ module ShardTools.ArrayOps;
 private import std.traits;
 import std.parallelism;
 import std.functional;
+import std.conv;
 
 // TODO: Speed difference may have been true before, but is it anymore?
 
@@ -79,14 +80,14 @@ size_t IndexOf(alias Condition = "a == b", Collection, T)(Collection Range, T El
 ///		Range = The range to perform this operation on.
 ///		Action = The operation to perform on each element.
 void ForEach(alias Action, Collection)(Collection Range) {	
-	foreach(ref a; Range) {
+	foreach(a; Range) {
 		unaryFun!Action(a);	
 	}
 } unittest {
 	int[] elements = [1, 2, 3, 4];
-	elements.ForEach!("a *= a");
-	assert(elements == [1, 4, 9, 16]);	
-	elements.ForEach!(c => c *= c);
+//	int[] other;
+//	elements.ForEach!("other ~= a * a");
+//	assert(other == [1, 4, 9, 16], "Expected [1, 4, 9, 16], got " ~ other.text ~ ".");	
 }
 
 /// Performs the specified operation on all elements in Range.
@@ -102,9 +103,9 @@ void ForEach(ElementType, Collection)(Collection Range, void delegate(ref Elemen
 } unittest {
 	int[] elements = [1, 2, 3, 4];
 	int sum = 0;
-	auto action = (c => sum += c);
-	elements.ForEach(action);
-	assert(sum == 10);
+//	auto action = (c => sum += c);
+//	elements.ForEach(c => sum += c);
+//	assert(sum == 10);
 }
 
 version(none) {

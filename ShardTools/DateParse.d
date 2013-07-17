@@ -5,6 +5,8 @@ import std.string;
 import std.string;
 import ShardTools.ArrayOps;
 
+/// Provides helpers for parsing specific date formats.
+/// The implementation of this class is sub-par, and it should be considered deprecated.
 class DateParse {
 
 public:
