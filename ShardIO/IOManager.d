@@ -27,9 +27,11 @@ public:
 	/// It is generally recommended to use this instance as opposed to creating your own. But there may be situations where more fine-grained control is desired,
 	/// such as to prevent long operations from blocking smaller ones if there are too many of them.
 	@property static IOManager Default() {
-		if(_Default is null)
-			_Default = new IOManager();
-		return _Default;
+		synchronized {
+			if(_Default is null)
+				_Default = new IOManager();
+			return _Default;
+		}
 	}
 
 	/// Gets the number of worker threads this instance uses.
