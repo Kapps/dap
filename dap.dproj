@@ -8,7 +8,7 @@
     <ProjectGuid>{57D537EB-2A01-4CC5-8A88-C03F35DD8686}</ProjectGuid>
     <UseDefaultCompiler>True</UseDefaultCompiler>
     <IncrementalLinking>True</IncrementalLinking>
-    <PreferOneStepBuild>True</PreferOneStepBuild>
+    <PreferOneStepBuild>true</PreferOneStepBuild>
     <DependentProjectIds>
       <DependentProjectIds>
         <String>{C8A0A998-D461-451B-B3C6-76ACA512CCA9}</String>
@@ -16,7 +16,7 @@
         <String>{CD545729-B167-45C9-B834-09DCE7637A52}</String>
       </DependentProjectIds>
     </DependentProjectIds>
-    <Compiler>DMD</Compiler>
+    <Compiler>DMD2</Compiler>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>True</DebugSymbols>
@@ -25,6 +25,20 @@
     <OutputName>dap</OutputName>
     <Target>Executable</Target>
     <Externalconsole>True</Externalconsole>
+    <UnittestMode>False</UnittestMode>
+    <DebugLevel>0</DebugLevel>
+    <VersionIds>
+      <VersionIds>
+        <String>Standalone</String>
+      </VersionIds>
+    </VersionIds>
+    <Libs>
+      <Libs>
+        <Lib>shlwapi.lib</Lib>
+      </Libs>
+    </Libs>
+    <Commandlineparameters>--input=input --output=output</Commandlineparameters>
+    <ExtraCompilerArguments>-m64</ExtraCompilerArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <OutputPath>bin\Release</OutputPath>
@@ -32,6 +46,15 @@
     <OutputName>dap</OutputName>
     <Target>Executable</Target>
     <Externalconsole>True</Externalconsole>
+    <UnittestMode>False</UnittestMode>
+    <DebugLevel>0</DebugLevel>
+    <VersionIds>
+      <VersionIds>
+        <String>Standalone</String>
+      </VersionIds>
+    </VersionIds>
+    <Commandlineparameters>--input=input --output=output</Commandlineparameters>
+    <ExtraCompilerArguments>-m64</ExtraCompilerArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Unittest|AnyCPU' ">
     <DebugSymbols>True</DebugSymbols>
@@ -41,6 +64,8 @@
     <Target>Executable</Target>
     <OutputName>dap</OutputName>
     <Externalconsole>True</Externalconsole>
+    <UnittestMode>False</UnittestMode>
+    <DebugLevel>0</DebugLevel>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="dap\Asset.d" />
@@ -49,9 +74,14 @@
     <Compile Include="dap\AssetStore.d" />
     <Compile Include="dap\Standalone.d" />
     <Compile Include="dap\FileStore.d" />
-    <Compile Include="dap\AssetSettings.d" />
     <Compile Include="dap\HierarchyNode.d" />
     <Compile Include="dap\NodeReference.d" />
+    <Compile Include="dap\NodeSettings.d" />
+    <Compile Include="dap\BuildContext.d" />
+    <Compile Include="dap\BuildLogger.d" />
+    <Compile Include="dap\ConsoleLogger.d" />
+    <Compile Include="dap\NodeCollection.d" />
+    <Compile Include="dap\ContentProcessor.d" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="dap\" />
