@@ -20,10 +20,8 @@ private:
 	bool _NeedsAbort = false;
 	/// Implement to handle the actual cancellation of the action.
 	/// If an action does not support cancellation, CanAbort should return false, and this method should throw an error.
-	override bool PerformAbort() {
-		bool Result = !_NeedsAbort;
+	override void PerformAbort() {
 		_NeedsAbort = true;
-		return Result;
 	}
 }
 }

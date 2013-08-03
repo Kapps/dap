@@ -1,6 +1,9 @@
 ﻿module ShardTools.AsyncTask;
 public import ShardTools.AsyncAction;
 
+// TODO: Scrap this and start over.
+// Use Untyped, make it an AsyncAction in some way, etc.
+// Maybe just use a wrapper around it to make it an AsyncAction, since should still be able to use it as regular light-weight otherwise.
 
 /// Provides a task that can be run asynchronously.
 @disable struct AsyncTask(ReturnType, ArgType...) if(is(ReturnType == void) || is(ReturnType == Variant)) {

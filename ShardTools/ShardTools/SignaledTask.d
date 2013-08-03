@@ -15,21 +15,16 @@ public:
 	}
 	
 	/// Notifies the signaled task that it has completed.
-	void Complete(Untyped CompletionData) {
+	void SignalComplete(Untyped CompletionData) {
 		this.NotifyComplete(CompletionType.Successful, CompletionData);
 	}
 
-	/// Notifies the signaled task that it has failed.
-	void Abort(Untyped CompletionData) {
-		this.NotifyComplete(CompletionType.Aborted, CompletionData);
-	}
-	
 protected:
 
 	/// Implement to handle the actual cancellation of the action.
 	/// If an action does not support cancellation, CanAbort should return false, and this method should throw an error.
-	override bool PerformAbort() {
-		throw new NotImplementedError("PerformAbort");
+	override void PerformAbort() {
+		// No action is needed.
 	}
 
 private:

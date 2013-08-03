@@ -6,6 +6,7 @@ import ShardTools.ExceptionTools;
 import std.exception;
 import core.stdc.string;
 import core.stdc.string;
+import std.typecons;
 
 mixin(MakeException("InvalidCastException", "The type stored in Untyped did not match the given type."));
 
@@ -86,7 +87,8 @@ struct Untyped {
 			// We can't just compare TypeInfo and data because it's a pointer.
 			// Everything else would work fine except large structs.
 			// We don't know the size to compare the bytes directly either.
-			static assert(0, "Comparing two instances of Untyped is not yet supported.");
+			//static assert(0, "Comparing two instances of Untyped is not yet supported.");
+			throw new NotImplementedError("Comparing two instances of Untyped is not yet supported.");
 		}
 		T currVal;
 		if(!this.tryGet!(T)(currVal))
@@ -145,7 +147,7 @@ private unittest {
 	assert(stored == 2);
 	assert(stored != 3);
 	assert(stored != 2f);
-	// Below rqeuires comparing Untyped instances to be fixed.
+	// Below requires comparing Untyped instances to be fixed.
 	/+assert(stored != Untyped(3));
 	assert(stored == Untyped(2));+/
 	// Below requires alias this working with templates?
