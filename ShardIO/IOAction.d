@@ -182,10 +182,9 @@ protected:
 	}	
 
 	/// Implement to handle the actual canceling of the action.	
-	override bool PerformAbort() {
-		if(!HasBegun)
-			return false;
-		return AttemptFinish(CompletionType.Aborted);
+	override void PerformAbort() {
+		if(HasBegun)
+			AttemptFinish(CompletionType.Aborted);
 	}
 	
 private:
@@ -388,15 +387,14 @@ private:
 		}
 	}	
 
-	bool AttemptFinish(CompletionType Type) {	
+	void AttemptFinish(CompletionType Type) {	
 		synchronized(this) {
 			if(Status != CompletionType.Incomplete)
-				return false;			
+				return;
 			if(InDataOperation)			
 				CompleteOnBreakType = Type;
 			else
 				NotifyComplete(Type, Untyped.init);
-			return true;
 		}
 	}
 
