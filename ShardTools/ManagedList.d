@@ -2,21 +2,6 @@
 public import ShardTools.List;
 public import ShardTools.Event;
 
-/// EventArgs used for a ManagedList event.
-class ManagedListEventArgs(T) {
-	
-	public this(T Element) {
-		this._Element = Element;
-	}
-
-	/// Gets the element being operated on.
-	public T Element() {
-		return _Element;
-	}
-
-	private T _Element;
-}
-
 /// Represents a mutable collection capable of resizing itself and creating events when modified.
 class ManagedList(T) : List!(T) {	
 

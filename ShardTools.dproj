@@ -108,6 +108,7 @@
     <Compile Include="ShardTools\Property.d" />
     <Compile Include="ShardTools\MemcachedClient.d" />
     <Compile Include="ShardTools\PollAction.d" />
+    <Compile Include="ShardTools\HashUtils.d" />
   </ItemGroup>
   <ItemGroup>
     <None Include="License Info.txt" />

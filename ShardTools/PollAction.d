@@ -1,6 +1,7 @@
 module ShardTools.PollAction;
 import ShardTools.AsyncAction;
 import ShardTools.TaskRepeater;
+import ShardTools.Untyped;
 
 /// Provides an AsyncAction that gets it's result by utilizing a polling function.
 /// The poll function is expected to complete the action when possible and set the completion data.
@@ -23,7 +24,7 @@ class PollAction : AsyncAction {
 		try {
 			_PollFunction();
 		} catch (Throwable t) {
-			Abort
+			Abort(Untyped(t));
 		}
 	}
 
@@ -39,6 +40,7 @@ private:
 		if(Status != CompletionType.Incomplete)
 			return RepeaterFlags.None;
 		Poll();
+		return Status == CompletionType.Incomplete ? RepeaterFlags.Continue : RepeaterFlags.None;
 	}
 }
 

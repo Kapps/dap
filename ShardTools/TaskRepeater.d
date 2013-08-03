@@ -5,6 +5,7 @@ private import ShardTools.LinkedList;
 
 /// Provides information about how a task in a TaskRepeater executed.
 enum RepeaterFlags {
+	// TODO: This is misleading; should be Abort instead of None.
 	/// The task did not do any work, and should not be executed again.
 	None = 0,
 	/// The task did work, and thus this iteration should not have a sleep.

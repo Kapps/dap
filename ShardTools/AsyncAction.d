@@ -25,6 +25,8 @@ enum CompletionType {
 	Successful = 2
 }
 
+mixin(MakeException("ActionAbortedException", "Attempted to get the results of an action that was aborted prior to completion."));
+
 /// Provides information about an action that executes asynchronously.
 abstract class AsyncAction  {
 	
@@ -105,6 +107,7 @@ public:
 	/// Gets the result of the completion for this command.
 	/// The type of the data is unknown, but is generally what the synchronous version would return, or an instance of Throwable.
 	/// Accessing this property before the action is complete will result in an InvalidOperationException being thrown.
+	/// It is however allowed to retrieve CompletionData for an Aborted action. The standard convention is to store a Throwable if possible in this situation.
 	@property Untyped CompletionData() {		
 		if(Status == CompletionType.Incomplete)
 			throw new InvalidOperationException("Unable to access completion data prior to the action being complete.");
@@ -133,16 +136,17 @@ public:
 	/// Because this may be executed asynchronously, it is possible that the action will complete prior to being cancelled.
 	/// If this is the case, the cancel operation will effectively do nothing.	
 	/// It is also possible that this simply notifies the operation that it should no longer continue after the next step.
-	/// As such, it may not immediately abort.
-	/// Returns:
-	/// 	Whether the action was successfully aborted; false if the action was already complete.
-	bool Abort() {
+	/// As such, the action may not immediately abort and it's impossible to know whether the action has actually been aborted.
+	/// Optionally, Abort can take in a result to provide additional information about the error or a progress update.
+	/// The result is then available through the CompletionData property.
+	void Abort(Untyped Result = Untyped.init) {
 		synchronized(StateLock) {
 			if(!CanAbort)
 				throw new NotSupportedException("Attempted to abort an AsyncAction that does not support the Abort operation.");
 			if(Status != CompletionType.Incomplete)
-				return false;			
-			return PerformAbort();
+				return;
+			_CompletionData = Result;
+			PerformAbort();
 		}
 	}
 	
@@ -182,15 +186,24 @@ public:
 	/// Synchronously waits for this action to complete, then returns the result casted as T.
 	/// If the completion type was not successful, an exception is thrown.
 	/// If the completion data was an instance of Throwable, that same instance is rethrown.
-	T GetResult(T)() {
-
+	T GetResultSynchronous(T)(Duration Timeout = dur!"msecs"(0)) {
+		auto CompletionType = WaitForCompletion(Timeout);
+		if(CompletionType != CompletionType.Successful) {
+			Throwable t;
+			if(CompletionData.tryGet(t)) {
+				throw t;
+			}
+			throw new ActionAbortedException();
+		}
+		static if(!is(T == void))
+			return CompletionData.get!T;
 	}
 	
 protected:
 	
 	/// Implement to handle the actual cancellation of the action.
 	/// If an action does not support cancellation, CanAbort should return false, and this method should throw an error.
-	abstract bool PerformAbort();
+	abstract void PerformAbort();
 	
 	/// Called when this action is completed.
 	void OnComplete(CompletionType Status) {
@@ -227,6 +240,8 @@ private:
 
 private class ActionManager {
 	// TODO: Replace this with a PollAction? Maybe.
+	// At the very least can be in TaskRepeater.
+	// Or just leave it since it's not a big deal and fairly specialized. Not sure yet.
 	
 	shared static this() {
 		Actions = new RedBlackTree!AsyncAction();

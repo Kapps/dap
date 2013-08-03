@@ -151,7 +151,7 @@ private:
 			ActiveThreads.removeKey(Thread);
 			if(ActiveThreads.length == 0) {
 				assert(FinishAction);
-				FinishAction.Complete(Untyped.init);
+				FinishAction.SignalComplete(Untyped.init);
 			}
 		}
 	}
