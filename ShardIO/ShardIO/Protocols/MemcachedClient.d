@@ -1,6 +1,7 @@
 module ShardIO.Protocols.MemcachedClient;
 public import ShardIO.Protocols.MemcachedConnection;
 import std.variant;
+import std.typecons;
 
 /// Represents a callback that can be used to determine what connection to use from a given hash.
 alias MemcachedConnection delegate(ulong hash, MemcachedClient client) LocatorAlgorithm;
@@ -9,7 +10,7 @@ alias MemcachedConnection delegate(ulong hash, MemcachedClient client) LocatorAl
 /// The default TypeInfo getHash method is used to get an initial key, then a modulus
 /// is performed to distribute the generated hash amongst the servers.
 ubyte[] modulusHashAlgorithm(Variant key, MemcachedClient client) {
-
+	throw new NotImplementedError("modulusHashAlgorithm");
 }
 
 class MemcachedClient {

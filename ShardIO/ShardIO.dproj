@@ -144,10 +144,22 @@
     <Compile Include="ShardIO\StreamOutput.d">
       <LastGenOutput>obj/Debug/ShardIO.StreamOutput.o</LastGenOutput>
     </Compile>
-    <Compile Include="ShardIO\Protocols\MemcachedConnection.d" />
+    <Compile Include="ShardIO\Protocols\MemcachedConnection.d">
+      <LastGenOutput>obj/Debug/ShardIO.Protocols.MemcachedConnection.o</LastGenOutput>
+    </Compile>
     <Compile Include="ShardIO\Protocols\MemcachedClient.d" />
-    <Compile Include="ShardIO\Protocols\IDistributedConnection.d" />
-    <Compile Include="ShardIO\Protocols\DistributedServerClient.d" />
+    <Compile Include="ShardIO\Protocols\MemcachedServerNode.d" />
+    <Compile Include="ShardIO\ConnectionPool.d">
+      <LastGenOutput>obj/Debug/ShardIO.ConnectionPool.o</LastGenOutput>
+    </Compile>
+    <Compile Include="ShardIO\DistributedServerClient.d" />
+    <Compile Include="ShardIO\IDistributedServerNode.d">
+      <LastGenOutput>obj/Debug/ShardIO.IDistributedServerNode.o</LastGenOutput>
+    </Compile>
+    <Compile Include="ShardIO\IPooledConnection.d">
+      <LastGenOutput>obj/Debug/ShardIO.IPooledConnection.o</LastGenOutput>
+    </Compile>
+    <Compile Include="ShardIO\IDistributedServerSelector.d" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="ShardIO\Protocols\" />
