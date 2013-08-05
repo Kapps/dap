@@ -9,14 +9,20 @@
     <UseDefaultCompiler>True</UseDefaultCompiler>
     <IncrementalLinking>True</IncrementalLinking>
     <PreferOneStepBuild>true</PreferOneStepBuild>
-    <DependentProjectIds>
+    <!--<DependentProjectIds>
       <DependentProjectIds>
-        <String>{C8A0A998-D461-451B-B3C6-76ACA512CCA9}</String>
         <String>{F7F06EF1-3CA0-407A-81D4-72CC896D465B}</String>
-        <String>{CD545729-B167-45C9-B834-09DCE7637A52}</String>
+        <String>{C8A0A998-D461-451B-B3C6-76ACA512CCA9}</String>
       </DependentProjectIds>
-    </DependentProjectIds>
+    </DependentProjectIds>-->
     <Compiler>DMD2</Compiler>
+    <Includes>
+      <Includes>
+        <Path>ShardIO</Path>
+        <Path>ShardTools</Path>
+        <Path>ShardMath</Path>
+      </Includes>
+    </Includes>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>True</DebugSymbols>
@@ -32,13 +38,15 @@
         <String>Standalone</String>
       </VersionIds>
     </VersionIds>
-    <Libs>
-      <Libs>
-        <Lib>shlwapi.lib</Lib>
-      </Libs>
-    </Libs>
     <Commandlineparameters>--input=input --output=output</Commandlineparameters>
     <ExtraCompilerArguments>-m64</ExtraCompilerArguments>
+    <Libs>
+      <Libs>
+        <Lib>ShardIO/bin/Debug/libShardIO.a</Lib>
+        <Lib>ShardTools/bin/Debug/libShardTools.a</Lib>
+        <Lib>ShardMath/bin/Debug/libShardMath.a</Lib>
+      </Libs>
+    </Libs>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <OutputPath>bin\Release</OutputPath>

@@ -9,17 +9,12 @@
     <UseDefaultCompiler>True</UseDefaultCompiler>
     <IncrementalLinking>True</IncrementalLinking>
     <PreferOneStepBuild>true</PreferOneStepBuild>
-    <Compiler>ldc2</Compiler>
+    <Compiler>DMD2</Compiler>
     <Includes>
       <Includes>
-        <Path>C:/Dropbox/Code/Shardsoft/ShardTools</Path>
+        <Path>../ShardTools</Path>
       </Includes>
     </Includes>
-    <DependentProjectIds>
-      <DependentProjectIds>
-        <String>{F7F06EF1-3CA0-407A-81D4-72CC896D465B}</String>
-      </DependentProjectIds>
-    </DependentProjectIds>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>True</DebugSymbols>
@@ -54,111 +49,43 @@
     <DebugLevel>0</DebugLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="ShardIO\AsyncFile.d">
-      <LastGenOutput>obj/Debug/ShardIO.AsyncFile.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\AsyncSocket.d">
-      <LastGenOutput>obj/Debug/ShardIO.AsyncSocket.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\CallbackOutput.d">
-      <LastGenOutput>obj/Debug/ShardIO.CallbackOutput.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\ChainedInput.d">
-      <LastGenOutput>obj/Debug/ShardIO.ChainedInput.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\ChainedOutput.d">
-      <LastGenOutput>obj/Debug/ShardIO.ChainedOutput.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\DataSource.d">
-      <LastGenOutput>obj/Debug/ShardIO.DataSource.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\DataTransformer.d">
-      <LastGenOutput>obj/Debug/ShardIO.DataTransformer.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\DataTransformerCollection.d">
-      <LastGenOutput>obj/Debug/ShardIO.DataTransformerCollection.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\DeflateTransform.d">
-      <LastGenOutput>obj/Debug/ShardIO.DeflateTransform.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\FileInput.d">
-      <LastGenOutput>obj/Debug/ShardIO.FileInput.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\FileOutput.d">
-      <LastGenOutput>obj/Debug/ShardIO.FileOutput.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\IOAction.d">
-      <LastGenOutput>obj/Debug/ShardIO.IOAction.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\IOCP.d">
-      <LastGenOutput>obj/Debug/ShardIO.IOCP.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\IOManager.d">
-      <LastGenOutput>obj/Debug/ShardIO.IOManager.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\InputSource.d">
-      <LastGenOutput>obj/Debug/ShardIO.InputSource.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\Internals.d">
-      <LastGenOutput>obj/Debug/ShardIO.Internals.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\MemoryInput.d">
-      <LastGenOutput>obj/Debug/ShardIO.MemoryInput.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\MemoryOutput.d">
-      <LastGenOutput>obj/Debug/ShardIO.MemoryOutput.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\ObjectOutput.d">
-      <LastGenOutput>obj/Debug/ShardIO.ObjectOutput.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\OutputSource.d">
-      <LastGenOutput>obj/Debug/ShardIO.OutputSource.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\SocketInput.d">
-      <LastGenOutput>obj/Debug/ShardIO.SocketInput.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\SocketOutput.d">
-      <LastGenOutput>obj/Debug/ShardIO.SocketOutput.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\SocketPool.d">
-      <LastGenOutput>obj/Debug/ShardIO.SocketPool.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\StandardInput.d">
-      <LastGenOutput>obj/Debug/ShardIO.StandardInput.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\StandardOutput.d">
-      <LastGenOutput>obj/Debug/ShardIO.StandardOutput.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\StreamInput.d">
-      <LastGenOutput>obj/Debug/ShardIO.StreamInput.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\TransformSource.d">
-      <LastGenOutput>obj/Debug/ShardIO.TransformSource.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\Unittests.d">
-      <LastGenOutput>obj/Debug/ShardIO.Unittests.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\NetworkNotifier.d">
-      <LastGenOutput>obj/Debug/ShardIO.NetworkNotifier.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\StreamOutput.d">
-      <LastGenOutput>obj/Debug/ShardIO.StreamOutput.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\Protocols\MemcachedConnection.d">
-      <LastGenOutput>obj/Debug/ShardIO.Protocols.MemcachedConnection.o</LastGenOutput>
-    </Compile>
+    <Compile Include="ShardIO\AsyncFile.d" />
+    <Compile Include="ShardIO\AsyncSocket.d" />
+    <Compile Include="ShardIO\CallbackOutput.d" />
+    <Compile Include="ShardIO\ChainedInput.d" />
+    <Compile Include="ShardIO\ChainedOutput.d" />
+    <Compile Include="ShardIO\DataSource.d" />
+    <Compile Include="ShardIO\DataTransformer.d" />
+    <Compile Include="ShardIO\DataTransformerCollection.d" />
+    <Compile Include="ShardIO\DeflateTransform.d" />
+    <Compile Include="ShardIO\FileInput.d" />
+    <Compile Include="ShardIO\FileOutput.d" />
+    <Compile Include="ShardIO\IOAction.d" />
+    <Compile Include="ShardIO\IOCP.d" />
+    <Compile Include="ShardIO\IOManager.d" />
+    <Compile Include="ShardIO\InputSource.d" />
+    <Compile Include="ShardIO\Internals.d" />
+    <Compile Include="ShardIO\MemoryInput.d" />
+    <Compile Include="ShardIO\MemoryOutput.d" />
+    <Compile Include="ShardIO\ObjectOutput.d" />
+    <Compile Include="ShardIO\OutputSource.d" />
+    <Compile Include="ShardIO\SocketInput.d" />
+    <Compile Include="ShardIO\SocketOutput.d" />
+    <Compile Include="ShardIO\SocketPool.d" />
+    <Compile Include="ShardIO\StandardInput.d" />
+    <Compile Include="ShardIO\StandardOutput.d" />
+    <Compile Include="ShardIO\StreamInput.d" />
+    <Compile Include="ShardIO\TransformSource.d" />
+    <Compile Include="ShardIO\Unittests.d" />
+    <Compile Include="ShardIO\NetworkNotifier.d" />
+    <Compile Include="ShardIO\StreamOutput.d" />
+    <Compile Include="ShardIO\Protocols\MemcachedConnection.d" />
     <Compile Include="ShardIO\Protocols\MemcachedClient.d" />
     <Compile Include="ShardIO\Protocols\MemcachedServerNode.d" />
-    <Compile Include="ShardIO\ConnectionPool.d">
-      <LastGenOutput>obj/Debug/ShardIO.ConnectionPool.o</LastGenOutput>
-    </Compile>
+    <Compile Include="ShardIO\ConnectionPool.d" />
     <Compile Include="ShardIO\DistributedServerClient.d" />
-    <Compile Include="ShardIO\IDistributedServerNode.d">
-      <LastGenOutput>obj/Debug/ShardIO.IDistributedServerNode.o</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardIO\IPooledConnection.d">
-      <LastGenOutput>obj/Debug/ShardIO.IPooledConnection.o</LastGenOutput>
-    </Compile>
+    <Compile Include="ShardIO\IDistributedServerNode.d" />
+    <Compile Include="ShardIO\IPooledConnection.d" />
     <Compile Include="ShardIO\IDistributedServerSelector.d" />
   </ItemGroup>
   <ItemGroup>

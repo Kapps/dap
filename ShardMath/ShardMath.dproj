@@ -19,6 +19,7 @@
     <Target>StaticLibrary</Target>
     <UnittestMode>false</UnittestMode>
     <DebugLevel>0</DebugLevel>
+    <ExtraCompilerArguments>-m64</ExtraCompilerArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <OutputPath>bin\Release</OutputPath>
@@ -40,23 +41,11 @@
     <DebugLevel>0</DebugLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="ShardMath\BoundingBox.d">
-      <LastGenOutput>obj\Release\ShardMath.BoundingBox.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardMath\BoundingFrustum.d">
-      <LastGenOutput>obj\Release\ShardMath.BoundingFrustum.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardMath\Matrix.d">
-      <LastGenOutput>obj\Release\ShardMath.Matrix.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardMath\Quaternion.d">
-      <LastGenOutput>obj\Release\ShardMath.Quaternion.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardMath\Rectangle.d">
-      <LastGenOutput>obj\Release\ShardMath.Rectangle.obj</LastGenOutput>
-    </Compile>
-    <Compile Include="ShardMath\Vector.d">
-      <LastGenOutput>obj\Release\ShardMath.Vector.obj</LastGenOutput>
-    </Compile>
+    <Compile Include="ShardMath\BoundingBox.d" />
+    <Compile Include="ShardMath\BoundingFrustum.d" />
+    <Compile Include="ShardMath\Matrix.d" />
+    <Compile Include="ShardMath\Quaternion.d" />
+    <Compile Include="ShardMath\Rectangle.d" />
+    <Compile Include="ShardMath\Vector.d" />
   </ItemGroup>
 </Project>
