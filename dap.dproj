@@ -18,9 +18,9 @@
     <Compiler>DMD2</Compiler>
     <Includes>
       <Includes>
-        <Path>ShardIO</Path>
-        <Path>ShardTools</Path>
-        <Path>ShardMath</Path>
+        <Path>../../ShardIO</Path>
+        <Path>../../ShardTools</Path>
+        <Path>../../ShardMath</Path>
       </Includes>
     </Includes>
   </PropertyGroup>
@@ -30,7 +30,6 @@
     <ObjectsDirectory>obj/Debug</ObjectsDirectory>
     <OutputName>dap</OutputName>
     <Target>Executable</Target>
-    <Externalconsole>True</Externalconsole>
     <UnittestMode>False</UnittestMode>
     <DebugLevel>0</DebugLevel>
     <VersionIds>
@@ -42,11 +41,12 @@
     <ExtraCompilerArguments>-m64 -gc -gs -g -debug</ExtraCompilerArguments>
     <Libs>
       <Libs>
-        <Lib>ShardIO/bin/Debug/libShardIO.a</Lib>
-        <Lib>ShardTools/bin/Debug/libShardTools.a</Lib>
-        <Lib>ShardMath/bin/Debug/libShardMath.a</Lib>
+        <Lib>../../ShardIO/bin/Debug/libShardIO.a</Lib>
+        <Lib>../../ShardMath/bin/Debug/libShardMath.a</Lib>
+        <Lib>../../ShardTools/bin/Debug/libShardTools.a</Lib>
       </Libs>
     </Libs>
+    <ConsolePause>false</ConsolePause>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <OutputPath>bin\Release</OutputPath>

@@ -45,6 +45,19 @@ abstract class AssetStore : HierarchyNode {
 			trace("Performed save.");
 		}
 	}
+
+	/// Loads the settings from the backing store into this AssetStore.
+	/// The store must be newly created and thus empty, otherwise undefined behaviour will occur.
+	final void load() {
+		// TODO: Enforce that no changes have been made / this store is empty.
+		trace("Preparing to load store data.");
+		synchronized(this) {
+			trace("Starting to perform load.");
+			performLoad();
+			trace("Performed load.");
+		}
+	}
+
 	
 	/// Registers the given child container as parent of this AssetStore.
 	final AssetContainer registerContainer(HierarchyNode parent, string name) {
@@ -77,7 +90,6 @@ abstract class AssetStore : HierarchyNode {
 	
 	/// Creates a new AssetContainer with the specified parent and name.
 	/// The parent is guaranteed to be created by either createAsset or createContainer, or be this instance of AssetStore.
-	/// The parent should contain the resulting Asset at the end of this method.
 	protected Asset createAsset(HierarchyNode parent, string name) {
 		return new Asset(name, parent);
 	}
@@ -92,8 +104,13 @@ abstract class AssetStore : HierarchyNode {
 		return _context;
 	}
 	
-	/// Implement to handle logic required to save the nodes and their settings to a file.
+	/// Implement to handle logic required to save the nodes and their settings.
 	protected abstract void performSave();
+
+	/// Implement to handle logic required to load files saved through a call to performSave.
+	/// It is up to the caller to decide how no data to load should be handled.
+	/// For most AssetStore implementations, it should merely create a new default set of settings.
+	protected abstract void performLoad();
 	
 	/// Serializes all node settings to the given OutputSource, in a way that can be read by deserializeNodes. 
 	/// Assumes that the store is locked.
@@ -143,25 +160,25 @@ abstract class AssetStore : HierarchyNode {
 		trace("The IOAction has completed, all data is in memory. Starting to deserialize the " ~ output.Data.length.text ~ "bytes.");
 		StreamReader reader = new StreamReader(output.Data, true);
 		deserializeNode(reader, this);
+		// Next up, read settings:
 		TaskPool deserializePool = new TaskPool();
 		while(reader.Available > 0) {
-			string node = cast(string)reader.ReadPrefixed!char;
+			trace("Had " ~ reader.Available.text ~ " bytes available, so reading more settings.");
 			ubyte[] settings = reader.ReadPrefixed!ubyte;
+			trace("Queueing read of " ~ settings.length.text ~ " bytes for settings.");
+			deserializePool.put(task(&deserializeSettings, settings));
 		}
+		deserializePool.finish(true);
 	}
-	
-	private void readSettings(StreamReader reader) {
-		TaskPool settingPool = new TaskPool();
-		while(reader.Available > 0) {
-			ubyte[] data = reader.ReadPrefixed!ubyte;	
-			settingPool.put(task(&deserializeSettings, data));
-		}
-	}
-	
+
 	private void deserializeSettings(ubyte[] data) {
 		StreamReader reader = new StreamReader(data, false);
 		string qualifiedName = cast(string)reader.ReadPrefixed!char;
+		trace("Deserializing settings for " ~ qualifiedName ~ ".");
 		HierarchyNode node = context.getNode(qualifiedName);
+		size_t bytesRead = node.settings.deserialize(reader.RemainingData);
+		reader.Advance(bytesRead);
+		trace("Read " ~ bytesRead.text ~ " bytes for this node's settings.");
 	}
 	
 	private void deserializeNode(StreamReader reader, HierarchyNode parent) {

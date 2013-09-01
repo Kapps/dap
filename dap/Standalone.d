@@ -31,7 +31,11 @@ version(Standalone) {
 		logger.minSeverity = MessageSeverity.Trace;
 		auto context = new BuildContext(logger);
 		auto assetStore = new FileStore(inputFolder, outputFolder, "standalone", context);
-		logger.logMessage(MessageSeverity.Info, "This is a test message!", assetStore);
+		assetStore.load();
+		assert(context.getStore("standalone") == assetStore);
+		auto testDoc = context.getNode("standalone:test.txt");
+		writeln(testDoc.settings.get!(Vector3f)("Test"));
+		/+logger.logMessage(MessageSeverity.Info, "This is a test message!", assetStore);
 		Asset testDoc = assetStore.registerAsset(assetStore, "test.txt");
 		auto val = new Vector3f(1,  2, 3);
 		writeln("Original: ", val);
@@ -44,8 +48,10 @@ version(Standalone) {
 		NodeSettings settings = new NodeSettings(null);
 		settings.deserialize(buffer.FullData);
 		writeln("Retrieved: ", settings.get!(Vector3f)("Test"));
-		assetStore.save();
+		assetStore.save();+/
+
 		// Prints "Hello World" string in console
 		writeln("Hello World!");
+		readln();
 	}
 }

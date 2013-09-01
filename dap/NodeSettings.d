@@ -8,6 +8,7 @@ import ShardTools.Buffer;
 import ShardTools.StreamReader;
 import ShardTools.BufferPool;
 import ShardTools.ExceptionTools;
+import std.stdio;
 
 /// Provides the processor settings for a given HierarchyNode, usually an asset.
 /// This class is thread-safe.
@@ -72,7 +73,8 @@ final class NodeSettings {
 	}
 	
 	/// Deserializes data returned by a call to serialize. This NodeSettings instance must be empty.
-	void deserialize(ubyte[] data) {
+	/// Returns the amount of bytes used from data.
+	size_t deserialize(ubyte[] data) {
 		if(settings.length != 0)
 			throw new InvalidOperationException("The NodeSettings instance must be empty in order to deserialize values.");
 		StreamReader reader = new StreamReader(data, true);
@@ -82,6 +84,7 @@ final class NodeSettings {
 			ubyte[] value = reader.ReadPrefixed!ubyte;
 			settings[key] = value;	
 		}
+		return reader.Position;
 	}
 	
 	unittest {

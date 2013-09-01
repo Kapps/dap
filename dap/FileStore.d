@@ -39,6 +39,10 @@ class FileStore : AssetStore {
 		return _outputDirectory;
 	}
 
+	@property string settingsFile() {
+		return buildPath(inputDirectory, identifier ~ "-settings.saf");
+	}
+
 	protected override InputSource createInputSource(Asset asset) {
 		auto path = getAbsolutePath(this.inputDirectory, asset);
 		trace("Creating output source for " ~ asset.text ~ " from " ~ getRelativePath(asset));
@@ -48,15 +52,23 @@ class FileStore : AssetStore {
 	protected override OutputSource createOutputSource(Asset asset) {
 		auto path = getAbsolutePath(this.outputDirectory, asset);
 		trace("Creating output source for " ~ asset.text ~ " to " ~ getRelativePath(asset));
-		return new FileOutput(path);
+		return new FileOutput(path, FileOpenMode.CreateOrReplace);
 	}
 	
 	protected override void performSave() {
-		string filePath = buildPath(inputDirectory, identifier ~ "-settings.saf");
-		trace("Setting location will be '" ~ filePath ~ "'.");
-		FileOutput output = new FileOutput(filePath);
+		trace("Setting location will be '" ~ settingsFile ~ "'.");
+		FileOutput output = new FileOutput(settingsFile, FileOpenMode.CreateOrReplace);
 		trace("Created output file.");
 		serializeNodes(output);
+		trace("Done performSave.");
+	}
+
+	protected override void performLoad() {
+		trace("Loading settings from " ~ settingsFile ~ ".");
+		FileInput input = new FileInput(settingsFile);
+		trace("Prepared input file.");
+		deserializeNodes(input);
+		trace("Done performLoad.");
 	}
 
 	protected string getAbsolutePath(string basePath, Asset asset) {

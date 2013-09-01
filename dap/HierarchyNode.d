@@ -19,9 +19,10 @@ class HierarchyNode {
 		enforce(identifier, "Identifier can not be null.");
 		//enforce(parent, "Parent can not be null.");
 		this._identifier = identifier;
-		this._parent = parent;
 		this._settings = new NodeSettings(this);
 		this._children = new NodeCollection(this);
+		if(parent)
+			parent.children.add(this);
 	}
 	
 	/// Returns the child nodes that this node contains.
