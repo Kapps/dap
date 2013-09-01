@@ -39,7 +39,7 @@
       </VersionIds>
     </VersionIds>
     <Commandlineparameters>--input=input --output=output</Commandlineparameters>
-    <ExtraCompilerArguments>-m64</ExtraCompilerArguments>
+    <ExtraCompilerArguments>-m64 -gc -gs -g -debug</ExtraCompilerArguments>
     <Libs>
       <Libs>
         <Lib>ShardIO/bin/Debug/libShardIO.a</Lib>

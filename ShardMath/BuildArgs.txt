@@ -1,1 +1,0 @@
--of"bin/x86/Debug/ShardMath.lib" -Dd"bin/x86/Debug/docs" "-vtls" "-unittest" "-D" "-g" "-debug" "-lib" "-w" "ShardMath/BoundingBox.d" "ShardMath/BoundingFrustum.d" "ShardMath/Matrix.d" "ShardMath/Quaternion.d" "ShardMath/Rectangle.d" "ShardMath/Vector.d" 
