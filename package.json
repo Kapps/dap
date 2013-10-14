@@ -1,0 +1,15 @@
+{
+	"name": "dap",
+	"targetName": "dap",
+	"description": "A content processor that can be run either stand-alone or as a library. Handles asynchronous builds, logging, and more. Not ready for use.",
+	"homepage": "https://shardsoft.com",
+	"authors": ["Ognjen Ivkovic"],
+	"license": "Boost",
+	"dependencies": {
+		"shardtools": "~master",
+		"shardio": "~master",
+		"shardmath": "~master"
+	},
+	"targetType": "executable",
+	"versions": ["Standalone"]
+}
