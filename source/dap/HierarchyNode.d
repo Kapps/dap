@@ -6,6 +6,8 @@ import dap.NodeSettings;
 import dap.NodeCollection;
 import std.exception;
 import std.conv;
+import std.regex;
+import std.path;
 
 /// Represents a character that indicates a separation of a HierarchyNode for a qualified name.
 enum char nodeSeparator = ':';
@@ -58,8 +60,27 @@ class HierarchyNode {
 	}
 	
 	/// Splits a qualified name into it's individual parts, with the first element being the AssetStore.
-	@property static string[] splitQualifiedName(string qualifiedName) {
+	static string[] splitQualifiedName(string qualifiedName) {
 		return splitter(qualifiedName, nodeSeparator).array;
+	}
+
+	unittest {
+		assert(splitQualifiedName("Textures:TestTexture") == ["Textures", "TestTexture"]);
+		assert(splitQualifiedName("Textures") == ["Textures"]);
+	}
+
+	/// Converts the given relative path into the fully qualified name of a HierarchyNode.
+	static string nameFromPath(string relativePath) {
+		// TODO: A regex for this seems a bit overkill.
+		// But no other split method allows us to split on multiple characters.
+		string noext = stripExtension(relativePath);
+		auto split = std.regex.splitter(noext, regex(`[/\\]`));
+		return join(split, nodeSeparator.to!string);
+	}
+
+	unittest {
+		assert(nameFromPath("Textures/TestTexture.png") == "Textures:TestTexture");
+		assert(nameFromPath("Textures\\TestTexture.png") == "Textures:TestTexture");
 	}
 	
 	/// Returns the fully qualified name of this node, with identifiers being separated by $(D, nodeSeparator).

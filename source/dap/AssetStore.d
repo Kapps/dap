@@ -18,6 +18,7 @@ import std.string;
 import ShardTools.ExceptionTools;
 import std.exception;
 import std.conv;
+import std.typecons;
 
 /// Provides the implementation of any storage operations, such as loading data for an asset.
 abstract class AssetStore : HierarchyNode {
@@ -70,7 +71,7 @@ abstract class AssetStore : HierarchyNode {
 		return result;
 	}
 	
-	/// Registers the given asset as parent of this AssetStore.
+	/// Registers the given asset within this AssetStore under the given parent.
 	final Asset registerAsset(HierarchyNode parent, string name) {
 		if(!isValidName(name))
 			throw new InvalidFormatException("The asset name was not valid.");
@@ -79,6 +80,12 @@ abstract class AssetStore : HierarchyNode {
 		auto result = createAsset(parent, name);
 		trace("Registered asset named " ~ result.qualifiedName ~ ".");
 		return result;
+	}
+
+	/// Registers the asset with the given qualified name in this AssetStore.
+	/// All containers that do not exist along the path will be created.
+	final Asset registerAsset(string qualifiedName) {
+		throw new NotImplementedError("registerAsset(qualifiedName)");
 	}
 	
 	/// Creates an AssetContainer with the specified parent and name.

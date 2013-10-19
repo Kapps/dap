@@ -84,7 +84,7 @@ class FileStore : AssetStore {
 
 	/// Returns the relative path for the given asset.
 	protected string getRelativePath(Asset asset) {
-		return buildPath(asset.qualifiedName);
+		return buildPath(HierarchyNode.splitQualifiedName(asset.qualifiedName));
 	}
 	
 	Asset[string] loadedAssets;

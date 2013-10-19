@@ -44,7 +44,7 @@ final class NodeSettings {
 	/**
 	 * Returns the stored snapshot of the value of the setting with the given name.
 	 */
-	public T get(T)(string name, lazy T defaultValue) {
+	public T get(T)(string name, lazy T defaultValue = T.init) {
 		synchronized(this) {
 			ubyte[] data = settings[fixedKey(name)];
 			T result;
