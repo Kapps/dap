@@ -59,33 +59,46 @@ abstract class AssetStore : HierarchyNode {
 		}
 	}
 
-	
 	/// Registers the given child container as parent of this AssetStore.
 	final AssetContainer registerContainer(HierarchyNode parent, string name) {
-		if(!isValidName(name))
-			throw new InvalidFormatException("The container name was not valid.");
-		enforce(parent !is null);
-		trace("Registering container named " ~ name ~ " under " ~ parent.qualifiedName ~ ".");
-		auto result = createContainer(parent, name);
-		trace("Registered container named " ~ result.qualifiedName ~ ".");
-		return result;
+		return cast(AssetContainer)registerNode(parent, name, createContainer(parent, name));
 	}
 	
 	/// Registers the given asset within this AssetStore under the given parent.
 	final Asset registerAsset(HierarchyNode parent, string name) {
-		if(!isValidName(name))
-			throw new InvalidFormatException("The asset name was not valid.");
+		return cast(Asset)registerNode(parent, name, createAsset(parent, name));
+	}
+
+	/// Registers the given node on the specified parent, ensuring that the name is
+	/// valid and no existing node with that name exists.
+	/// The node parameter is evaluated only if the node contains a valid name.
+	protected HierarchyNode registerNode(HierarchyNode parent, string name, lazy HierarchyNode node) {
 		enforce(parent !is null);
-		trace("Registering asset named " ~ name ~ " under " ~ parent.qualifiedName ~ ".");
-		auto result = createAsset(parent, name);
-		trace("Registered asset named " ~ result.qualifiedName ~ ".");
+		trace("Registering node named " ~ name ~ " under " ~ parent.qualifiedName ~ ".");
+		if(!isValidName(name))
+			throw new InvalidFormatException("The node name was not valid.");
+		if(parent.children[name] !is null)
+			throw new DuplicateKeyException("A node named \'" ~ name ~ "\' already exists under the given parent.");
+		auto result = node();
+		trace("Registered node named " ~ result.qualifiedName ~ ".");
 		return result;
 	}
 
 	/// Registers the asset with the given qualified name in this AssetStore.
 	/// All containers that do not exist along the path will be created.
+	/// This is simply a shortcut to registerContainer all non-existing 
+	/// containers on the path and registerAsset the final asset.
 	final Asset registerAsset(string qualifiedName) {
-		throw new NotImplementedError("registerAsset(qualifiedName)");
+		string[] split = HierarchyNode.splitQualifiedName(qualifiedName);
+		HierarchyNode current = this;
+		foreach(contName; split[0..$-1]) {
+			HierarchyNode next = current.children[contName];
+			if(next is null)
+				next = registerContainer(current, contName);
+			current = next;
+		}
+		string assetName = split[$-1];
+		return registerAsset(current, assetName);
 	}
 	
 	/// Creates an AssetContainer with the specified parent and name.

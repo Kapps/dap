@@ -91,7 +91,7 @@ import std.file;
 		@Description("Displays the help string.")
 		@ShortName('h')
 		@Command(CommandFlags.setDefault)
-		string help(string arg) {
+		string help() {
 			string helpText = "D Asset Pipeline" ~ newline;
 			helpText ~= "Converts assets into an intermediate post-processed format more efficiently loaded at runtime.";
 			helpText ~= newline ~ getHelpString!Standalone;
@@ -101,27 +101,29 @@ import std.file;
 		@Description("Adds the given raw asset to the asset store using the default processor and default settings.")
 		@Command(CommandFlags.allowMulti | CommandFlags.argRequired)
 		string add(string arg) {
-			string assetPath = PathTools.MakeAbsolute(arg);
+			string assetPath = PathTools.MakeAbsolute(buildPath(_assetStore.inputDirectory, arg));
 			if(!exists(assetPath))
 				return "The asset at " ~ assetPath ~ " did not exist.";
 			if(!PathTools.IsInWorkingDirectory(assetPath))
 				return "The given asset was not in the current working directory.";
-			string relPath = PathTools.GetRelativePath(assetPath, PathTools.CurrentDirectory);
+			string relPath = PathTools.GetRelativePath(assetPath, _assetStore.inputDirectory);
 			string assetName = HierarchyNode.nameFromPath(relPath);
-			return "Not implemented.";
+			Asset asset = _assetStore.registerAsset(assetName);
+			_assetStore.save();
+			return "Registered asset " ~ asset.qualifiedName ~ ".";
 		}
 
 		@CommandInitializer(true)
 		void initialize() {
 			auto logger = new ConsoleLogger();
-			logger.minSeverity = MessageSeverity.trace;
+			logger.minSeverity = MessageSeverity.info;
 			auto context = new BuildContext(logger);
-			this._assetStore = new FileStore(inputFolder, outputFolder, "standalone", context);
+			this._assetStore = new FileStore(inputFolder, outputFolder, "Content", context);
 			logger.trace("Input Path: " ~ inputFolder);
 			logger.trace("Output Path: " ~ outputFolder);
 			_assetStore.load();
 		}
-
+	
 		private BuildContext context;
 		private FileStore _assetStore;
 	}

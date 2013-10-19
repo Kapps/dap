@@ -67,6 +67,7 @@ class NodeCollection {
 	}
 	
 	private string fixedKey(string input) pure {
+		// Would be nice to prevent allocations every time we need to look up a key...
 		return input.toLower().strip();
 	}
 	
