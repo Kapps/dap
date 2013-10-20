@@ -194,6 +194,7 @@ abstract class AssetStore : HierarchyNode {
 		string qualifiedName = cast(string)reader.ReadPrefixed!char;
 		trace("Deserializing settings for " ~ qualifiedName ~ ".");
 		HierarchyNode node = context.getNode(qualifiedName);
+		enforce(node);
 		size_t bytesRead = node.settings.deserialize(reader.RemainingData);
 		reader.Advance(bytesRead);
 		trace("Read " ~ bytesRead.text ~ " bytes for this node's settings.");
@@ -202,12 +203,12 @@ abstract class AssetStore : HierarchyNode {
 	private void deserializeNode(StreamReader reader, HierarchyNode parent) {
 		NodeType type = cast(NodeType)reader.Read!byte();
 		string nodeIdentifier = cast(string)reader.ReadPrefixed!char();
-		trace("Deserializing " ~ type ~ " named " ~ nodeIdentifier ~ " with parent of " ~ parent.text ~ ".");
+		trace("Deserializing " ~ type.text ~ " named " ~ nodeIdentifier ~ " with parent of " ~ parent.text ~ ".");
 		HierarchyNode node;
 		synchronized(parent) {
 			switch(type) {
 				case NodeType.Store:
-					if(icmp(nodeIdentifier, this.identifier) != 0)
+					if(icmp(nodeIdentifier, this.name) != 0)
 						throw new Exception("The AssetStore being deserialized was not this store.");
 					node = this;
 					break;
@@ -239,7 +240,7 @@ abstract class AssetStore : HierarchyNode {
 		else
 			throw new Error("Unknown node type. The default serialize method supports only assets and containers.");
 		input.Write(cast(ubyte)type);
-		input.WritePrefixed(node.identifier);
+		input.WritePrefixed(node.name);
 		input.Write(cast(int)node.children.length);
 		nodes.Add(node);
 		//tasks.Add(task(&performSerializeSettings, input, node));

@@ -59,6 +59,7 @@ class BuildContext {
 	 * If no asset was found, or qualifiedName is in an incorrect format, returns null.
 	 */
 	public HierarchyNode getNode(string qualifiedName) {
+		import std.stdio;
 		auto nameParts = HierarchyNode.splitQualifiedName(qualifiedName).array;
 		auto store = nameParts ? getStore(nameParts[0]) : null;
 		if(store is null)
@@ -66,8 +67,11 @@ class BuildContext {
 		HierarchyNode current = store;
 		foreach(part; nameParts[1..$]) {
 			HierarchyNode next = current.children[part];
-			if(next is null)
+			if(next is null) {
+				logger.trace("Getting " ~ qualifiedName ~ " failed because " ~ current.name 
+				             ~ " did not contain a child named " ~ part ~ ".");
 				return null;
+			}
 			current = next;
 		}
 		return current;
@@ -75,7 +79,7 @@ class BuildContext {
 	
 	package void registerStore(AssetStore store) {
 		logger.trace("Registering " ~ store.text ~ ".", store);
-		string key = toLower(store.identifier).strip();
+		string key = toLower(store.name).strip();
 		synchronized(this) {
 			if(key in _stores)
 				throw new DuplicateKeyException("A store named " ~ key ~ " was already registered for this BuildContext.");

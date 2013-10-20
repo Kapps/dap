@@ -17,10 +17,10 @@ enum char nodeSeparator = ':';
 class HierarchyNode {
 	
 	/// Creates a new HierarchyNode with the given identifier, parent.
-	this(string identifier, HierarchyNode parent) {
-		enforce(identifier, "Identifier can not be null.");
+	this(string name, HierarchyNode parent) {
+		enforce(name, "Name can not be null.");
 		//enforce(parent, "Parent can not be null.");
-		this._identifier = identifier;
+		this._name = name;
 		this._settings = new NodeSettings(this);
 		this._children = new NodeCollection(this);
 		if(parent)
@@ -34,8 +34,8 @@ class HierarchyNode {
 	
 	/// Gets an identifier used to represent this node.
 	/// For example, an asset may return the name of the asset, while an AssetDirectory could return the name of the directory.
-	@property final string identifier() const {
-		return _identifier;
+	@property final string name() const {
+		return _name;
 	}
 	
 	/// Gets the parent that owns this node.
@@ -88,9 +88,9 @@ class HierarchyNode {
 	final @property string qualifiedName() {
 		// TODO: This could be easily optimized if need be. First calculate length, then allocate.
 		// Or just cache it.
-		string result = this.identifier;
+		string result = this.name;
 		for(HierarchyNode node = this.parent; node !is null; node = node.parent) {
-			result = node.identifier ~ nodeSeparator ~ result;
+			result = node.name ~ nodeSeparator ~ result;
 		}
 		return result;
 	}
@@ -115,7 +115,7 @@ class HierarchyNode {
 		return this.qualifiedName ~ "[" ~ typeid(this).text ~ "]";
 	}
 	
-	private string _identifier;
+	private string _name;
 	private HierarchyNode _parent;
 	private NodeSettings _settings;
 	private NodeCollection _children;

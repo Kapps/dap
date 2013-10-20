@@ -41,7 +41,7 @@ class FileStore : AssetStore {
 	}
 
 	@property string settingsFile() {
-		return buildPath(inputDirectory, identifier ~ "-settings.saf");
+		return buildPath(inputDirectory, name ~ "-settings.saf");
 	}
 
 	protected override InputSource createInputSource(Asset asset) {

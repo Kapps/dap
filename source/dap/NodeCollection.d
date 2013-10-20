@@ -2,6 +2,7 @@ module dap.NodeCollection;
 import dap.HierarchyNode;
 import std.string;
 import ShardTools.ExceptionTools;
+import std.conv;
 
 /// Provides a collection of HierarchyNodes. This class is not thread-safe.
 class NodeCollection {
@@ -22,14 +23,14 @@ class NodeCollection {
 	}
 	
 	/// Returns all of the nodes contained in this collection.
-	@property public HierarchyNode[] allNodes() {
+	@property auto allNodes() {
 		return _nodes.values;
 	}
 	
 	/// Gets the HierarchyNode with the given name that is contained by this collection.
 	public HierarchyNode opIndex(string name) {
 		auto identifier = fixedKey(name);
-		HierarchyNode* result = name in _nodes;
+		HierarchyNode* result = identifier in _nodes;
 		if(result)
 			return *result;
 		return null;
@@ -48,22 +49,26 @@ class NodeCollection {
 	
 	/// Adds the specified node to this collection.
 	public void add(HierarchyNode node) {
+		owner.trace("Attempting to add " ~ node.text ~ " from " ~ this.owner.text ~ ".");
 		if(node.parent !is null)
 			throw new InvalidOperationException("A node with a parent set may not be added to a new collection.");
 		node.parent = this.owner;
-		string identifier = fixedKey(node.identifier);
+		string identifier = fixedKey(node.name);
 		assert(identifier !in _nodes);
 		_nodes[identifier] = node;
+		owner.trace("Added " ~ node.text ~ " to " ~ this.owner.text ~ " as " ~ identifier);
 	}
 	
 	/// Removes the specified node from this collection.
 	public void remove(HierarchyNode node) {
-		if(node.parent !is this)
+		owner.trace("Attempting to remove " ~ node.text ~ " from " ~ this.owner.text ~ ".");
+		if(node.parent !is this.owner)
 			throw new InvalidOperationException("Unable to remove a node from this collection when it does not exist.");
-		string identifier = fixedKey(node.identifier);
+		string identifier = fixedKey(node.name);
 		auto removed = _nodes.remove(identifier);
 		if(!removed)
 			throw new KeyNotFoundException("This node did not contain the specified child.");
+		owner.trace("Removed " ~ node.name ~ " from " ~ this.owner.text ~ ".");
 	}
 	
 	private string fixedKey(string input) pure {

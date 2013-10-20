@@ -17,6 +17,8 @@ version(Standalone) {
 	import ShardTools.CommandLine;
 	import std.typecons;
 	import ShardTools.Reflection;
+	import std.algorithm;
+	import std.range;
 import std.ascii;
 import std.file;
 
@@ -84,9 +86,8 @@ import std.file;
 		string outputFolder = buildPath("Content", "Output");
 
 		@Description("The minimum severity for a message to be logged.")
-		@ShortName('l')
 		@DisplayName("log-level")
-		MessageSeverity severity = MessageSeverity.trace;
+		MessageSeverity severity = MessageSeverity.info;
 
 		@Description("Displays the help string.")
 		@ShortName('h')
@@ -100,10 +101,13 @@ import std.file;
 
 		@Description("Adds the given raw asset to the asset store using the default processor and default settings.")
 		@Command(CommandFlags.allowMulti | CommandFlags.argRequired)
+		@ShortName('a')
 		string add(string arg) {
 			string assetPath = PathTools.MakeAbsolute(buildPath(_assetStore.inputDirectory, arg));
 			if(!exists(assetPath))
 				return "The asset at " ~ assetPath ~ " did not exist.";
+			if(!isFile(assetPath))
+				return "An asset must be a file, not a directory.";
 			if(!PathTools.IsInWorkingDirectory(assetPath))
 				return "The given asset was not in the current working directory.";
 			string relPath = PathTools.GetRelativePath(assetPath, _assetStore.inputDirectory);
@@ -113,11 +117,45 @@ import std.file;
 			return "Registered asset " ~ asset.qualifiedName ~ ".";
 		}
 
+		@Description("Removes the asset with the specified qualified name from the asset store.")
+		@Command(CommandFlags.allowMulti | CommandFlags.argRequired)
+		@ShortName('r')
+		string remove(string arg) {
+			string name = std.string.strip(arg);
+			auto node = cast(Asset)context.getNode(name);
+			if(node is null)
+				return "No asset with the fully qualified name of '" ~ name ~ "' was found.";
+			string qualName = node.qualifiedName;
+			node.parent.children.remove(node);
+			_assetStore.save();
+			return qualName ~ " was removed from the asset store.";
+		}
+
+		@Description("Lists all assets currently stored.")
+		@Command(true)
+		@ShortName('l')
+		string list() {
+			auto result = appender!string;
+			appendContainer(_assetStore, 1, result);
+			return std.string.strip(result.data);
+		}
+
+		private void appendContainer(HierarchyNode node, int indentLevel, ref Appender!string result) {
+			string indentString = repeat('\t', indentLevel).array;
+			result ~= (indentString[0..$-1] ~ node.name ~ ":\n");
+			foreach(asset; node.children.allNodes.filter!(c=>cast(Asset)c)) {
+				result ~= (indentString ~ asset.name ~ "\n");
+			}
+			foreach(child; node.children.allNodes.filter!(c=>cast(Asset)c is null)) {
+				appendContainer(child, indentLevel + 1, result);
+			}
+		}
+
 		@CommandInitializer(true)
 		void initialize() {
 			auto logger = new ConsoleLogger();
-			logger.minSeverity = MessageSeverity.info;
-			auto context = new BuildContext(logger);
+			logger.minSeverity = severity;
+			context = new BuildContext(logger);
 			this._assetStore = new FileStore(inputFolder, outputFolder, "Content", context);
 			logger.trace("Input Path: " ~ inputFolder);
 			logger.trace("Output Path: " ~ outputFolder);

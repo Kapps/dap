@@ -8,7 +8,7 @@ class ConsoleLogger : BuildLogger {
 	protected override void performLog(LoggedMessage message) {
 		string result;
 		if(message.node !is null)
-			result ~= '[' ~ message.node.identifier ~ "] - ";
+			result ~= '[' ~ message.node.name ~ "] - ";
 		result ~= message.severity.to!string ~ ": " ~ message.details;
 		writeln(result);
 	}
