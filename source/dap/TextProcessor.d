@@ -16,6 +16,17 @@ class TextProcessor : ContentProcessor {
 		super(asset);
 	}
 
+	/// Indicates if the lines within the text file should be reversed.
+	/// At the moment this does nothing and is just a test property.
+	@property bool reverseLines() const {
+		return _reverseLines;
+	}
+
+	/// ditto
+	@property void reverseLines(bool val) {
+		_reverseLines = val;
+	}
+
 	@Ignore(true) @property override TypeInfo inputType() {
 		return typeid(TextContent);
 	}
@@ -24,5 +35,8 @@ class TextProcessor : ContentProcessor {
 		TextContent content = input.get!TextContent;
 		return new IOAction(content.input, output);
 	}
+	
+private:
+	bool _reverseLines;
 }
 

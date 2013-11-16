@@ -113,16 +113,19 @@ class HierarchyNode {
 
 	/// A shortcut to log a message with the Trace severity.
 	final void trace(string details) {
+		enforce(root);
 		root.context.logger.trace(details, this);
 	}
 
 	/// A shortcut to log a message with the Info severity.
 	final void info(string details) {
+		enforce(root);
 		root.context.logger.info(details, this);
 	}
 	
 	/// A shortcut to log a message with the Warning severity.
 	final void warn(string details) {
+		enforce(root);
 		root.context.logger.warn(details, this);
 	}
 

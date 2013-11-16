@@ -26,7 +26,6 @@ import dap.ContentImporter;
 
 	/// Provides a stand-alone wrapper that uses a FileStore to keep track of assets.
 	void main(string[] args) { 
-		//PathTools.SetWorkingDirectory(PathTools.ApplicationDirectory);
 		// TODO: Add support for things like --help add.
 		Standalone instance;
 		try {
@@ -34,46 +33,6 @@ import dap.ContentImporter;
 		} catch(CommandLineException) {
 			// Do nothing since we allow CommandLine to handle outputting errors it throws.
 		}
-		/+
-		 + Format:
-		 + dap --add Textures/MyTexture.png
-		 + Added asset Textures:MyTexture.png
-		 + 	Context Processor:	TextureProcessor
-		 + 	Resize to pow2:		true
-		 + 	Generate Mipmaps:	true
-		 + File not found: Textures/MyTexture.png
-		 + Added asset Textures:MyTexture.png
-		 + 	Content Processor:	Unknown
-		 + Asset Textures:MyTexture already exists.
-		 + (Above gets shown with dap --view as well.)
-		 + (Perhaps specify --quiet to not output the above with add?)
-		 +/
-		/+foreach(val; params.metadata.children.values)
-			writeln(val.name, " = ", val.getValue(params).text);
-		auto logger = new ConsoleLogger();
-		logger.minSeverity = MessageSeverity.Trace;
-		auto context = new BuildContext(logger);
-		auto assetStore = new FileStore(inputFolder, outputFolder, "standalone", context);
-		logger.trace("Input Path: ", inputFolder);
-		logger.trace("Output Path: ", outputFolder);
-		assetStore.load();
-		assert(context.getStore("standalone") == assetStore);
-		auto testDoc = context.getNode("standalone:test.txt");
-		writeln(testDoc.settings.get!(Vector3f)("Test"));+/
-		/+logger.logMessage(MessageSeverity.Info, "This is a test message!", assetStore);
-		Asset testDoc = assetStore.registerAsset(assetStore, "test.txt");
-		auto val = new Vector3f(1,  2, 3);
-		writeln("Original: ", val);
-		testDoc.settings.set!(Vector3f*)("Test", val);
-		writeln("Stored as Test.");
-		writeln("Stored: ", testDoc.settings.get!(Vector3f)("Test"));
-		Buffer buffer = BufferPool.Global.Acquire(4096);
-		testDoc.settings.serialize(buffer);
-		writeln("Length: ", buffer.Count); 
-		NodeSettings settings = new NodeSettings(null);
-		settings.deserialize(buffer.FullData);
-		writeln("Retrieved: ", settings.get!(Vector3f)("Test"));
-		assetStore.save();+/
 	}
 
 	class Standalone {
@@ -155,17 +114,17 @@ import dap.ContentImporter;
 		string inspect(string arg) {
 			auto node = getAsset(arg);
 			auto processor = node.createProcessor();
-			auto importer = processor.createImporter();
+			auto importer = processor is null ? null : processor.createImporter();
 			Appender!string result;
-			result ~= "Importer: " ~ typeid(importer).text ~ "\n";
+			result ~= "Importer: " ~ (importer is null ? "Unknown" : typeid(importer).text) ~ "\n";
 			result ~= "Processor: " ~ node.processorName ~ "\n";
 			if(processor !is null) {
-				foreach(prop; processor.metadata.children.values)
-					appendProperty(prop, prop.getValue(processor), 0, result);
+				foreach(prop; processor.metadata.children.values.filter!(c=>c.kind == DataKind.property))
+					appendProperty(prop, prop.getValue(processor), 1, result);
 			} else {
-				result ~= "The processor name is invalid.";
+				result ~= "\tInvalid Processor";
 			}
-			return result.data;
+			return std.string.stripRight(result.data);
 		}
 
 		private Asset getAsset(string arg) {
@@ -177,15 +136,28 @@ import dap.ContentImporter;
 		}
 
 		private void appendProperty(ValueMetadata metadata, Variant val, int indentLevel, ref Appender!string result) {
+			if(metadata.propertyData.getter.findAttribute!Ignore(false))
+				return;
 			string indentString = repeat('\t', indentLevel).array;
 			TypeMetadata type = val.metadata;
-			if(type.kind == TypeKind.primitive_)
+			// Didn't bother with recursive yet, have to implement making sure we're not running into
+			// an infinite loop or stack overflow, and need a way to indicate something is a reference
+			// to another instance that was already printed out, etc.
+
+			//if(type.kind == TypeKind.primitive_)
 				result ~= indentString ~ metadata.name ~ " = " ~ val.text ~ "\n";
-			else {
+			/+else {
 				result ~= indentString ~ metadata.name ~ ":\n";
-				foreach(child; type.children.values)
-					appendProperty(child, child.getValue(val), indentLevel + 1, result);
-			}
+				// Can't find a better way to check if it contains null....
+				bool isNull = cast(ClassInfo)val.type && val.coerce!Object is null;
+				if(isNull)
+					result ~= indentString ~ "\tnull";
+				else {
+					writeln("Currently value is ", val, ". ");
+					foreach(child; type.children.values)
+						appendProperty(child, child.getValue(val), indentLevel + 1, result);
+				}
+			}+/
 		}
 
 		private void appendContainer(HierarchyNode node, int indentLevel, ref Appender!string result) {

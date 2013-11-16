@@ -10,14 +10,15 @@ import std.datetime;
 class Asset : HierarchyNode {
 
 	/// Creates a new Asset with the given name, under the given parent.
+	/// The processorName is set to the default processor that can handle this file type.
 	this(string name, string extension) {
 		super(name);
 		this._extension = extension;
+		this._processorName = ContentProcessor.getDefaultProcessorForExtension(extension);
 	}
 	
 	/// Creates an InputSource that can be used to read the data of this asset.
 	final InputSource getInputSource() {
-		trace("Generating input source.");
 		return root.createInputSource(this);
 	}
 	

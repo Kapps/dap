@@ -25,11 +25,10 @@ class ContentProcessor {
 	/// Registers the processor with the specified name and type.
 	/// The processor is then also registered as the default processor for all extensions given.
 	static void registerProcessor(string name, string extensions[], TypeMetadata type) {
-		name = fixedKey(name);
 		_storeLock.lock();
 		scope(exit)
 			_storeLock.unlock();
-		_storedProcessorsByName[name] = type;
+		_storedProcessorsByName[fixedKey(name)] = type;
 		foreach(string extension; extensions)
 			_storedNameByExtension[fixedKey(extension)] = name;
 	}
@@ -38,13 +37,12 @@ class ContentProcessor {
 	/// settings from the specified asset's setting store.
 	/// If no processor is registered with the given name, null is returned.
 	static ContentProcessor create(string name, Asset asset) {
-		name = fixedKey(name);
 		TypeMetadata instanceType;
 		{
 			_storeLock.lock();
 			scope(exit)
 				_storeLock.unlock();
-			instanceType = _storedProcessorsByName.get(name, TypeMetadata.init);
+			instanceType = _storedProcessorsByName.get(fixedKey(name), TypeMetadata.init);
 		}
 		if(instanceType == TypeMetadata.init)
 			return null;
@@ -60,14 +58,15 @@ class ContentProcessor {
 		_storeLock.lock();
 		scope(exit)
 			_storeLock.unlock();
-		return _storedNameByExtension.get(fixedKey(extension), null);
+		string result = _storedNameByExtension.get(fixedKey(extension), null);
+		return result;
 	} 
 
 	/// Returns the type of the data used as input for this ContentProcessor.
-	@property abstract TypeInfo inputType();
+	@Ignore(true) @property abstract TypeInfo inputType();
 
 	/// Gets the asset that this ContentProcessor is created to process.
-	@property final Asset asset() {
+	@Ignore(true) @property final Asset asset() {
 		return _asset;
 	}
 	
@@ -117,7 +116,7 @@ class ContentProcessor {
 	protected abstract void performSave(NodeSettings settings);
 
 	/// Gets the metadata used for this processor.
-	final @property TypeMetadata metadata() {
+	@Ignore(true) final @property TypeMetadata metadata() {
 		auto result = typeid(this).metadata;
 		if(result == TypeMetadata.init || result.type != typeid(this))
 			throw new ReflectionException("No metadata was generated for " ~ typeid(this).text ~ ".");
@@ -167,7 +166,6 @@ class ContentProcessor {
 				// Will need AssetReference(T) for this.
 				enum name = instance.tupleof[i].stringof;
 				string key = propertyNameForValue(instance.metadata, name);
-				pragma(msg, T.stringof ~ " (" ~ i.text ~ "): " ~ name);
 				auto val = settings.get!(typeof(instance.tupleof[i]))(key, instance.tupleof[i]);
 				instance.tupleof[i] = val;
 			}
@@ -185,7 +183,7 @@ class ContentProcessor {
 				// TODO: Check if the type is an Asset, and store a reference instead.
 				// Will need AssetReference(T) for this.
 				enum name = __traits(identifier, m);
-				string key = propertyNameForValue(name);
+				string key = propertyNameForValue(instance.metadata, name);
 				settings.set!(typeof(instance.tupleof[i]))(name, instance.tupleof[i]);
 			}
 		}
@@ -196,7 +194,10 @@ class ContentProcessor {
 	}
 
 	private static string fixedKey(string val) @safe pure {
-		return val.strip.toLower;
+		string result = val.strip.toLower;
+		if(result.length > 1 && result[0] == '.')
+			result = result[1..$];
+		return result;
 	}
 
 	@Ignore(true) Asset _asset;
