@@ -21,6 +21,8 @@ version(Standalone) {
 	import std.range;
 import std.ascii;
 import std.file;
+import dap.ContentProcessor;
+import dap.ContentImporter;
 
 	/// Provides a stand-alone wrapper that uses a FileStore to keep track of assets.
 	void main(string[] args) { 
@@ -110,9 +112,12 @@ import std.file;
 				return "An asset must be a file, not a directory.";
 			if(!PathTools.IsInWorkingDirectory(assetPath))
 				return "The given asset was not in the current working directory.";
+			string ext = extension(assetPath);
 			string relPath = PathTools.GetRelativePath(assetPath, _assetStore.inputDirectory);
 			string assetName = HierarchyNode.nameFromPath(relPath);
-			Asset asset = _assetStore.registerAsset(assetName);
+			Asset asset = _assetStore.registerAsset(assetName, ext);
+
+			//ContentProcessor processor = ContentProcessor.createInstance();
 			_assetStore.save();
 			return "Registered asset " ~ asset.qualifiedName ~ ".";
 		}
@@ -121,10 +126,7 @@ import std.file;
 		@Command(CommandFlags.allowMulti | CommandFlags.argRequired)
 		@ShortName('r')
 		string remove(string arg) {
-			string name = std.string.strip(arg);
-			auto node = cast(Asset)context.getNode(name);
-			if(node is null)
-				return "No asset with the fully qualified name of '" ~ name ~ "' was found.";
+			auto node = getAsset(arg);
 			string qualName = node.qualifiedName;
 			node.parent.children.remove(node);
 			_assetStore.save();
@@ -138,6 +140,52 @@ import std.file;
 			auto result = appender!string;
 			appendContainer(_assetStore, 1, result);
 			return std.string.strip(result.data);
+		}
+
+		@Description("Builds all dirty assets using current settings.")
+		@Command(true)
+		@ShortName('b')
+		string build() {
+			return "Not yet implemented.";
+		}
+
+		@Description("Shows all properties of the given asset.")
+		@Command(true)
+		@ShortName('i')
+		string inspect(string arg) {
+			auto node = getAsset(arg);
+			auto processor = node.createProcessor();
+			auto importer = processor.createImporter();
+			Appender!string result;
+			result ~= "Importer: " ~ typeid(importer).text ~ "\n";
+			result ~= "Processor: " ~ node.processorName ~ "\n";
+			if(processor !is null) {
+				foreach(prop; processor.metadata.children.values)
+					appendProperty(prop, prop.getValue(processor), 0, result);
+			} else {
+				result ~= "The processor name is invalid.";
+			}
+			return result.data;
+		}
+
+		private Asset getAsset(string arg) {
+			string name = std.string.strip(arg);
+			auto node = cast(Asset)context.getNode(name);
+			if(node is null)
+				throw new ValidationException("No asset with the fully qualified name of '" ~ name ~ "' was found.");
+			return node;
+		}
+
+		private void appendProperty(ValueMetadata metadata, Variant val, int indentLevel, ref Appender!string result) {
+			string indentString = repeat('\t', indentLevel).array;
+			TypeMetadata type = val.metadata;
+			if(type.kind == TypeKind.primitive_)
+				result ~= indentString ~ metadata.name ~ " = " ~ val.text ~ "\n";
+			else {
+				result ~= indentString ~ metadata.name ~ ":\n";
+				foreach(child; type.children.values)
+					appendProperty(child, child.getValue(val), indentLevel + 1, result);
+			}
 		}
 
 		private void appendContainer(HierarchyNode node, int indentLevel, ref Appender!string result) {

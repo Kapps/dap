@@ -1,5 +1,6 @@
 module dap.HierarchyNode;
 public import dap.AssetStore;
+import ShardTools.ExceptionTools;
 import std.range;
 import std.algorithm;
 import dap.NodeSettings;
@@ -16,47 +17,62 @@ enum char nodeSeparator = ':';
 /// This class, and any derived classes, are $(B NOT) thread-safe unless otherwise specified.
 class HierarchyNode {
 	
-	/// Creates a new HierarchyNode with the given identifier, parent.
-	this(string name, HierarchyNode parent) {
-		enforce(name, "Name can not be null.");
-		//enforce(parent, "Parent can not be null.");
+	/// Creates a new HierarchyNode with the given identifier.
+	/// If the identifier is not a valid node name, an exception is thrown.
+	this(string name) {
+		if(!isValidName(name))
+			throw new InvalidFormatException("The name of this node was not valid.");
 		this._name = name;
 		this._settings = new NodeSettings(this);
 		this._children = new NodeCollection(this);
-		if(parent)
-			parent.children.add(this);
 	}
 	
 	/// Returns the child nodes that this node contains.
-	@property NodeCollection children() {
+	@property final NodeCollection children() @safe pure nothrow {
 		return _children;	
 	}
 	
 	/// Gets an identifier used to represent this node.
 	/// For example, an asset may return the name of the asset, while an AssetDirectory could return the name of the directory.
-	@property final string name() const {
+	@property final string name() const @safe pure nothrow {
 		return _name;
 	}
 	
 	/// Gets the parent that owns this node.
-	@property final HierarchyNode parent() {
+	@property final HierarchyNode parent() @safe pure nothrow {
 		return _parent;
 	}
 	
-	@property package void parent(HierarchyNode node) {
+	@property package void parent(HierarchyNode node) @safe pure nothrow {
+		assert(parent is null);
+		assert(node !is null);
 		this._parent = node;
 	}
 	
 	/// Gets the root node for this HierarchyNode, which is the AssetStore being used.
-	@property final AssetStore root() {
+	/// If this node has no root AssetStore, null is returned.
+	@property final AssetStore root() @safe pure nothrow {
 		if(parent is null)
 			return cast(AssetStore)this;
 		return parent.root;
 	}
 	
 	/// Gets the settings that apply to this node.
-	@property final NodeSettings settings() {
+	@property final NodeSettings settings() @safe pure nothrow {
 		return _settings;	
+	}
+
+	/// Indicates if the given unqualified node name is valid.
+	static bool isValidName(string nodeName) @safe pure {
+		return nodeName.length > 0 && std.string.indexOf(nodeName, nodeSeparator) < 0 && nodeName.length < 256;
+	}
+
+	unittest {
+		assert(isValidName("abc"));
+		assert(!isValidName(""));
+		assert(isValidName("ab00f"));
+		assert(!isValidName(null));
+		assert(!isValidName("ab" ~ nodeSeparator ~ "cdef"));
 	}
 	
 	/// Splits a qualified name into it's individual parts, with the first element being the AssetStore.

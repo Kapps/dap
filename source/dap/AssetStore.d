@@ -19,13 +19,14 @@ import ShardTools.ExceptionTools;
 import std.exception;
 import std.conv;
 import std.typecons;
+import std.algorithm;
 
 /// Provides the implementation of any storage operations, such as loading data for an asset.
 abstract class AssetStore : HierarchyNode {
 	
 	/// Creates a new AssetStore with the given name and build context.
 	this(string identifier, BuildContext context) {
-		super(identifier, null);
+		super(identifier);
 		this._context = context;
 		assert(context && identifier);
 		trace("Creating AssetStore named " ~ identifier);
@@ -34,6 +35,7 @@ abstract class AssetStore : HierarchyNode {
 	
 	/// Returns an InputSource used to read data for the given asset.
 	abstract InputSource createInputSource(Asset asset);
+
 	/// Returns an OutputSource used to write the generated data for the asset.
 	abstract OutputSource createOutputSource(Asset asset);
 	
@@ -59,64 +61,42 @@ abstract class AssetStore : HierarchyNode {
 		}
 	}
 
-	/// Registers the given child container as parent of this AssetStore.
-	final AssetContainer registerContainer(HierarchyNode parent, string name) {
-		return cast(AssetContainer)registerNode(parent, name, createContainer(parent, name));
-	}
-	
-	/// Registers the given asset within this AssetStore under the given parent.
-	final Asset registerAsset(HierarchyNode parent, string name) {
-		return cast(Asset)registerNode(parent, name, createAsset(parent, name));
+	/// Returns all of the assets contained in this store.
+	final auto allAssets() {
+		// TODO: This is an awful implementation; use a range instead.
+		Asset[] results;
+		appendAssets(this, results);
+		return results;
 	}
 
-	/// Registers the given node on the specified parent, ensuring that the name is
-	/// valid and no existing node with that name exists.
-	/// The node parameter is evaluated only if the node contains a valid name.
-	protected HierarchyNode registerNode(HierarchyNode parent, string name, lazy HierarchyNode node) {
-		enforce(parent !is null);
-		trace("Registering node named " ~ name ~ " under " ~ parent.qualifiedName ~ ".");
-		if(!isValidName(name))
-			throw new InvalidFormatException("The node name was not valid.");
-		if(parent.children[name] !is null)
-			throw new DuplicateKeyException("A node named \'" ~ name ~ "\' already exists under the given parent.");
-		auto result = node();
-		trace("Registered node named " ~ result.qualifiedName ~ ".");
-		return result;
+	private void appendAssets(HierarchyNode node, ref Asset[] nodes) {
+		foreach(child; children.allNodes) {
+			if(auto asset = cast(Asset)child)
+				nodes ~= asset;
+			else
+				appendAssets(child, nodes);
+		}
 	}
 
 	/// Registers the asset with the given qualified name in this AssetStore.
 	/// All containers that do not exist along the path will be created.
-	/// This is simply a shortcut to registerContainer all non-existing 
-	/// containers on the path and registerAsset the final asset.
-	final Asset registerAsset(string qualifiedName) {
+	/// This is simply a shortcut to create a container for all non-existing 
+	/// containers on the path and then create and register the final asset.
+	final Asset registerAsset(string qualifiedName, string extension) {
 		string[] split = HierarchyNode.splitQualifiedName(qualifiedName);
 		HierarchyNode current = this;
 		foreach(contName; split[0..$-1]) {
 			HierarchyNode next = current.children[contName];
-			if(next is null)
-				next = registerContainer(current, contName);
+			if(next is null) {
+				next = new AssetContainer(contName);
+				current.children.add(next);
+			}
 			current = next;
 		}
 		string assetName = split[$-1];
-		return registerAsset(current, assetName);
-	}
-	
-	/// Creates an AssetContainer with the specified parent and name.
-	/// The parent is guaranteed to be created by either createAsset or createContainer, or be this instance of AssetStore.
-	/// The parent should contain the resulting AssetContainer at the end of this method.
-	protected AssetContainer createContainer(HierarchyNode parent, string name) {
-		return new AssetContainer(name, parent);	
-	}
-	
-	/// Creates a new AssetContainer with the specified parent and name.
-	/// The parent is guaranteed to be created by either createAsset or createContainer, or be this instance of AssetStore.
-	protected Asset createAsset(HierarchyNode parent, string name) {
-		return new Asset(name, parent);
-	}
-	
-	/// Indicates if the given node name is valid.
-	protected bool isValidName(string nodeName) {
-		return nodeName.indexOf(nodeSeparator) < 0;
+		auto asset = new Asset(assetName, extension);
+		current.children.add(asset);
+		return asset;
 	}
 	
 	/// Gets the BuildContext being used for this AssetStore.
@@ -213,13 +193,19 @@ abstract class AssetStore : HierarchyNode {
 					node = this;
 					break;
 				case NodeType.Asset:
-					node = createAsset(parent, nodeIdentifier);
+					string processorName = cast(string)reader.ReadPrefixed!char();
+					string extension = cast(string)reader.ReadPrefixed!char();
+					auto asset = new Asset(nodeIdentifier, extension);
+					parent.children.add(asset);
+					asset.processorName = processorName;
+					node = asset;
 					break;
 				case NodeType.Container:
-					node = createContainer(parent, nodeIdentifier);
+					node = new AssetContainer(nodeIdentifier);
+					parent.children.add(node);
 					break;
 				default:
-					throw new Error("Unknown NodeType");
+					assert(0);
 			}
 		}
 		uint numChildren = reader.Read!uint();
@@ -241,6 +227,10 @@ abstract class AssetStore : HierarchyNode {
 			throw new Error("Unknown node type. The default serialize method supports only assets and containers.");
 		input.Write(cast(ubyte)type);
 		input.WritePrefixed(node.name);
+		if(auto asset = cast(Asset)node) {
+			input.WritePrefixed(asset.processorName);
+			input.WritePrefixed(asset.extension);
+		}
 		input.Write(cast(int)node.children.length);
 		nodes.Add(node);
 		//tasks.Add(task(&performSerializeSettings, input, node));

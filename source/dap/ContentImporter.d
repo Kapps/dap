@@ -1,4 +1,4 @@
-module src.dap.ContentImporter;
+module dap.ContentImporter;
 import ShardIO.InputSource;
 import dap.Asset;
 import std.string;

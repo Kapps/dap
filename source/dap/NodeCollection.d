@@ -5,7 +5,7 @@ import ShardTools.ExceptionTools;
 import std.conv;
 
 /// Provides a collection of HierarchyNodes. This class is not thread-safe.
-class NodeCollection {
+final class NodeCollection {
 	
 	/// Creates a new NodeCollection for the given HierarchyNode.
 	this(HierarchyNode owner) {
@@ -54,7 +54,8 @@ class NodeCollection {
 			throw new InvalidOperationException("A node with a parent set may not be added to a new collection.");
 		node.parent = this.owner;
 		string identifier = fixedKey(node.name);
-		assert(identifier !in _nodes);
+		if(identifier in _nodes)
+			throw new DuplicateKeyException("An item called " ~ identifier ~ " already exists within " ~ this.owner.text ~ ".");
 		_nodes[identifier] = node;
 		owner.trace("Added " ~ node.text ~ " to " ~ this.owner.text ~ " as " ~ identifier);
 	}
@@ -63,7 +64,7 @@ class NodeCollection {
 	public void remove(HierarchyNode node) {
 		owner.trace("Attempting to remove " ~ node.text ~ " from " ~ this.owner.text ~ ".");
 		if(node.parent !is this.owner)
-			throw new InvalidOperationException("Unable to remove a node from this collection when it does not exist.");
+			throw new InvalidOperationException("Unable to remove a node from this collection when it was not within the collection.");
 		string identifier = fixedKey(node.name);
 		auto removed = _nodes.remove(identifier);
 		if(!removed)

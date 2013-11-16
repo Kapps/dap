@@ -41,16 +41,16 @@ class FileStore : AssetStore {
 	}
 
 	@property string settingsFile() {
-		return buildPath(inputDirectory, name ~ "-settings.saf");
+		return buildPath(inputDirectory, name ~ "-settings.sas");
 	}
 
-	protected override InputSource createInputSource(Asset asset) {
+	override InputSource createInputSource(Asset asset) {
 		auto path = getAbsolutePath(this.inputDirectory, asset);
 		trace("Creating output source for " ~ asset.text ~ " from " ~ getRelativePath(asset));
 		return new FileInput(path);
 	}
 
-	protected override OutputSource createOutputSource(Asset asset) {
+	override OutputSource createOutputSource(Asset asset) {
 		auto path = getAbsolutePath(this.outputDirectory, asset);
 		trace("Creating output source for " ~ asset.text ~ " to " ~ getRelativePath(asset));
 		return new FileOutput(path, FileOpenMode.CreateOrReplace);

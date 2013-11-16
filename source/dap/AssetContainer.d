@@ -8,8 +8,8 @@ import std.algorithm;
 /// The most common implementation is simply a file-system folder.
 class AssetContainer : HierarchyNode {
 
-	this(string name, HierarchyNode parent) {	
-		super(name, parent);
+	this(string name) {	
+		super(name);
 	}
 	
 	/// Returns any assets that this container stores.
