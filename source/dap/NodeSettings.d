@@ -46,7 +46,6 @@ final class NodeSettings {
 	 */
 	public T get(T)(string name, lazy T defaultValue = T.init) {
 		synchronized(this) {
-			import std.stdio;
 			ubyte[] data = settings.get(fixedKey(name), null);
 			if(data == null)
 				return defaultValue();

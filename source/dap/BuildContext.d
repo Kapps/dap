@@ -27,6 +27,13 @@ class BuildContext {
 			return _stores.get(fixed, null);
 		}
 	}
+
+	/// Returns all of the AssetStores within this BuildContext.
+	auto allStores() {
+		synchronized(this) {
+			return _stores.values.array;
+		}
+	}
 	
 	/+/**
 	 * Finds the asset with the given qualified name, including AssetStore name.
@@ -59,7 +66,6 @@ class BuildContext {
 	 * If no asset was found, or qualifiedName is in an incorrect format, returns null.
 	 */
 	public HierarchyNode getNode(string qualifiedName) {
-		import std.stdio;
 		auto nameParts = HierarchyNode.splitQualifiedName(qualifiedName).array;
 		auto store = nameParts ? getStore(nameParts[0]) : null;
 		if(store is null)

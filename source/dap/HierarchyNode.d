@@ -131,7 +131,11 @@ class HierarchyNode {
 
 	/// Returns a string representation of this node containing the qualified name and type.
 	override string toString() {
-		return this.qualifiedName ~ "[" ~ typeid(this).text ~ "]";
+		string type = typeid(this).text;
+		size_t index = type.retro.countUntil('.');
+		if(index > 0)
+			type = type[$ - index .. $];
+		return this.qualifiedName ~ " (" ~ type ~ ")";
 	}
 	
 	private string _name;

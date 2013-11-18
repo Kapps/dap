@@ -33,7 +33,9 @@ class TextProcessor : ContentProcessor {
 
 	protected override AsyncAction performProcess(Variant input, OutputSource output) {
 		TextContent content = input.get!TextContent;
-		return new IOAction(content.input, output);
+		auto res = new IOAction(content.input, output);
+		res.Start();
+		return res;
 	}
 	
 private:

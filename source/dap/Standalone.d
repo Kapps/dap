@@ -19,10 +19,13 @@ version(Standalone) {
 	import ShardTools.Reflection;
 	import std.algorithm;
 	import std.range;
-import std.ascii;
-import std.file;
-import dap.ContentProcessor;
-import dap.ContentImporter;
+	import std.ascii;
+	import std.file;
+	import dap.ContentProcessor;
+	import dap.ContentImporter;
+	import dap.AssetBuilder;
+	import core.time;
+	import std.datetime;
 
 	/// Provides a stand-alone wrapper that uses a FileStore to keep track of assets.
 	void main(string[] args) { 
@@ -38,12 +41,10 @@ import dap.ContentImporter;
 	class Standalone {
 		@Description("The folder that assets should be read from and settings stored in.")
 		@DisplayName("input-folder")
-		@ShortName('i')
 		string inputFolder = buildPath("Content", "Input");
 
 		@Description("The folder that generated assets should be saved to.")
 		@DisplayName("output-folder")
-		@ShortName('o')
 		string outputFolder = buildPath("Content", "Output");
 
 		@Description("The minimum severity for a message to be logged.")
@@ -78,7 +79,7 @@ import dap.ContentImporter;
 
 			//ContentProcessor processor = ContentProcessor.createInstance();
 			_assetStore.save();
-			return "Registered asset " ~ asset.qualifiedName ~ ".";
+			return "Registered asset " ~ asset.qualifiedName ~ ".\r\n" ~ getInspectString(asset);
 		}
 
 		@Description("Removes the asset with the specified qualified name from the asset store.")
@@ -105,7 +106,11 @@ import dap.ContentImporter;
 		@Command(true)
 		@ShortName('b')
 		string build() {
-			return "Not yet implemented.";
+			StopWatch sw = StopWatch(AutoStart.yes);
+			auto builder = new AssetBuilder();
+			auto action = builder.build(context);
+			action.WaitForCompletion();
+			return "Build complete. Elapsed time was " ~ (cast(Duration)sw.peek).text ~ ".";
 		}
 
 		@Description("Shows all properties of the given asset.")
@@ -113,6 +118,20 @@ import dap.ContentImporter;
 		@ShortName('i')
 		string inspect(string arg) {
 			auto node = getAsset(arg);
+			return getInspectString(node);
+		}
+
+		/+@Description("Modifies one or more properties of an asset, such as the processor or a property of it.")
+		@Command(true)
+		@ShortName('m')
+		string modify(string arg, string[string] options) {
+			auto node = getAsset(arg);
+			foreach(key, value; options) {
+
+			}
+		}+/
+
+		private string getInspectString(Asset node) {
 			auto processor = node.createProcessor();
 			auto importer = processor is null ? null : processor.createImporter();
 			Appender!string result;
@@ -129,6 +148,8 @@ import dap.ContentImporter;
 
 		private Asset getAsset(string arg) {
 			string name = std.string.strip(arg);
+			if(!std.string.toLower(name).startsWith(std.string.toLower(_storeName ~ nodeSeparator)))
+				name = _storeName ~ nodeSeparator ~ name;
 			auto node = cast(Asset)context.getNode(name);
 			if(node is null)
 				throw new ValidationException("No asset with the fully qualified name of '" ~ name ~ "' was found.");
@@ -176,7 +197,7 @@ import dap.ContentImporter;
 			auto logger = new ConsoleLogger();
 			logger.minSeverity = severity;
 			context = new BuildContext(logger);
-			this._assetStore = new FileStore(inputFolder, outputFolder, "Content", context);
+			this._assetStore = new FileStore(inputFolder, outputFolder, _storeName, context);
 			logger.trace("Input Path: " ~ inputFolder);
 			logger.trace("Output Path: " ~ outputFolder);
 			_assetStore.load();
@@ -184,5 +205,6 @@ import dap.ContentImporter;
 	
 		private BuildContext context;
 		private FileStore _assetStore;
+		private string _storeName = "Content";
 	}
 }

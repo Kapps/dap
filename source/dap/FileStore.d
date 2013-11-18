@@ -18,6 +18,9 @@ import std.file;
 
 /// Provides a basic implementation of AssetStore used to read or write assets directly to/from a file-system.
 class FileStore : AssetStore {
+
+	private enum string COMPILED_EXTENSION = "sca";
+
 	/// Creates a new FileStore with the given settings.
 	/// Params:
 	///		identifier = The name of this AssetStore.
@@ -45,14 +48,19 @@ class FileStore : AssetStore {
 	}
 
 	override InputSource createInputSource(Asset asset) {
-		auto path = getAbsolutePath(this.inputDirectory, asset);
-		trace("Creating output source for " ~ asset.text ~ " from " ~ getRelativePath(asset));
+		auto path = getAbsolutePath(this.inputDirectory, asset) ~ "." ~ asset.extension;
+		trace("Creating input source for " ~ asset.text ~ " from " ~ getRelativePath(asset));
 		return new FileInput(path);
 	}
 
 	override OutputSource createOutputSource(Asset asset) {
-		auto path = getAbsolutePath(this.outputDirectory, asset);
+		auto path = getAbsolutePath(this.outputDirectory, asset) ~ "." ~ COMPILED_EXTENSION;
 		trace("Creating output source for " ~ asset.text ~ " to " ~ getRelativePath(asset));
+		string dir = dirName(path);
+		if(!exists(dir)) {
+			trace("Output directory did not exist; creating it.");
+			mkdirRecurse(dir);
+		}
 		return new FileOutput(path, FileOpenMode.CreateOrReplace);
 	}
 	
@@ -84,7 +92,8 @@ class FileStore : AssetStore {
 
 	/// Returns the relative path for the given asset.
 	protected string getRelativePath(Asset asset) {
-		return buildPath(HierarchyNode.splitQualifiedName(asset.qualifiedName));
+		// Note that this does not include the store name.
+		return buildPath(HierarchyNode.splitQualifiedName(asset.qualifiedName)[1..$]);
 	}
 	
 	Asset[string] loadedAssets;

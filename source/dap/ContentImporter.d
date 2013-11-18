@@ -30,11 +30,6 @@ abstract class ContentImporter {
 	static void register(ContentImporter importer) {
 		_allImporters.push(importer);
 	}
-	
-	/// Processes the raw asset with the given input, returning an instance of T.
-	final T process(T)(InputSource input, string extension) {
-		return process!(T)(input, extension, type).get!(T);
-	}
 
 	/// Processes the raw asset with the given input, returning an instance of requestedType.
 	final Variant process(InputSource input, string extension, TypeInfo requestedType) {

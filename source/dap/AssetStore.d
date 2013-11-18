@@ -70,7 +70,9 @@ abstract class AssetStore : HierarchyNode {
 	}
 
 	private void appendAssets(HierarchyNode node, ref Asset[] nodes) {
-		foreach(child; children.allNodes) {
+		foreach(child; node.children.allNodes) {
+			if(child == node)
+				continue;
 			if(auto asset = cast(Asset)child)
 				nodes ~= asset;
 			else

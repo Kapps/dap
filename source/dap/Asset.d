@@ -14,6 +14,8 @@ class Asset : HierarchyNode {
 	this(string name, string extension) {
 		super(name);
 		this._extension = extension;
+		if(_extension.length > 0 && _extension[0] == '.')
+			_extension = _extension[1..$];
 		this._processorName = ContentProcessor.getDefaultProcessorForExtension(extension);
 	}
 	
@@ -54,6 +56,7 @@ class Asset : HierarchyNode {
 	}
 
 	/// Gets the file extension of the input data for this asset.
+	/// This does not include the trailing dot.
 	@property final string extension() const @safe pure nothrow {
 		return _extension;
 	}
