@@ -56,7 +56,7 @@ class Asset : HierarchyNode {
 	}
 
 	/// Gets the file extension of the input data for this asset.
-	/// This does not include the trailing dot.
+	/// This does not include the leading dot.
 	@property final string extension() const @safe pure nothrow {
 		return _extension;
 	}

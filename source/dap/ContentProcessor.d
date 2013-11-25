@@ -74,7 +74,6 @@ class ContentProcessor {
 	/// loading any existing settings contained by the node's setting store.
 	this(Asset asset) {
 		this._asset = asset;
-		loadSettings();
 	}
 
 	/// Processes the specified input, writing the result to the given output source.
@@ -164,7 +163,7 @@ class ContentProcessor {
 			static if(!isIgnored!(T, i)) {
 				// TODO: Check if the type is an Asset, and load a reference instead.
 				// Will need AssetReference(T) for this.
-				enum name = instance.tupleof[i].stringof;
+				enum name = __traits(identifier, instance.tupleof[i]);
 				string key = propertyNameForValue(instance.metadata, name);
 				auto val = settings.get!(typeof(instance.tupleof[i]))(key, instance.tupleof[i]);
 				instance.tupleof[i] = val;
@@ -182,9 +181,9 @@ class ContentProcessor {
 			static if(!isIgnored!(T, i)) {
 				// TODO: Check if the type is an Asset, and store a reference instead.
 				// Will need AssetReference(T) for this.
-				enum name = __traits(identifier, m);
+				enum name = __traits(identifier, instance.tupleof[i]);
 				string key = propertyNameForValue(instance.metadata, name);
-				settings.set!(typeof(instance.tupleof[i]))(name, instance.tupleof[i]);
+				settings.set!(typeof(instance.tupleof[i]))(key, instance.tupleof[i]);
 			}
 		}
 	}

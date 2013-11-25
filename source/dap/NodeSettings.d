@@ -83,7 +83,7 @@ final class NodeSettings {
 		for(uint i = 0; i < length; i++) {
 			string key = cast(string)reader.ReadPrefixed!char;
 			ubyte[] value = reader.ReadPrefixed!ubyte;
-			settings[key] = value;	
+			settings[fixedKey(key)] = value;
 		}
 		return reader.Position;
 	}

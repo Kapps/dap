@@ -26,6 +26,7 @@ version(Standalone) {
 	import dap.AssetBuilder;
 	import core.time;
 	import std.datetime;
+import std.exception;
 
 	/// Provides a stand-alone wrapper that uses a FileStore to keep track of assets.
 	void main(string[] args) { 
@@ -65,6 +66,7 @@ version(Standalone) {
 		@Command(CommandFlags.allowMulti | CommandFlags.argRequired)
 		@ShortName('a')
 		string add(string arg) {
+			arg = arg.replace(nodeSeparator.text, dirSeparator);
 			string assetPath = PathTools.MakeAbsolute(buildPath(_assetStore.inputDirectory, arg));
 			if(!exists(assetPath))
 				return "The asset at " ~ assetPath ~ " did not exist.";
@@ -121,15 +123,60 @@ version(Standalone) {
 			return getInspectString(node);
 		}
 
-		/+@Description("Modifies one or more properties of an asset, such as the processor or a property of it.")
+		@Description("Modifies a property of a processor on an asset, or the processor used to build the asset.")
 		@Command(true)
 		@ShortName('m')
-		string modify(string arg, string[string] options) {
-			auto node = getAsset(arg);
-			foreach(key, value; options) {
-
+		string modify(string arg, string[] params) {
+			enum string PROCESSOR_KEY = "processor";
+			// args_ to prevent ParameterDefaultValueTuple from failing to compile and thus reflection not being generated.
+			if(params.length == 0) {
+				return "Expected parameters to modify the asset with.\r\nValid parameters are \"" ~ PROCESSOR_KEY ~ "\""
+					~ "to change the processor used or any parameter shown with inspect to change a processor property.";
 			}
-		}+/
+			auto node = getAsset(arg);
+			auto processor = node.createProcessor();
+			import std.string;
+			foreach(param; params) {
+				size_t indexEq = param.countUntil("=");
+				if(indexEq == -1)
+					continue;
+				if(indexEq == param.length - 1)
+					return "Expected a value after = token.";
+				string key = param[0..indexEq].strip;
+				string val = param[indexEq + 1 .. $];
+				// Handle special built-in parameters.
+				if(key == PROCESSOR_KEY) {
+					if(ContentProcessor.create(val, node) is null)
+						return "No processor was found named " ~ val ~ ".";
+					node.processorName = val;
+				} else {
+					if(processor is null)
+						return "A processor must be set prior to setting any values except " ~ PROCESSOR_KEY ~ ".";
+					auto split = key.split(".");
+					enforce(split);
+					ValueMetadata curr;
+					Variant obj = processor;
+					foreach(index, part; split) {
+						curr = obj.metadata.findValue(part);
+						if(curr == ValueMetadata.init)
+							return "No value named " ~ part ~ " was found on " ~ split[0..index].join(".").text ~ ".";
+						if(index != split.length - 1)
+							obj = curr.getValue(obj);
+					}
+					if(!curr.canSet)
+						return "The value of " ~ curr.name ~ " is read-only.";
+					Variant parsedVal;
+					try
+						parsedVal = curr.type.metadata.coerceFrom(val);
+					catch
+						return "Unable to convert " ~ val ~ " to " ~ curr.type.metadata.name ~ ".";
+					curr.setValue(obj, parsedVal);
+					processor.saveSettings();
+				}
+			}
+			_assetStore.save();
+			return getInspectString(node);
+		}
 
 		private string getInspectString(Asset node) {
 			auto processor = node.createProcessor();
