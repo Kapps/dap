@@ -28,10 +28,10 @@ class TextProcessor : ContentProcessor {
 	}
 
 	@Ignore(true) @property override TypeInfo inputType() {
-		return typeid(TextContent);
+		return typeid(string);
 	}
 
-	protected override AsyncAction performProcess(Variant input, OutputSource output) {
+	protected override AsyncAction performProcess(Untyped input, OutputSource output) {
 		TextContent content = input.get!TextContent;
 		auto res = new IOAction(content.input, output);
 		res.Start();

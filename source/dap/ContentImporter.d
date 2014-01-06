@@ -31,12 +31,15 @@ abstract class ContentImporter {
 		_allImporters.push(importer);
 	}
 
-	/// Processes the raw asset with the given input, returning an instance of requestedType.
-	final Variant process(InputSource input, string extension, TypeInfo requestedType) {
+	/// Processes the raw asset with the given input. Once the importer has
+	/// sufficient data to begin the import, the AsyncAction returned is
+	/// completed and the CompletionData contains an instance of requestedType.
+	/// If the importer fails to create the data, an error is automatically logged.
+	final AsyncAction process(InputSource input, string extension, TypeInfo requestedType) {
 		string fixedExt = fixedExtension(extension);
 		if(!canProcess(fixedExt, requestedType))
 			throw new NotSupportedException("This importer is unable to process the given data.");
-		Variant result = performProcess(input, fixedExt, requestedType);
+		AsyncAction result = performProcess(input, fixedExt, requestedType);
 		return result;
 	}
 
@@ -48,7 +51,9 @@ abstract class ContentImporter {
 	/// Override to process the given raw input, returning an instance of requestedType.
 	/// It is guaranteed that canProcess is true for (extension, requestedType).
 	/// Extension is always lower-case, but TypeInfo may be qualified.
-	abstract Variant performProcess(InputSource input, string extension, TypeInfo requestedType);
+	/// The result of the action $(B must) be an instance of requestedType if the action is successful.
+	/// If the action is aborted, an error is logged and this asset is skipped.
+	abstract AsyncAction performProcess(InputSource input, string extension, TypeInfo requestedType);
 
 	private string fixedExtension(string extension) {
 		return extension.toLower.strip();

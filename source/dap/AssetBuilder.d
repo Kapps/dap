@@ -31,12 +31,18 @@ class AssetBuilder {
 		context.logger.trace("Began build.");
 		shared size_t numStarted, numCompleted;
 		auto waitedActions = new LinkedList!(Tuple!(AsyncAction, Asset))();
-		auto result = new SignaledTask();
+		auto result = new SignaledTask().Start();
 		foreach(AssetStore store; context.allStores) {
 			context.logger.trace("Starting build of store " ~ store.name ~ ".", store);
 			foreach(Asset asset; store.allAssets) {
 				context.logger.trace("Starting build of asset.", asset);
-				auto action = buildAsset(context, asset);
+				AsyncAction action;
+				try action = buildAsset(context, asset);
+				catch (Throwable e) {
+					std.stdio.writeln("abc");
+					context.logger.error("An exception occurred when building this asset. Details: " ~ e.msg, asset);
+					action = null;
+				}
 				if(action) {
 					waitedActions.Add(tuple(action, asset));
 					atomicOp!"+="(numStarted, 1);
@@ -47,18 +53,17 @@ class AssetBuilder {
 		result.NotifyOnComplete(Untyped.init, delegate(_, __, ___) {
 			enforce(cas(&_buildInProgress, true, false));
 		});
-		result.Start();
 		foreach(tup; waitedActions) {
 			auto action = tup[0];
 			auto asset = tup[1];
-			action.NotifyOnComplete(Untyped.init, delegate(data, __, status) {
+			action.NotifyOnComplete(Untyped.init, delegate(_, __, status) {
 				context.logger.trace("Finished build of asset with status of " ~ status.text ~ ".", asset);
 				if(status != CompletionType.Successful) {
 					Throwable t;
-					if(data.tryGet(t))
+					if(action.CompletionData.tryGet(t))
 						context.logger.error("An exception occurred while building this asset: " ~ t.text, asset);
 					else
-						context.logger.error("An OutputSource returned a non-exception error while building this asset.", asset);
+						context.logger.error("An OutputSource returned a non-exception error while building this asset. Type was " ~ action.CompletionData.type.text ~ ".", asset);
 				}
 				if(atomicOp!"-="(numStarted, 1) == 0) {
 					context.logger.trace("All assets finished; signaling complete.");
@@ -89,10 +94,36 @@ class AssetBuilder {
 			return null;
 		}
 		auto inputSource = asset.getInputSource();
-		auto importData = importer.process(inputSource, asset.extension, processor.inputType);
-		auto outputSource = asset.getOutputSource();
-		auto action = processor.process(importData, outputSource);
-		return action;
+		auto result = new SignaledTask().Start();
+		// First have to wait for importer to complete.
+		auto importTask = importer.process(inputSource, asset.extension, processor.inputType);
+		importTask.NotifyOnComplete(Untyped.init, (importState, importAction, importStatus) {
+			if(importStatus != CompletionType.Successful) {
+				context.logger.error("Failed to import asset data.", asset);
+				result.Abort(importTask.CompletionData);
+			} else {
+				Untyped importData = importTask.CompletionData;
+				enforce(importData.type == processor.inputType);
+				auto outputSource = asset.getOutputSource();
+				AsyncAction procAction;
+				try {
+					procAction = processor.process(importData, outputSource);
+					// Then have to wait to process import data.
+					procAction.NotifyOnComplete(Untyped.init, (procState, procAction, procStatus) {
+						if(procStatus != CompletionType.Successful) {
+							context.logger.error("Failed to process asset.", asset);
+							result.Abort(procAction.CompletionData);
+						} else {
+							result.SignalComplete(procAction.CompletionData);
+						}
+					});
+				} catch(Throwable t) {
+					context.logger.error("The content processor threw an exception. Details: " ~ t.msg, asset);
+					result.Abort(Untyped(t));
+				}
+			}
+		});
+		return result;
 	}
 
 private:

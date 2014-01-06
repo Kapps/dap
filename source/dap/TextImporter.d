@@ -2,6 +2,9 @@ module dap.TextImporter;
 import dap.ContentImporter;
 import ShardIO.MemoryOutput;
 import ShardIO.IOAction;
+import ShardTools.ImmediateAction;
+import ShardTools.Untyped;
+import ShardTools.SignaledTask;
 
 /// An importer that returns any asset as a TextContent instance or string without any processing.
 class TextImporter : ContentImporter {
@@ -13,16 +16,21 @@ class TextImporter : ContentImporter {
 		return requestedType == typeid(string) || requestedType == typeid(TextContent);
 	}
 
-	override Variant performProcess(InputSource input, string extension, TypeInfo requestedType) {
+	override AsyncAction performProcess(InputSource input, string extension, TypeInfo requestedType) {
 		if(requestedType == typeid(TextContent))
-			return Variant(TextContent(input));
+			return ImmediateAction.success(Untyped(TextContent(input)));
 		else if(requestedType == typeid(string)) {
+			auto result = new SignaledTask().Start();
 			MemoryOutput output = new MemoryOutput();
 			IOAction action = new IOAction(input, output);
 			action.Start();
-			action.WaitForCompletion();
-			string result = cast(string)output.Data;
-			return Variant(result);
+			action.NotifyOnComplete(Untyped.init, (state, action, status) {
+				if(status == CompletionType.Successful)
+					result.SignalComplete(Untyped(cast(string)output.Data));
+				else
+					result.Abort(action.CompletionData);
+			});
+			return result;
 		} else
 			assert(0);
 	}

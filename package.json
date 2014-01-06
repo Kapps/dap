@@ -8,7 +8,9 @@
 	"dependencies": {
 		"shardtools": "~master",
 		"shardio": "~master",
-		"shardmath": "~master"
+		"shardmath": "~master",
+		"derelict-util": ">=1.0.0",
+		"tested": "~master"
 	},
 	"targetType": "executable",
 	"versions": ["Standalone"]

@@ -8,6 +8,7 @@ import dap.Asset;
 public import dap.NodeSettings;
 import std.string;
 import std.variant;
+public import ShardTools.Untyped;
 import ShardTools.SpinLock;
 import ShardTools.ExceptionTools;
 import std.conv;
@@ -77,7 +78,7 @@ class ContentProcessor {
 	}
 
 	/// Processes the specified input, writing the result to the given output source.
-	final AsyncAction process(Variant input, OutputSource output) {
+	final AsyncAction process(Untyped input, OutputSource output) {
 		if(input.type != inputType)
 			throw new InvalidFormatException("The type of the data in the variant does not match the expected type.");
 		return performProcess(input, output);
@@ -104,7 +105,7 @@ class ContentProcessor {
 	/// Processes the given input data, writing the runtime data to the specified OutputSource.
 	/// Returns the action that is used for generating the output data.
 	/// The input data is guaranteed to be of exact type $(D inputType).
-	protected abstract AsyncAction performProcess(Variant input, OutputSource output);
+	protected abstract AsyncAction performProcess(Untyped input, OutputSource output);
 
 	/// Override to handle loading settings for this processor from the specified node's settings.
 	/// Note that mixing in $(D makeProcessorMixin) will automatically generate this method.
