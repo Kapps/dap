@@ -3,6 +3,8 @@ import dap.ContentProcessor;
 import ShardIO.OutputSource;
 import std.variant;
 import dap.TextImporter;
+import ShardTools.ImmediateAction;
+import ShardIO.MemoryInput;
 
 /// Provides a ContentProcessor that can output a raw text file.
 /// This is generally used for only raw text assets. For structured file 
@@ -28,14 +30,23 @@ class TextProcessor : ContentProcessor {
 	}
 
 	@Ignore(true) @property override TypeInfo inputType() {
-		return typeid(string);
+		return typeid(TextContent);
 	}
 
 	protected override AsyncAction performProcess(Untyped input, OutputSource output) {
-		TextContent content = input.get!TextContent;
-		auto res = new IOAction(content.input, output);
-		res.Start();
-		return res;
+		// I doubt there's ever a situation where string would be used over TextContent.
+		// But, may remain useful for debug purposes.
+		if(inputType == typeid(string)) {
+			string contents = input.get!string;
+			auto memInput = new MemoryInput(cast(ubyte[])contents, false);
+			return new IOAction(memInput, output).Start();
+		} else {
+			TextContent content = input.get!TextContent;
+			auto res = new IOAction(content.input, output);
+			res.Start();
+			return res;
+		}
+
 	}
 	
 private:

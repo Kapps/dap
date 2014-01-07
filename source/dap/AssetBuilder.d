@@ -39,7 +39,6 @@ class AssetBuilder {
 				AsyncAction action;
 				try action = buildAsset(context, asset);
 				catch (Throwable e) {
-					std.stdio.writeln("abc");
 					context.logger.error("An exception occurred when building this asset. Details: " ~ e.msg, asset);
 					action = null;
 				}
@@ -94,9 +93,12 @@ class AssetBuilder {
 			return null;
 		}
 		auto inputSource = asset.getInputSource();
+		scope(failure)
+			inputSource.Close();
 		auto result = new SignaledTask().Start();
 		// First have to wait for importer to complete.
-		auto importTask = importer.process(inputSource, asset.extension, processor.inputType);
+		AsyncAction importTask;
+		importTask = importer.process(inputSource, asset.extension, processor.inputType);
 		importTask.NotifyOnComplete(Untyped.init, (importState, importAction, importStatus) {
 			if(importStatus != CompletionType.Successful) {
 				context.logger.error("Failed to import asset data.", asset);
@@ -105,6 +107,8 @@ class AssetBuilder {
 				Untyped importData = importTask.CompletionData;
 				enforce(importData.type == processor.inputType);
 				auto outputSource = asset.getOutputSource();
+				scope(failure)
+					outputSource.Close();
 				AsyncAction procAction;
 				try {
 					procAction = processor.process(importData, outputSource);
