@@ -170,8 +170,9 @@ class ContentProcessor {
 				instance.tupleof[i] = val;
 			}
 		}
-		static if(!is(T == ContentProcessor))
+		static if(!is(T == ContentProcessor)) {
 			loadSettings!(BaseClassesTuple!(T)[0])(settings, instance);
+		}
 	}
 
 	// Intentionally not documented; exposed for mixin functionality only.

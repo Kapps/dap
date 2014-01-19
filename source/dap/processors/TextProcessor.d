@@ -1,8 +1,8 @@
-module dap.TextProcessor;
+module dap.processors.TextProcessor;
 import dap.ContentProcessor;
 import ShardIO.OutputSource;
 import std.variant;
-import dap.TextImporter;
+import dap.importers.TextImporter;
 import ShardTools.ImmediateAction;
 import ShardIO.MemoryInput;
 
@@ -52,4 +52,3 @@ class TextProcessor : ContentProcessor {
 private:
 	bool _reverseLines;
 }
-

@@ -1,4 +1,4 @@
-module dap.TextImporter;
+module dap.importers.TextImporter;
 import dap.ContentImporter;
 import ShardIO.MemoryOutput;
 import ShardIO.IOAction;
@@ -16,13 +16,13 @@ class TextImporter : ContentImporter {
 		return requestedType == typeid(string) || requestedType == typeid(TextContent);
 	}
 
-	override AsyncAction performProcess(InputSource input, string extension, TypeInfo requestedType) {
-		if(requestedType == typeid(TextContent))
-			return ImmediateAction.success(Untyped(TextContent(input)));
-		else if(requestedType == typeid(string)) {
+	override AsyncAction performProcess(ImportContext context) {
+		if(context.requestedType == typeid(TextContent))
+			return ImmediateAction.success(Untyped(TextContent(context.input)));
+		else if(context.requestedType == typeid(string)) {
 			auto result = new SignaledTask().Start();
 			MemoryOutput output = new MemoryOutput();
-			IOAction action = new IOAction(input, output);
+			IOAction action = new IOAction(context.input, output);
 			action.Start();
 			action.NotifyOnComplete(Untyped.init, (state, action, status) {
 				if(status == CompletionType.Successful)

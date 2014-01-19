@@ -12,6 +12,7 @@ import std.conv;
 import std.typecons;
 import std.exception;
 import std.array;
+import dap.ContentImporter;
 
 alias void delegate(Untyped) CompletionTask;
 
@@ -98,7 +99,8 @@ class AssetBuilder {
 		auto result = new SignaledTask().Start();
 		// First have to wait for importer to complete.
 		AsyncAction importTask;
-		importTask = importer.process(inputSource, asset.extension, processor.inputType);
+		ImportContext importContext = ImportContext(inputSource, asset.extension, processor.inputType, context, asset);
+		importTask = importer.process(importContext);
 		importTask.NotifyOnComplete(Untyped.init, (importState, importAction, importStatus) {
 			if(importStatus != CompletionType.Successful) {
 				context.logger.error("Failed to import asset data.", asset);
