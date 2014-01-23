@@ -22,7 +22,7 @@ class TextureContent {
 
 	/// Creates an AsyncRange to read Color data from the image (ordered from top-left to bottom-right).
 	/// The AsyncRange must be started in order to begin reading pixels.
-	AsyncRange!Color createPixelRange(Untyped consumerState, void delegate(Untyped, Color[], ConsumerCompletionCallback) consumer) {
+	AsyncRange!Color createPixelRange(Untyped consumerState, void delegate(Untyped, Color[], ProducerStatus, ConsumerCompletionCallback) consumer) {
 		return new AsyncRange!Color(_producer, _producerState, consumer, consumerState);
 	}
 

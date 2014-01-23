@@ -10,8 +10,10 @@
 		"shardio": "~master",
 		"shardmath": "~master",
 		"derelict-util": ">=1.0.0",
+		"derelict-gl3": "~master",
 		"tested": "~master"
 	},
 	"targetType": "executable",
-	"versions": ["Standalone"]
+	"versions": ["Standalone"],
+	"lflags": ["-framework", "Cocoa", "-framework", "OpenGL"]
 }

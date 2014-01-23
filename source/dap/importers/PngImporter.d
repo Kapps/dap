@@ -18,7 +18,6 @@ import core.memory;
 import ShardTools.Untyped;
 import std.string;
 import std.conv;
-import std.stdio;
 import ShardTools.Queue;
 import ShardTools.Buffer;
 import ShardTools.BufferPool;
@@ -55,7 +54,6 @@ class PngImporter : ContentImporter {
 		auto pngp = png_create_read_struct(toStringz(PNG_LIBPNG_VER_STRING), readContext, &errorCallback, &errorCallback);
 		readContext.pngp = pngp;
 		if(!pngp) {
-			writeln("failed to create pngp.");
 			throw new Exception("Failed to create PNG read struct.");
 		}
 		auto infop = png_create_info_struct(readContext.pngp);
@@ -88,7 +86,6 @@ class PngImporter : ContentImporter {
 		synchronized(context.mutex) {
 			// Since the stream action completes after, it finishing means the importTask should be finished.
 			// If not, there was an error so abort.
-			writeln("Stream is complete. Import task status is ", context.importTask.Status, ".");
 			if(context.importTask.Status == CompletionType.Incomplete)
 				context.importTask.Abort(action.CompletionData);
 			// Also make sure to delete the structs since they're not GC collected.
@@ -108,21 +105,22 @@ class PngImporter : ContentImporter {
 				// If so, just invoke callback with one of the buffers.
 				// Each buffer contains a single row.
 				// May be worth checking if combining multiple buffers together is worthwhile.
-				writeln("Using existing buffer.");
 				callback(ProducerStatus.more, elements);
 			} else {
 				// Otherwise consume when we produce the next buffer.
-				writeln("Waiting for new buffer.");
 				context.producerCallback = callback;
 				context.canConsume = true;
-				writeln(context.canConsume);
 			}
 
 			// Finally if we have less than half the amount of bytes buffered as we want, get more data.
 			if(context.waitingForConsume && context.producedBuffers.Count * context.rowSize < MAX_BUFFER_SIZE) {
-				writeln("Consumed enough to stop waiting.");
 				StreamOutput stream = cast(StreamOutput)context.streamAction.Output;
 				stream.notifyDataReady();
+			}
+
+			if(context.producedBuffers.Count == 0 && context.readComplete) {
+				// No buffers remaining and we're complete, so signal it.
+				callback(ProducerStatus.complete, null);
 			}
 		}
 	}
@@ -145,12 +143,10 @@ class PngImporter : ContentImporter {
 			// It will invoke errorCallback / infoCallback / endCallback / rowCallback during this call.
 			// If any of them fail, it will jump back to our setjmp above.
 			auto streamBytes = reader.ReadArray!ubyte(reader.Available);
-			writeln("Processing ", streamBytes.length, " bytes.");
 			png_process_data(pngp, infop, streamBytes.ptr, streamBytes.length);
 			if(context.readComplete) // End info called means we're done.
 				return DataRequestFlags.Complete;
 			if(context.producedBuffers.Count * context.rowSize >= MAX_BUFFER_SIZE) {
-				writeln("Too much buffered, waiting.");
 				return DataRequestFlags.Waiting | DataRequestFlags.Continue;
 			}
 			return DataRequestFlags.Continue;
@@ -184,7 +180,6 @@ private struct ReadContext {
 // C callback functions below:
 
 extern(C) private void errorCallback(png_structp pngp, const char* msg) {
-	writeln("errorCallback");
 	ReadContext* readContext = cast(ReadContext*)png_get_error_ptr(pngp);
 	Asset asset = readContext.importContext.asset;
 	BuildContext buildContext = readContext.importContext.buildContext;
@@ -201,8 +196,7 @@ extern(C) private void infoCallback(png_structp pngp, png_infop infop) {
 	readContext.height = png_get_image_height(pngp, infop);
 	readContext.rowSize = png_get_rowbytes(pngp, infop);
 	readContext.numPasses = png_set_interlace_handling(pngp);
-	std.stdio.writeln("Image size was ", readContext.width, "x", readContext.height, ".");
-	std.stdio.writefln("Number of passes is %d and row size is %d.", readContext.numPasses, readContext.rowSize);
+	std.stdio.writefln("Image is %dx%d and has %d pixels per row with %d passes.", readContext.width, readContext.height, readContext.rowSize, readContext.numPasses);
 	auto content = new TextureContent(readContext.width, readContext.height, Untyped(readContext), &readContext.importer.produceData);
 	readContext.importTask.SignalComplete(Untyped(content));
 }
@@ -213,25 +207,24 @@ extern(C) private void rowCallback(png_structp pngp, void* row, uint rowNum, int
 	ReadContext* readContext = cast(ReadContext*)png_get_progressive_ptr(pngp);
 	auto infop = readContext.infop;
 	size_t bytes = readContext.rowSize;
-	std.stdio.writeln("Got row callback with row ", rowNum, ", and pass ", pass, ". Bytes was ", bytes, ".");
 	Color[] elements = cast(Color[])row[0..bytes];
 	synchronized(readContext.mutex) {
 		if(readContext.canConsume) {
 			// We're waiting for data to be produced, so we can immediately invoke the callback with this data.
-			writeln("Consuming immediately.");
 			readContext.canConsume = false; // Must be before callback, as that can be what sets it to true.
 			readContext.producerCallback(ProducerStatus.more, elements);
 		} else {
 			// Otherwise we have to buffer this row.
-			writeln("Enqueueing");
 			readContext.producedBuffers.Enqueue(elements);
 		}
 	}
 }
 
 extern(C) private void endCallback(png_structp pngp, png_infop infop) {
-	writeln("endCallback");
 	ReadContext* readContext = cast(ReadContext*)png_get_progressive_ptr(pngp);
-	std.stdio.writeln("Got to end callback!");
-	readContext.readComplete = true;
+	synchronized(readContext.mutex) {
+		readContext.readComplete = true;
+		if(readContext.canConsume)
+			readContext.producerCallback(ProducerStatus.complete, null);
+	}
 }
