@@ -41,6 +41,7 @@ class AssetBuilder {
 				try action = buildAsset(context, asset);
 				catch (Throwable e) {
 					context.logger.error("An exception occurred when building this asset. Details: " ~ e.msg, asset);
+					context.logger.trace("Exception details: " ~ e.text, asset);
 					action = null;
 				}
 				if(action) {
@@ -94,8 +95,10 @@ class AssetBuilder {
 			return null;
 		}
 		auto inputSource = asset.getInputSource();
-		scope(failure)
-			inputSource.Close();
+		scope(failure) {
+			if(inputSource.Action is null || !inputSource.Action.HasBegun)
+				inputSource.Close();
+		}
 		auto result = new SignaledTask().Start();
 		// First have to wait for importer to complete.
 		AsyncAction importTask;
@@ -109,8 +112,10 @@ class AssetBuilder {
 				Untyped importData = importTask.CompletionData;
 				enforce(importData.type == processor.inputType);
 				auto outputSource = asset.getOutputSource();
-				scope(failure)
-					outputSource.Close();
+				scope(failure) {
+					if(outputSource.Action is null || !outputSource.Action.HasBegun)
+						outputSource.Close();
+				}
 				AsyncAction procAction;
 				try {
 					procAction = processor.process(importData, outputSource);
@@ -125,6 +130,7 @@ class AssetBuilder {
 					});
 				} catch(Throwable t) {
 					context.logger.error("The content processor threw an exception. Details: " ~ t.msg, asset);
+					context.logger.trace("Exception details: " ~ t.text, asset);
 					result.Abort(Untyped(t));
 				}
 			}

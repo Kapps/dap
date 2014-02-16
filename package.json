@@ -13,7 +13,8 @@
 		"derelict-gl3": "~master",
 		"tested": "~master"
 	},
+	"libs-windows": [ "gdi32", "user32" ],
+	"lflags": ["-framework", "Cocoa", "-framework", "OpenGL"],
 	"targetType": "executable",
-	"versions": ["Standalone"],
-	"lflags": ["-framework", "Cocoa", "-framework", "OpenGL"]
+	"versions": ["Standalone"]
 }

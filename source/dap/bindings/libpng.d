@@ -5,23 +5,18 @@
 module dap.bindings.libpng;
 import dap.bindings.utils;
 public import dap.bindings.setjmp;
+import std.stdio;
 
 private {
 	import derelict.util.loader;
 	import derelict.util.system;
 	
-	static if( Derelict_OS_Windows ) {
-		static if( size_t.sizeof == 4 )
-			enum libNames = "libpng.dll, libpng32.dll";
-		else static if( size_t.sizeof == 8 )
-			enum libNames = "libpng.dll, libpng64.dll";
-		else
-			static assert(0);
-	}
+	static if( Derelict_OS_Windows ) 
+		enum libNames = "libpng.dll, libpng3.dll, libpng15.dll, libpng15-15.dll";
 	else static if( Derelict_OS_Mac )
 		enum libNames = "libpng.dylib";
 	else static if( Derelict_OS_Posix )
-		enum libNames = "libpng.so";
+		enum libNames = "libpng.so, libpng.3.so, libpng.12.so";
 	else
 		static assert(0);
 }

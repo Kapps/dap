@@ -23,7 +23,8 @@ import ShardTools.Buffer;
 import ShardTools.BufferPool;
 import core.stdc.string;
 import ShardTools.ImmediateAction;
-
+import std.stdio;
+import core.atomic;
 class PngImporter : ContentImporter {
 
 	private enum HEADER_SIZE = 8;
@@ -111,6 +112,7 @@ class PngImporter : ContentImporter {
 				context.producerCallback = callback;
 				context.canConsume = true;
 			}
+
 
 			// Finally if we have less than half the amount of bytes buffered as we want, get more data.
 			if(context.waitingForConsume && context.producedBuffers.Count * context.rowSize < MAX_BUFFER_SIZE) {
