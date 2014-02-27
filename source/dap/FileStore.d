@@ -61,7 +61,8 @@ class FileStore : AssetStore {
 			trace("Output directory did not exist; creating it.");
 			mkdirRecurse(dir);
 		}
-		return openFile(path, FileMode.createTrunc);
+		OutputStream fs = openFile(path, FileMode.createTrunc);
+		return new ZlibOutputStream(fs, ZlibOutputStream.HeaderFormat.deflate);
 	}
 	
 	protected override void performSave() {
