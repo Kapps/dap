@@ -7,6 +7,7 @@ import ShardTools.ExceptionTools;
 import vibe.core.stream;
 import dap.StreamOps;
 import vibe.vibe;
+import std.conv;
 
 /// A bitwise enum of texture format data.
 enum TextureFormat : ubyte {
@@ -44,7 +45,7 @@ class TextureProcessor : ContentProcessor {
 		return typeid(TextureContent);
 	}
 
-	protected override void performProcess(Untyped untypedInput, OutputStream output) {
+	/+protected override void performProcess(Untyped untypedInput, OutputStream output) {
 		TextureContent content = untypedInput.get!TextureContent;
 		if(content.width > ushort.max || content.height > ushort.max)
 			throw new NotSupportedException("Textures with a width or height over 65535 pixels are not supported.");
@@ -57,12 +58,12 @@ class TextureProcessor : ContentProcessor {
 		range.Start();
 		while(range.Status == CompletionType.Incomplete)
 			yield();
-	}
+	}+/
 
 	// Save as BMP to test with. May have bugs...
-	/*protected override AsyncAction performProcess(Untyped input, OutputSource output) {
-		TextureContent content = input.get!TextureContent;
-		this.input = new StreamInput(FlushMode.Manual());
+	protected override void performProcess(Untyped untypedInput, OutputStream output) {
+		this.output = output;
+		TextureContent content = untypedInput.get!TextureContent;
 		ubyte[14] fileHeader = cast(ubyte[])[
 			cast(ubyte)'B', cast(ubyte)'M', 
 			0, 0, 0, 0, 
@@ -105,38 +106,36 @@ class TextureProcessor : ContentProcessor {
 		infoHeader[25] = cast(ubyte)(sizeData >> 8);
 		infoHeader[26] = cast(ubyte)(sizeData >> 16);
 		infoHeader[27] = cast(ubyte)(sizeData >> 24);
-		this.input.Write(fileHeader[]);
-		this.input.Write(infoHeader[]);
-		this.input.Flush();
+		output.writeVal(fileHeader[]);
+		output.writeVal(infoHeader[]);
+		output.flush();
 		auto range = content.createPixelRange(Untyped(content), &consumeData);
-		std.stdio.writeln("Created range.");
 		range.Start();
-		return new IOAction(this.input, output).Start();
-	}*/
+		while(range.Status == CompletionType.Incomplete)
+			yield();
+	}
 
-	/*private void consumeData(Untyped state, Color[] data, ProducerStatus status, ConsumerCompletionCallback callback) {
+	private void consumeData(Untyped state, Color[] data, ProducerStatus status, ConsumerCompletionCallback callback) {
 		// TODO: Try writing a BMP to test with.
-		std.stdio.writeln("Consuming ", data.length, " elements with status of ", status, ".");
 		foreach(pixel; data) {
 			ubyte[] pixels = [pixel.B, pixel.G, pixel.R];
-			input.Write(pixels);
+			output.writeVal(pixels);
 		}
 		if(status == ProducerStatus.complete) {
 			ubyte[] padding = cast(ubyte[])[0, 0, 0];
-			input.Write(padding);
-			input.Complete();
+			output.writeVal(padding);
 		}
-		input.Flush();
+		output.flush();
 		callback();
-	}*/
+	}
 
-	private void consumeData(Untyped state, Color[] data, ProducerStatus status, ConsumerCompletionCallback callback) {
+	/+private void consumeData(Untyped state, Color[] data, ProducerStatus status, ConsumerCompletionCallback callback) {
 		assert(format == TextureFormat.color);
 		TextureContent content = state.get!TextureContent;
 		output.writeVal(data);
 		output.flush();
 		callback();
-	}
+	}+/
 
 	@Ignore(true) OutputStream output;
 	TextureFormat _format;

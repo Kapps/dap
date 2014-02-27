@@ -46,9 +46,7 @@ class ContentProcessor {
 				_storeLock.unlock();
 			instanceType = _storedProcessorsByName.get(fixedKey(name), TypeMetadata.init);
 		}
-		std.stdio.writeln("Instance type is ", instanceType, ".");
 		auto result = instanceType.createInstance(asset).get!ContentProcessor;
-		std.stdio.writeln("Result is ", result, ".");
 		if(asset)
 			result.loadSettings();
 		return result;

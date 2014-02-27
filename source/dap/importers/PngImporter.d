@@ -15,26 +15,25 @@ import core.memory;
 import ShardTools.Untyped;
 import std.string;
 import std.conv;
-import ShardTools.Queue;
 import ShardTools.Buffer;
 import ShardTools.BufferPool;
 import core.stdc.string;
 import ShardTools.ImmediateAction;
-import std.stdio;
 import core.atomic;
 import vibe.core.stream;
 import dap.StreamOps;
 import std.algorithm;
+import std.container;
 
 class PngImporter : ContentImporter {
-
+	
 	private enum HEADER_SIZE = 8;
 	private enum MAX_BUFFER_SIZE = 256 * 1024;
 	// If we fail to load libpng don't prevent the entire program from being used.
 	// Instead just fail to build any png files.
 	private __gshared bool libraryLoadFailed = false;
 	private __gshared Exception libraryLoadFailException;
-
+	
 	shared static this() {
 		try 
 			DerelictPng.load();
@@ -44,11 +43,11 @@ class PngImporter : ContentImporter {
 		}
 		ContentImporter.register(new PngImporter());
 	}
-
+	
 	override bool canProcess(string extension, TypeInfo requestedType) {
 		return extension == "png" && requestedType == typeid(TextureContent);
 	}
-
+	
 	override Untyped performProcess(ImportContext context) {
 		if(libraryLoadFailed)
 			throw libraryLoadFailException;
@@ -82,22 +81,21 @@ class PngImporter : ContentImporter {
 		}
 		return Untyped(readContext.content);
 	}
-
+	
 	private ReadContext* createReadContext(ImportContext context) {
 		auto readContext = new ReadContext();	
 		readContext.importer = this;
 		readContext.importContext = context;
-		readContext.buffers = new typeof(readContext.buffers)();
 		return readContext;
 	}
-
+	
 	private void produceData(Untyped state, ProducerCompletionCallback callback) {
 		ReadContext* context = state.get!(ReadContext*);
 		auto pngp = context.pngp;
 		auto infop = context.infop;
 		// Continuously read from the InputStream until we get enough data for a row.
 		Color[] rowData;
-		while(!context.buffers.TryDequeue(rowData)) {
+		if(context.buffers.empty) {
 			InputStream input = context.importContext.input;
 			if(input.empty) {
 				if(!context.finishedRead)
@@ -108,15 +106,11 @@ class PngImporter : ContentImporter {
 			auto size = input.leastSize;
 			Buffer buffer = BufferPool.Global.Acquire(size);
 			input.read(buffer.FullData[0..size]);
-			/+int jmpCode = setjmp(png_jmpbuf(pngp));
-			if(jmpCode) {
-				// TODO: This would cause this task to be aborted from callbacks, then return Complete.
-				// Which would potentially trigger another Complete. Make sure there's no bugs there.
-				throw new Exception("An error occurred while reading the png.");
-			}+/	
 			png_process_data(pngp, infop, buffer.FullData.ptr, size);
 			BufferPool.Global.Release(buffer);
 		}
+		rowData = context.buffers.front;
+		context.buffers.removeFront();
 		// We now have a buffer, so can use its data. This may be a buffer previous to this call as well.
 		// After that, we wait until more data is requested by this being called again.
 		callback(ProducerStatus.more, rowData);
@@ -132,7 +126,7 @@ private struct ReadContext {
 	bool hadVersionMismatch;
 	// For producing data:
 	ProducerCompletionCallback producerCallback;
-	Queue!(Color[], true) buffers; // Guaranteed to be rowSize bytes each.
+	DList!(Color[]) buffers; // Guaranteed to be rowSize bytes each.
 	bool infoRead; // Read the info header.
 	bool finishedRead; // Set when end callback is done.
 	TextureContent content; // Set when infoRead is true.
@@ -149,6 +143,7 @@ extern(C) private void errorCallback(png_structp pngp, const char* msg) {
 	ReadContext* readContext = cast(ReadContext*)png_get_error_ptr(pngp);
 	Asset asset = readContext.importContext.asset;
 	BuildContext buildContext = readContext.importContext.buildContext;
+	asset.warn("An error occurred in the raw content file: " ~ msg.text);
 	//buildContext.logger.error("libpng error: " ~ msg.text, asset);
 	throw new ContentImportException("libpng error: " ~ msg.text);
 }
@@ -175,15 +170,15 @@ extern(C) private void infoCallback(png_structp pngp, png_infop infop) {
 	readContext.rowSize = png_get_rowbytes(pngp, infop);
 	readContext.numPasses = png_set_interlace_handling(pngp);
 	readContext.infoRead = true;
-	std.stdio.writefln("Image is %dx%d and has %d pixels per row with %d passes.", readContext.width, readContext.height, readContext.rowSize, readContext.numPasses);
+	readContext.importContext.asset.trace(format("Image is %dx%d and has %d pixels per row with %d passes.", readContext.width, readContext.height, readContext.rowSize, readContext.numPasses));
 	readContext.content = new TextureContent(readContext.width, readContext.height, Untyped(readContext), &readContext.importer.produceData);
 }
 
 extern(C) private void rowCallback(png_structp pngp, void* row, uint rowNum, int pass) {
 	ReadContext* readContext = cast(ReadContext*)png_get_progressive_ptr(pngp);
 	size_t bytes = readContext.rowSize;
-	Color[] elements = cast(Color[])row[0..bytes];
-	readContext.buffers.Enqueue(elements);
+	Color[] elements = cast(Color[])row[0..bytes].dup;
+	readContext.buffers.insertBack(elements);
 }
 
 extern(C) private void endCallback(png_structp pngp, png_infop infop) {

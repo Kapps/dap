@@ -15,6 +15,7 @@ import std.array;
 import std.string;
 import dap.ContentImporter;
 import core.thread;
+import vibe.vibe;
 
 alias void delegate(Untyped) CompletionTask;
 
@@ -33,28 +34,38 @@ class AssetBuilder {
 			throw new InvalidOperationException("A new build may not begin until the previous build completes.");
 		context.logger.trace("Began build.");
 		shared size_t numStarted, numCompleted;
-		foreach(AssetStore store; context.allStores) {
-			context.logger.trace("Starting build of store " ~ store.name ~ ".", store);
-			foreach(Asset asset; store.allAssets) {
+		foreach(AssetStore store_; context.allStores) {
+			context.logger.trace("Starting build of store " ~ store_.name ~ ".", store_);
+			foreach(Asset asset_; store_.allAssets) {
 				atomicOp!"+="(numStarted, 1);
-				try {
-					context.logger.trace("Starting build of asset.", asset);
-					buildAsset(context, asset);
-					context.logger.trace("Finished build of asset", asset);
-				} catch (Exception e) {
-					context.logger.error("An exception occurred when building this asset. Details: " ~ e.msg, asset);
-					context.logger.info("\tException details: " ~ e.text.replace("\n", "\n\t"), asset);
-				}
-				atomicOp!"+="(numCompleted, 1);
+				void delegate(Asset) dg = (asset) {
+					// Copy to prevent accessing only last asset.
+					try {
+						StopWatch sw = StopWatch(AutoStart.yes);
+						context.logger.trace("Starting build of asset.", asset);
+						buildAsset(context, asset);
+						sw.stop();
+						context.logger.trace("Finished building asset in " ~ (cast(Duration)sw.peek).text ~ ".", asset);
+					} catch (Exception e) {
+						context.logger.error("An exception occurred when building this asset. Details: " ~ e.msg, asset);
+						context.logger.info("\tException details: " ~ e.text.replace("\n", "\n\t"), asset);
+					}
+					atomicOp!"+="(numCompleted, 1);
+				};
+				runWorkerTask(&buildAssetWrapper, cast(shared)dg, cast(shared)asset_);
 			}
 		}
-		while(numStarted < numCompleted) {
-			// Wait on vibe.d event loop to finish.
-			// TODO: Implement this properly.
-			Thread.sleep(5.msecs);
+		ptrdiff_t curr = numStarted;
+		while(numStarted > numCompleted) {
+			// Wait on all tasks to finish. Ideally we'd use a Condition or such, but eh.
+			yield();
 		}
 		enforce(cas(&_buildInProgress, true, false));
-		context.logger.trace("Finished building all assets.");
+		context.logger.trace("Finished building all assets (" ~ curr.text ~ "/" ~ numCompleted.text ~ ").");
+	}
+
+	private static void buildAssetWrapper(shared(void delegate(Asset)) runner, shared Asset asset) {
+		runner(cast()asset);
 	}
 
 	/// Returns an AsyncAction that completes when the given asset is finished building.
