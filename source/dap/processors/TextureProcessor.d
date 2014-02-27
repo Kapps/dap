@@ -60,6 +60,14 @@ class TextureProcessor : ContentProcessor {
 			yield();
 	}+/
 
+	/+private void consumeData(Untyped state, Color[] data, ProducerStatus status, ConsumerCompletionCallback callback) {
+		assert(format == TextureFormat.color);
+		TextureContent content = state.get!TextureContent;
+		output.writeVal(data);
+		output.flush();
+		callback();
+	}+/
+
 	// Save as BMP to test with. May have bugs...
 	protected override void performProcess(Untyped untypedInput, OutputStream output) {
 		this.output = output;
@@ -98,10 +106,10 @@ class TextureProcessor : ContentProcessor {
 		infoHeader[5] = cast(ubyte)(width >> 8);
 		infoHeader[6] = cast(ubyte)(width >> 16);
 		infoHeader[7] = cast(ubyte)(width >> 24);
-		infoHeader[8] = cast(ubyte)(height);
-		infoHeader[9] = cast(ubyte)(height >> 8);
-		infoHeader[10] = cast(ubyte)(height >> 16);
-		infoHeader[11] = cast(ubyte)(height >> 24);
+		infoHeader[8] = cast(ubyte)(-height);
+		infoHeader[9] = cast(ubyte)(-height >> 8);
+		infoHeader[10] = cast(ubyte)(-height >> 16);
+		infoHeader[11] = cast(ubyte)(-height >> 24);
 		infoHeader[24] = cast(ubyte)(sizeData);
 		infoHeader[25] = cast(ubyte)(sizeData >> 8);
 		infoHeader[26] = cast(ubyte)(sizeData >> 16);
@@ -116,7 +124,6 @@ class TextureProcessor : ContentProcessor {
 	}
 
 	private void consumeData(Untyped state, Color[] data, ProducerStatus status, ConsumerCompletionCallback callback) {
-		// TODO: Try writing a BMP to test with.
 		foreach(pixel; data) {
 			ubyte[] pixels = [pixel.B, pixel.G, pixel.R];
 			output.writeVal(pixels);
@@ -128,14 +135,6 @@ class TextureProcessor : ContentProcessor {
 		output.flush();
 		callback();
 	}
-
-	/+private void consumeData(Untyped state, Color[] data, ProducerStatus status, ConsumerCompletionCallback callback) {
-		assert(format == TextureFormat.color);
-		TextureContent content = state.get!TextureContent;
-		output.writeVal(data);
-		output.flush();
-		callback();
-	}+/
 
 	@Ignore(true) OutputStream output;
 	TextureFormat _format;
