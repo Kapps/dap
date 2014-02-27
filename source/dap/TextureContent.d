@@ -4,7 +4,6 @@ public import ShardTools.AsyncRange;
 public import dap.ContentImporter;
 public import ShardTools.Color;
 import ShardTools.AsyncAction;
-import ShardIO.IOAction;
 import ShardTools.Untyped;
 
 /// Provides content information for a texture, including a lazy buffered stream to generate pixel data.

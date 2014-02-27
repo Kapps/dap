@@ -9,6 +9,7 @@ import std.string;
 import std.array;
 import std.algorithm;
 import std.traits;
+import derelict.util.exception;
 
 mixin(MakeException("GlException", "An OpenGL error occurred."));
 
@@ -23,6 +24,14 @@ version(OSX) {
 	struct GlContext {
 		void* hDC;
 		void* context;
+	}
+} else version(linux) {
+	import derelict.opengl3.glx;
+	import dap.bindings.x11;
+	struct GlContext {
+		Display* display;
+		Window root;
+		GLXContext context;
 	}
 } else {
 	static assert(0, "GlContext not yet supported on this platform.");
@@ -65,6 +74,12 @@ shared static this() {
 	} else version(Windows) {
 		if(!wglMakeCurrent(context.hDC, context.context))
 			throw new GlException("Failed to set the active context.");
+	} else version(linux) {
+		if(!glXMakeCurrent(context.display, context.root, context.context)) {
+			throw new GlException("Failed to set the active context.");
+		}
+	} else {
+		static assert(0, "Setting the active GL context is not implemented on this platform.");
 	}
 	// We have to reload Derelict after a context is created; do it the first time we create a context.
 	reloadDerelictIfNeeded();
@@ -87,7 +102,7 @@ private void reloadDerelictIfNeeded() {
 			try {
 				DerelictGL3.reload();
 				_derelictReloaded = true;
-			} catch {
+			} catch (Throwable t) {
 				_derelictLoaded = false;
 				throw new GlException("Failed to reload Derelict for OpenGL 3 extensions.");
 			}
@@ -156,9 +171,7 @@ version(OSX) {
 		void* ctx = wglCreateContext(hDC);
 		if(ctx is null)
 			throw new GlException("Failed to create OpenGL context.");
-		GlContext context;
-		context.hDC = hDC;
-		context.context = ctx;
+		GlContext context = { hDC, ctx };
 		activeContext = context;
 	}
 
@@ -191,6 +204,22 @@ version(OSX) {
 				break;
 		}
 		return DefWindowProcA(hWnd, uMsg, wParam, lParam);
+	}
+} else version(linux) {
+	private void forceCreateContext() {
+		Display* display = XOpenDisplay(null);
+		if(display is null)
+			throw new GlException("Unable to open the display to create an OpenGL context.");
+		Window root = DefaultRootWindow(display);
+		GLint[] attribs = [ GLX_RGBA, GLX_DEPTH_SIZE, 24, GLX_NONE ];
+		XVisualInfo* vi = glXChooseVisual(display, 0, attribs.ptr);
+		if(vi is null)
+			throw new GlException("Unable to select visual info for creating an OpenGL context.");
+		GLXContext ctx = glXCreateContext(display, vi, null, cast(int)GL_TRUE);
+		if(ctx is null)
+			throw new GlException("Failed to create OpenGL context.");
+		GlContext context = { display, root, ctx };
+		activeContext = context;
 	}
 } else {
 	static assert(0, "Creating a GL Context is not yet supported on this platform.");

@@ -1,10 +1,12 @@
 module dap.processors.TextProcessor;
 import dap.ContentProcessor;
-import ShardIO.OutputSource;
+import vibe.core.stream;
+import vibe.stream.memory;
+import dap.StreamOps;
 import std.variant;
 import dap.importers.TextImporter;
 import ShardTools.ImmediateAction;
-import ShardIO.MemoryInput;
+
 
 /// Provides a ContentProcessor that can output a raw text file.
 /// This is generally used for only raw text assets. For structured file 
@@ -33,20 +35,9 @@ class TextProcessor : ContentProcessor {
 		return typeid(TextContent);
 	}
 
-	protected override AsyncAction performProcess(Untyped input, OutputSource output) {
-		// I doubt there's ever a situation where string would be used over TextContent.
-		// But, may remain useful for debug purposes.
-		if(inputType == typeid(string)) {
-			string contents = input.get!string;
-			auto memInput = new MemoryInput(cast(ubyte[])contents, false);
-			return new IOAction(memInput, output).Start();
-		} else {
-			TextContent content = input.get!TextContent;
-			auto res = new IOAction(content.input, output);
-			res.Start();
-			return res;
-		}
-
+	protected override void performProcess(Untyped input, OutputStream output) {
+		TextContent content = input.get!TextContent;
+		output.write(content.input, 0);
 	}
 	
 private:

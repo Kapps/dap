@@ -3,16 +3,14 @@ public import dap.HierarchyNode;
 public import dap.Asset;
 public import dap.AssetContainer;
 public import dap.BuildContext;
-public import ShardIO.IOAction;
-import ShardIO.StreamInput;
+public import vibe.core.stream;
+import dap.StreamOps;
 import std.parallelism;
 import ShardTools.MessagePack;
 import ShardTools.Buffer;
 import ShardTools.BufferPool;
 import ShardTools.LinkedList;
 import ShardTools.StreamReader;
-import ShardIO.MemoryOutput;
-import ShardIO.MemoryOutput;
 import core.time;
 import std.string;
 import ShardTools.ExceptionTools;
@@ -20,9 +18,12 @@ import std.exception;
 import std.conv;
 import std.typecons;
 import std.algorithm;
+import vibe.stream.memory;
 
 /// Provides the implementation of any storage operations, such as loading data for an asset.
 abstract class AssetStore : HierarchyNode {
+
+	// TODO: We'll need to change the default method for serializing and deserializing to not ruin the entire setting store if a change is made to the structure.
 	
 	/// Creates a new AssetStore with the given name and build context.
 	this(string identifier, BuildContext context) {
@@ -33,11 +34,11 @@ abstract class AssetStore : HierarchyNode {
 		context.registerStore(this);
 	}
 	
-	/// Returns an InputSource used to read data for the given asset.
-	abstract InputSource createInputSource(Asset asset);
+	/// Returns an InputStream used to asynchronously read raw data for the given asset.
+	abstract InputStream createInputStream(Asset asset);
 
-	/// Returns an OutputSource used to write the generated data for the asset.
-	abstract OutputSource createOutputSource(Asset asset);
+	/// Returns an OutputStream used to asynchronously write the generated data for the asset.
+	abstract OutputStream createOutputStream(Asset asset);
 	
 	/// Saves any changes to this AssetStore back to the underlying storage container.
 	final void save() {
@@ -114,64 +115,47 @@ abstract class AssetStore : HierarchyNode {
 	/// For most AssetStore implementations, it should merely create a new default set of settings.
 	protected abstract void performLoad();
 	
-	/// Serializes all node settings to the given OutputSource, in a way that can be read by deserializeNodes. 
-	/// Assumes that the store is locked.
-	protected void serializeNodes(OutputSource output) {
+	/// Serializes all node settings to the given OutputStream in a way that can be read by deserializeNodes. 
+	/// Assumes that the store is locked, and does not clear the current nodes.
+	protected void serializeNodes(OutputStream output) {
 		// TODO: Refactor serializing and deserializing nodes into a different class.
 		// That way we can support more than just assets and containers too.
 		// Won't be too difficult, just no need for it yet.
 		trace("Using default serializeNodes method, sending output to " ~ output.text ~ ".");
-		StreamInput input = new StreamInput(FlushMode.AfterSize(4096));
 		TaskPool serializePool = new TaskPool();
-		IOAction action = new IOAction(input, output);
-		trace("Starting IOAction.");
-		action.Start();
-		trace("Started IOAction.");
 		NodeList nodes = new NodeList();
 		// First, write the header which indicates what nodes we have.
 		trace("Writing header.");
-		writeHeader(input, this, nodes);
+		writeHeader(output, this, nodes);
 		trace("Done writing header.");
 		// Then each of the nodes we wrote in our header we need to serialize the settings for.
 		foreach(node; nodes) {
-			serializePool.put(task(&performSerializeSettings, input, node));	
+			serializePool.put(task(&performSerializeSettings, output, node));	
 		}
 		trace("Waiting for serialize pool to finish.");
 		serializePool.finish(true);
-		trace("Serialize pool finished; completing input.");
-		input.Complete();
-		trace("Input is complete; waiting for IOAction to complete.");
-		// When that's done, just wait for IO to finish and we're set.
-		action.WaitForCompletion(dur!"seconds"(30));
-		trace("IOAction is complete, serializeNodes is done.");
+		trace("All data written; serializeNodes is done.");
 	}
 	
-	/// Deserializes all nodes from the given InputSource, returning the nodes at the time of serializeNodes.
+	/// Deserializes all nodes from the given InputStream into this AssetStore.
 	/// Assumes that the store is locked, and does not clear the current nodes.
-	protected void deserializeNodes(InputSource input) {
-		// TODO: This is a dumb approach.
-		// Use a StreamOutput instead, so we can read at the same time as write, and not have to keep everything in memory.
-		// Just gotta implement StreamOutput first though.
-		trace("Using default deserializeNodes method, reading input from " ~ input.text ~ ".");
-		MemoryOutput output = new MemoryOutput();
-		IOAction action = new IOAction(input, output);
-		trace("Starting IOAction for deserializeNodes.");
-		action.Start();
-		trace("IOAction has begun. Waiting for all memory to be read.");
-		action.WaitForCompletion(dur!"seconds"(30));
-		trace("The IOAction has completed, all data is in memory. Starting to deserialize the " ~ output.Data.length.text ~ "bytes.");
-		StreamReader reader = new StreamReader(output.Data, true);
-		deserializeNode(reader, this);
+	protected void deserializeNodes(InputStream input) {
+		trace("Using default deserializeNodes method; starting read.");
+		deserializeNode(input, this);
 		// Next up, read settings:
 		TaskPool deserializePool = new TaskPool();
-		while(reader.Available > 0) {
-			ubyte[] settings = reader.ReadPrefixed!ubyte;
+		while(!input.empty) {
+			ubyte[] settings = input.readPrefixed!ubyte;
 			deserializePool.put(task(&deserializeSettings, settings));
 		}
+		trace("All tasks queued, waiting for TaskPool to finish.");
 		deserializePool.finish(true);
+		trace("All data read; deserializeNodes is done.");
 	}
 
 	private void deserializeSettings(ubyte[] data) {
+		// Segfaults with scoped. TODO: Fix.
+		//StreamReader reader = scoped!StreamReader(data, false);
 		StreamReader reader = new StreamReader(data, false);
 		string qualifiedName = cast(string)reader.ReadPrefixed!char;
 		trace("Deserializing settings for " ~ qualifiedName ~ ".");
@@ -179,12 +163,14 @@ abstract class AssetStore : HierarchyNode {
 		enforce(node);
 		size_t bytesRead = node.settings.deserialize(reader.RemainingData);
 		reader.Advance(bytesRead);
-		trace("Read " ~ bytesRead.text ~ " bytes for this node's settings.");
+		trace("Read " ~ bytesRead.text ~ " bytes for this nodes settings.");
+		if(reader.Available > 0)
+			warn("Node settings still had " ~ reader.Available.text ~ " bytes available. This is possibly an ignored setting.");
 	}
 	
-	private void deserializeNode(StreamReader reader, HierarchyNode parent) {
-		NodeType type = cast(NodeType)reader.Read!byte();
-		string nodeIdentifier = cast(string)reader.ReadPrefixed!char();
+	private void deserializeNode(InputStream reader, HierarchyNode parent) {
+		NodeType type = cast(NodeType)read!byte(reader);
+		string nodeIdentifier = cast(string)reader.readPrefixed!char();
 		trace("Deserializing " ~ type.text ~ " named " ~ nodeIdentifier ~ " with parent of " ~ parent.text ~ ".");
 		HierarchyNode node;
 		synchronized(parent) {
@@ -195,8 +181,8 @@ abstract class AssetStore : HierarchyNode {
 					node = this;
 					break;
 				case NodeType.Asset:
-					string processorName = cast(string)reader.ReadPrefixed!char();
-					string extension = cast(string)reader.ReadPrefixed!char();
+					string processorName = cast(string)reader.readPrefixed!char();
+					string extension = cast(string)reader.readPrefixed!char();
 					auto asset = new Asset(nodeIdentifier, extension);
 					parent.children.add(asset);
 					asset.processorName = processorName;
@@ -210,13 +196,13 @@ abstract class AssetStore : HierarchyNode {
 					assert(0);
 			}
 		}
-		uint numChildren = reader.Read!uint();
+		uint numChildren = reader.readVal!uint();
 		for(uint i = 0; i < numChildren; i++) {
 			deserializeNode(reader, node);	
 		}
 	}
 	
-	private void writeHeader(StreamInput input, HierarchyNode node, NodeList nodes) {
+	private void writeHeader(OutputStream output, HierarchyNode node, NodeList nodes) {
 		trace("Writing header for " ~ node.text ~ ".");
 		NodeType type;
 		if(cast(Asset)node)
@@ -227,27 +213,28 @@ abstract class AssetStore : HierarchyNode {
 			type = NodeType.Container;
 		else
 			throw new Error("Unknown node type. The default serialize method supports only assets and containers.");
-		input.Write(cast(ubyte)type);
-		input.WritePrefixed(node.name);
+		output.writeVal(cast(ubyte)type);
+		output.writePrefixed(node.name);
 		if(auto asset = cast(Asset)node) {
-			input.WritePrefixed(asset.processorName);
-			input.WritePrefixed(asset.extension);
+			output.writePrefixed(asset.processorName);
+			output.writePrefixed(asset.extension);
 		}
-		input.Write(cast(int)node.children.length);
+		output.writeVal(cast(uint)node.children.length);
 		nodes.Add(node);
 		//tasks.Add(task(&performSerializeSettings, input, node));
 		foreach(HierarchyNode child; node.children) {
-			writeHeader(input, child, nodes);
+			writeHeader(output, child, nodes);
 		}
 	}
 	
-	private void performSerializeSettings(StreamInput input, HierarchyNode node) {
+	private void performSerializeSettings(OutputStream output, HierarchyNode node) {
 		trace("Serializing settings for " ~ node.text ~ ".");
 		Buffer buff = BufferPool.Global.Acquire(4096);
 		buff.WritePrefixed(node.qualifiedName);
 		auto settings = node.settings;
 		settings.serialize(buff);
-		input.WritePrefixed(buff.Data);
+		synchronized(output)
+			output.writePrefixed(buff.Data);
 		trace("Done serializing settings for " ~ node.text ~ " (" ~ buff.Count.text ~ " bytes).");
 		BufferPool.Global.Release(buff);
 	}

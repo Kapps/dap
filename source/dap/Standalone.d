@@ -8,7 +8,6 @@ version(Standalone) {
 	import dap.BuildContext;
 	import dap.ConsoleLogger;
 	import ShardTools.PathTools;
-	import ShardMath.Vector;
 	import ShardTools.BufferPool;
 	import ShardTools.Buffer;
 	import dap.NodeSettings;
@@ -26,17 +25,31 @@ version(Standalone) {
 	import dap.AssetBuilder;
 	import core.time;
 	import std.datetime;
-import std.exception;
+	import std.exception;
+	import std.variant;
+	import vibe.vibe;
+	import std.parallelism;
 
 	/// Provides a stand-alone wrapper that uses a FileStore to keep track of assets.
 	void main(string[] args) { 
 		// TODO: Add support for things like --help add.
-		Standalone instance;
-		try {
-			instance = getCommandLineOptions!Standalone(args);
-		} catch(CommandLineException) {
-			// Do nothing since we allow CommandLine to handle outputting errors it throws.
-		}
+		runTask({
+			Standalone instance;
+			try {
+				instance = getCommandLineOptions!Standalone(args);
+			} catch(CommandLineException) {
+				// Do nothing since we allow CommandLine to handle outputting errors it throws.
+			} catch (Exception e) {
+				writeln(e);
+			}
+			std.stdio.writeln("Exiting event loop.");
+			//exitEventLoop(true);
+		});
+		std.stdio.writeln("Starting event loop.");
+		runEventLoop();
+		std.stdio.writeln("Event loop exited.");
+		taskPool.finish();
+		std.stdio.writeln("Finished taskPool.");
 	}
 
 	class Standalone {
@@ -110,8 +123,7 @@ import std.exception;
 		string build() {
 			StopWatch sw = StopWatch(AutoStart.yes);
 			auto builder = new AssetBuilder();
-			auto action = builder.build(context);
-			action.WaitForCompletion();
+			builder.build(context);
 			return "Build complete. Elapsed time was " ~ (cast(Duration)sw.peek).text ~ ".";
 		}
 

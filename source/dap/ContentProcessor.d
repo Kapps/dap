@@ -1,5 +1,5 @@
 module dap.ContentProcessor;
-public import ShardIO.OutputSource;
+public import vibe.core.stream;
 import std.traits;
 public import ShardTools.Udas;
 public import ShardTools.Reflection;
@@ -22,6 +22,7 @@ public import dap.ContentImporter;
 class ContentProcessor {
 
 	// TODO: Rename Content -> Asset for Importer|Processor.
+	// TODO: Processing should include a BuildContext.
 	
 	/// Registers the processor with the specified name and type.
 	/// The processor is then also registered as the default processor for all extensions given.
@@ -45,9 +46,9 @@ class ContentProcessor {
 				_storeLock.unlock();
 			instanceType = _storedProcessorsByName.get(fixedKey(name), TypeMetadata.init);
 		}
-		if(instanceType == TypeMetadata.init)
-			return null;
+		std.stdio.writeln("Instance type is ", instanceType, ".");
 		auto result = instanceType.createInstance(asset).get!ContentProcessor;
+		std.stdio.writeln("Result is ", result, ".");
 		if(asset)
 			result.loadSettings();
 		return result;
@@ -77,11 +78,11 @@ class ContentProcessor {
 		this._asset = asset;
 	}
 
-	/// Processes the specified input, writing the result to the given output source.
-	final AsyncAction process(Untyped input, OutputSource output) {
+	/// Processes the specified input, writing the result to the given output stream.
+	final void process(Untyped input, OutputStream output) {
 		if(input.type != inputType)
 			throw new InvalidFormatException("The type of the data in the variant does not match the expected type.");
-		return performProcess(input, output);
+		performProcess(input, output);
 	}
 
 	/// Reloads all settings from the underlying assets store.
@@ -105,7 +106,7 @@ class ContentProcessor {
 	/// Processes the given input data, writing the runtime data to the specified OutputSource.
 	/// Returns the action that is used for generating the output data.
 	/// The input data is guaranteed to be of exact type $(D inputType).
-	protected abstract AsyncAction performProcess(Untyped input, OutputSource output);
+	protected abstract void performProcess(Untyped input, OutputStream output);
 
 	/// Override to handle loading settings for this processor from the specified node's settings.
 	/// Note that mixing in $(D makeProcessorMixin) will automatically generate this method.

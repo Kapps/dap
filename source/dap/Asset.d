@@ -6,6 +6,8 @@ import std.range;
 import dap.ContentProcessor;
 import std.datetime;
 
+import vibe.core.stream;
+
 /// Represents a single (unparsed) asset to be built.
 class Asset : HierarchyNode {
 
@@ -20,13 +22,13 @@ class Asset : HierarchyNode {
 	}
 	
 	/// Creates an InputSource that can be used to read the data of this asset.
-	final InputSource getInputSource() {
-		return root.createInputSource(this);
+	final InputStream getInputStream() {
+		return root.createInputStream(this);
 	}
 	
 	/// Creates an OutputSource that can be used to write the generated data for this asset.
-	final OutputSource getOutputSource() {
-		return root.createOutputSource(this);
+	final OutputStream getOutputStream() {
+		return root.createOutputStream(this);
 	}
 
 	/// Creates an instance of the ContentProcessor used for building this asset.

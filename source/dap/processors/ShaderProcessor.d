@@ -5,7 +5,8 @@ import ShardTools.ExceptionTools;
 import dap.GlContext;
 import std.conv;
 import std.array;
-import ShardIO.StreamInput;
+import vibe.core.stream;
+import dap.StreamOps;
 import std.traits;
 
 enum ShaderType {
@@ -36,38 +37,36 @@ class ShaderProcessor : ContentProcessor {
 	@Ignore(true) @property override TypeInfo inputType() {
 		return typeid(string);
 	}
-	import std.stdio;
-	protected override AsyncAction performProcess(Untyped input, OutputSource output) {
+
+	protected override void performProcess(Untyped input, OutputStream stream) {
 		int shader, program;
 		string source = input.get!string;
 		createProgram(source, shader, program);
-		StreamInput stream = new StreamInput(FlushMode.AfterSize(16 * 1024));
-		IOAction action = new IOAction(stream, output).Start();
 		int uniformCount, attributeCount, blockCount, blockNameLength, attribNameLength;
 		GL.GetProgramiv(program, GL_ACTIVE_UNIFORMS, &uniformCount);
 		GL.GetProgramiv(program, GL_ACTIVE_ATTRIBUTES, &attributeCount);
 		GL.GetProgramiv(program, GL_ACTIVE_UNIFORM_BLOCKS, &blockCount);
 		GL.GetProgramiv(program, GL_ACTIVE_UNIFORM_BLOCK_MAX_NAME_LENGTH, &blockNameLength);
 		GL.GetProgramiv(program, GL_ACTIVE_ATTRIBUTE_MAX_LENGTH, &attribNameLength);
-		stream.Write(cast(byte)attributeCount);
+		stream.writeVal(cast(byte)attributeCount);
 		foreach(i; 0..uniformCount) {
 			auto attrib = getAttribute(i, program, blockNameLength, true);
 			writeAttribute(stream, attrib);
 		}
-		stream.Write(cast(byte)uniformCount);
+		stream.writeVal(cast(byte)uniformCount);
 		foreach(i; 0..attributeCount) {
 			auto attrib = getAttribute(i, program, attribNameLength, false);
 			writeAttribute(stream, attrib);
 		}
-		stream.WritePrefixed(source);
-		stream.Flush();
-		return ImmediateAction.success();
+		// TODO: There should be a context here.
+		//("Shader has ", uniformCount, " uniforms and ", attributeCount, " attributes.");
+		stream.writePrefixed(source);
 	}
 
-	private void writeAttribute(StreamInput stream, ShaderAttribute attrib) {
-		stream.WritePrefixed(attrib.name);
-		stream.WritePrefixed(attrib.type);
-		stream.Write(cast(byte)attrib.modifiers);
+	private void writeAttribute(OutputStream stream, ShaderAttribute attrib) {
+		stream.writePrefixed(attrib.name);
+		stream.writePrefixed(attrib.type);
+		stream.writeVal(cast(byte)attrib.modifiers);
 	}
 
 	private void createProgram(string source, out int shaderHandle, out int programHandle) {

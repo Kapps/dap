@@ -2,12 +2,15 @@
 import dap.ContentProcessor;
 public import dap.TextureContent;
 import ShardTools.SignaledTask;
-import ShardIO.StreamInput;
 import ShardTools.ImmediateAction;
 import ShardTools.ExceptionTools;
+import vibe.core.stream;
+import dap.StreamOps;
+import vibe.vibe;
 
 /// A bitwise enum of texture format data.
 enum TextureFormat : ubyte {
+	/// A lossless, uncompressed, efficient to load compression format. Requires the most disk space.
 	color = 0
 }
 
@@ -41,19 +44,19 @@ class TextureProcessor : ContentProcessor {
 		return typeid(TextureContent);
 	}
 
-	protected override AsyncAction performProcess(Untyped untypedInput, OutputSource output) {
+	protected override void performProcess(Untyped untypedInput, OutputStream output) {
 		TextureContent content = untypedInput.get!TextureContent;
-		this.input = new StreamInput(FlushMode.Manual);
 		if(content.width > ushort.max || content.height > ushort.max)
 			throw new NotSupportedException("Textures with a width or height over 65535 pixels are not supported.");
-		auto action = new IOAction(input, output).Start();
 		TextureFormat format = TextureFormat.color;
-		input.Write(cast(ubyte)format);
-		input.Write(cast(ushort)content.width);
-		input.Write(cast(ushort)content.height);
+		this.output = output;
+		output.writeVal(cast(ubyte)format);
+		output.writeVal(cast(ushort)content.width);
+		output.writeVal(cast(ushort)content.height);
 		auto range = content.createPixelRange(Untyped(content), &consumeData);
 		range.Start();
-		return action;
+		while(range.Status == CompletionType.Incomplete)
+			yield();
 	}
 
 	// Save as BMP to test with. May have bugs...
@@ -130,14 +133,12 @@ class TextureProcessor : ContentProcessor {
 	private void consumeData(Untyped state, Color[] data, ProducerStatus status, ConsumerCompletionCallback callback) {
 		assert(format == TextureFormat.color);
 		TextureContent content = state.get!TextureContent;
-		input.Write(data);
-		input.Flush();
-		if(status == ProducerStatus.complete)
-			input.Complete();
+		output.writeVal(data);
+		output.flush();
 		callback();
 	}
 
-	@Ignore(true) StreamInput input;
+	@Ignore(true) OutputStream output;
 	TextureFormat _format;
 }
 

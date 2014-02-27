@@ -7,14 +7,15 @@
 	"license": "Boost",
 	"dependencies": {
 		"shardtools": "~master",
-		"shardio": "~master",
+		"vibe-d": "~master",
 		"shardmath": "~master",
 		"derelict-util": ">=1.0.0",
 		"derelict-gl3": "~master",
 		"tested": "~master"
 	},
 	"libs-windows": [ "gdi32", "user32" ],
-	"lflags": ["-framework", "Cocoa", "-framework", "OpenGL"],
+	"lflags-osx": ["-framework", "Cocoa", "-framework", "OpenGL"],
+	"libs-linux": [ "X11" ],
 	"targetType": "executable",
-	"versions": ["Standalone"]
+	"versions": [ "Standalone", "VibeCustomMain" ]
 }

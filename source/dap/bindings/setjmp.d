@@ -18,6 +18,14 @@ version(OSX) {
 		enum _JBLEN = 64;
 	else
 		static assert(0);
+} else version(linux) {
+	// Seems 64-bit is technically 8 longs, but we never actually use the values so it's okay.
+	version(X86)
+		enum _JBLEN = 6;
+	else version(X86_64)
+		enum _JBLEN = 16;
+	else
+		static assert(0);
 } else
 	static assert(0);
 

@@ -1,12 +1,16 @@
 module dap.ContentImporter;
-import ShardIO.InputSource;
+public import vibe.core.stream;
+import dap.StreamOps;
 import dap.Asset;
 import std.string;
 import std.path;
 import std.traits;
 import ShardTools.ExceptionTools;
 import ShardTools.CaoList;
+public import ShardTools.Untyped;
 public import dap.BuildContext;
+
+mixin(MakeException("ContentImportException", "The backing data for a raw asset was corrupt or in an invalid format."));
 
 /// Provides an importer that can be used to read assets in a variety of formats.
 /// The results of the importer are then handled by a ContentProcessor.
@@ -36,12 +40,11 @@ abstract class ContentImporter {
 	/// sufficient data to begin the import, the AsyncAction returned is
 	/// completed and the CompletionData contains an instance of requestedType.
 	/// If the importer fails to create the data, an error is automatically logged.
-	final AsyncAction process(ImportContext context) {
+	final Untyped process(ImportContext context) {
 		string fixedExt = fixedExtension(context.extension);
 		if(!canProcess(fixedExt, context.requestedType))
 			throw new NotSupportedException("This importer is unable to process the given data.");
-		AsyncAction result = performProcess(context);
-		return result;
+		return performProcess(context);
 	}
 
 	/// Override to indicate whether this import can handle importing
@@ -54,7 +57,7 @@ abstract class ContentImporter {
 	/// Extension is always lower-case, but TypeInfo may be qualified.
 	/// The result of the action $(B must) be an instance of requestedType if the action is successful.
 	/// If the action is aborted, an error is logged and this asset is skipped.
-	abstract AsyncAction performProcess(ImportContext context);
+	abstract Untyped performProcess(ImportContext context);
 
 	private string fixedExtension(string extension) {
 		return extension.toLower.strip();
@@ -66,8 +69,8 @@ abstract class ContentImporter {
 /// Provides context information used to import an asset.
 struct ImportContext {
 
-	/// The InputSource used to read raw asset data from.
-	@property InputSource input() @safe pure nothrow {
+	/// The InputStream used to read raw asset data from.
+	@property InputStream input() @safe pure nothrow {
 		return _input;
 	}
 
@@ -91,7 +94,7 @@ struct ImportContext {
 		return _asset;
 	}
 
-	this(InputSource input, string extension, TypeInfo requestedType, BuildContext buildContext, Asset asset) {
+	this(InputStream input, string extension, TypeInfo requestedType, BuildContext buildContext, Asset asset) {
 		this._input = input;
 		this._extension = extension;
 		this._requestedType = requestedType;
@@ -100,7 +103,7 @@ struct ImportContext {
 	}
 
 private:
-	InputSource _input;
+	InputStream _input;
 	string _extension;
 	TypeInfo _requestedType;
 	BuildContext _buildContext;

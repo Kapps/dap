@@ -2,10 +2,10 @@ module dap.FileStore;
 public import dap.AssetStore;
 public import dap.Asset;
 import core.sync.mutex;
-import ShardIO.FileOutput;
-import ShardIO.StreamInput;
+import vibe.core.stream;
+import vibe.stream.zlib;
+import vibe.core.file;
 import std.algorithm;
-import ShardIO.FileInput;
 import std.path;
 import std.conv;
 import ShardTools.PathTools;
@@ -47,13 +47,13 @@ class FileStore : AssetStore {
 		return buildPath(inputDirectory, name ~ "-settings.sas");
 	}
 
-	override InputSource createInputSource(Asset asset) {
+	override InputStream createInputStream(Asset asset) {
 		auto path = getAbsolutePath(this.inputDirectory, asset) ~ "." ~ asset.extension;
 		trace("Creating input source for " ~ asset.text ~ " from " ~ getRelativePath(asset));
-		return new FileInput(path);
+		return openFile(path, FileMode.read);
 	}
 
-	override OutputSource createOutputSource(Asset asset) {
+	override OutputStream createOutputStream(Asset asset) {
 		auto path = getAbsolutePath(this.outputDirectory, asset) ~ "." ~ COMPILED_EXTENSION;
 		trace("Creating output source for " ~ asset.text ~ " to " ~ getRelativePath(asset));
 		string dir = dirName(path);
@@ -61,14 +61,22 @@ class FileStore : AssetStore {
 			trace("Output directory did not exist; creating it.");
 			mkdirRecurse(dir);
 		}
-		return new FileOutput(path, FileOpenMode.CreateOrReplace);
+		return openFile(path, FileMode.createTrunc);
 	}
 	
 	protected override void performSave() {
 		trace("Setting location will be '" ~ settingsFile ~ "'.");
-		FileOutput output = new FileOutput(settingsFile, FileOpenMode.CreateOrReplace);
-		trace("Created output file.");
-		serializeNodes(output);
+		FileStream output = openFile(settingsFile ~ ".tmp", FileMode.createTrunc);
+		{
+			scope(exit) {
+				output.finalize();
+				output.close();
+			}
+			trace("Created output file.");
+			serializeNodes(output);
+		}
+		trace("Done saving temporary output; replacing original settings file.");
+		moveFile(settingsFile ~ ".tmp", settingsFile);
 		trace("Done performSave.");
 	}
 
@@ -78,7 +86,9 @@ class FileStore : AssetStore {
 			info("Settings file did not exist. Using default data.");
 			return;
 		}
-		FileInput input = new FileInput(settingsFile);
+		FileStream input = openFile(settingsFile, FileMode.read);
+		scope(exit)
+			input.close();
 		trace("Prepared input file.");
 		deserializeNodes(input);
 		trace("Done performLoad.");

@@ -99,7 +99,6 @@ final class NodeSettings {
 		assert(Deserialized.get!int("test") == 3);
 		assert(Deserialized.get!string("testString") == "This is a test!");
 		assert(Deserialized.get!int("TeSt") == 3);
-		
 	}
 	
 	private string fixedKey(string input) {

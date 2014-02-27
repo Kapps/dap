@@ -12,11 +12,11 @@ private {
 	import derelict.util.system;
 	
 	static if( Derelict_OS_Windows ) 
-		enum libNames = "libpng.dll, libpng3.dll, libpng15.dll, libpng15-15.dll";
+		enum libNames = "libpng.dll, libpng15.dll, libpng3.dll, libpng15-15.dll";
 	else static if( Derelict_OS_Mac )
 		enum libNames = "libpng.dylib";
 	else static if( Derelict_OS_Posix )
-		enum libNames = "libpng.so, libpng.3.so, libpng.12.so";
+		enum libNames = "libpng.12.so, libpng.so, libpng3.so";
 	else
 		static assert(0);
 }
@@ -32,7 +32,7 @@ enum syms = [
 	Sym("png_structp", "png_create_read_struct", "immutable char*, void*, png_error_ptr, png_error_ptr"),
 	Sym("png_infop", "png_create_info_struct", "png_structp"),
 	Sym("void", "png_destroy_read_struct", "png_structpp, png_infopp, png_infopp"),
-	Sym("jmp_buf*", "png_set_longjmp_fn", "png_structrp, jump_ptr, size_t"),
+	//Sym("jmp_buf*", "png_set_longjmp_fn", "png_structrp, jump_ptr, size_t"),
 	Sym("void", "png_set_progressive_read_fn", "png_structp, void*, png_progressive_info_ptr, png_progressive_row_ptr, png_progressive_end_ptr"),
 	Sym("void", "png_process_data", "png_structrp, png_inforp, void*, size_t"),
 	Sym("void", "png_read_info", "png_structp, png_infop"),
@@ -48,13 +48,14 @@ enum syms = [
 ];
 
 jmp_buf* png_jmpbuf(png_structrp pngrp) {
-	return png_set_longjmp_fn(pngrp, &longjmp, jmp_buf.sizeof);
+	//return png_set_longjmp_fn(pngrp, &longjmp, jmp_buf.sizeof);
+	return null;
 }
 
 //pragma(msg, getLoaderMixin!(libNames, "Png")(syms));
 mixin(getLoaderMixin!(libNames, "Png")(syms));
 
-enum string PNG_LIBPNG_VER_STRING = "1.6.7";
+enum string PNG_LIBPNG_VER_STRING = "1.2.44";
 enum int PNG_FILLER_AFTER = 1;
 
 
