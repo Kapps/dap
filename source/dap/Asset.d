@@ -18,7 +18,7 @@ class Asset : HierarchyNode {
 		this._extension = extension;
 		if(_extension.length > 0 && _extension[0] == '.')
 			_extension = _extension[1..$];
-		this._processorName = ContentProcessor.getDefaultProcessorForExtension(extension);
+		this.processorName = ContentProcessor.getDefaultProcessorForExtension(extension);
 	}
 	
 	/// Creates an InputSource that can be used to read the data of this asset.
@@ -48,13 +48,17 @@ class Asset : HierarchyNode {
 	}+/
 	
 	/// Gets or sets the name of the ContentProcessor that process this asset.
+	/// Once a processor name is set, default values are assigned.
 	@property final string processorName() const @safe pure nothrow {
 		return _processorName;
 	}
 
 	/// ditto
-	@property final void processorName(string val) @safe pure nothrow {
+	@property final void processorName(string val) {
 		_processorName = val;
+		auto processor = createProcessor();
+		processor.assignDefaultValues(this);
+		processor.saveSettings();
 	}
 
 	/// Gets the file extension of the input data for this asset.

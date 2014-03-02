@@ -42,14 +42,10 @@ version(Standalone) {
 			} catch (Exception e) {
 				writeln(e);
 			}
-			std.stdio.writeln("Exiting event loop.");
 			//exitEventLoop(true);
 		});
-		std.stdio.writeln("Starting event loop.");
 		runEventLoop();
-		std.stdio.writeln("Event loop exited.");
 		taskPool.finish();
-		std.stdio.writeln("Finished taskPool.");
 	}
 
 	class Standalone {
@@ -99,7 +95,7 @@ version(Standalone) {
 				resultMessage ~= "Registered asset " ~ asset.qualifiedName ~ ".\r\n" ~ getInspectString(asset) ~ "\n\n";
 			}
 			_assetStore.save();
-			return resultMessage;
+			return resultMessage.stripRight();
 		}
 
 		@Description("Removes the asset with the specified qualified name from the asset store.")
@@ -108,14 +104,17 @@ version(Standalone) {
 		string remove(string arg) {
 			if(!arg.startsWith("Content:") && !arg.startsWith("*"))
 				arg = "Content:" ~ arg;
-			Asset[] matches = _assetStore.allAssets.filter!(c=>cast(Asset)c).array;
-			string result = "";
-			foreach(node; matches.filter!(c=>globMatch(c.qualifiedName, arg))) {
+			Asset[] matches = _assetStore.allAssets.filter!(c=>cast(Asset)c)
+				.filter!(c=>globMatch(c.qualifiedName, arg)).array;
+			if(matches.empty)
+				return "No assets matched the specified glob.";
+			string result;
+			foreach(node; matches) {
 				node.parent.children.remove(node);
-				result ~= "\t" ~ node.text ~ " was removed from the asset store.\n";
+				result ~= node.text ~ " was removed from the asset store.\n";
 			}
 			_assetStore.save();
-			return result;
+			return result.stripRight();
 		}
 
 		@Description("Lists all assets currently stored.")

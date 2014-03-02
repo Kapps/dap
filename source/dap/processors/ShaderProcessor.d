@@ -18,7 +18,7 @@ enum ShaderType {
 
 class ShaderProcessor : ContentProcessor {
 
-	mixin(makeProcessorMixin("Shader Processor", ["glsl", "hlsl", "shader", "vsh", "fsh", "glslf", "glslv", "vert", "frag" ]));
+	mixin(makeProcessorMixin("Shader Processor", ["glsl", "shader", "vsh", "fsh", "glslf", "glslv", "vert", "frag" ]));
 
 	this(Asset asset) {
 		super(asset);
@@ -61,6 +61,14 @@ class ShaderProcessor : ContentProcessor {
 		// TODO: There should be a context here.
 		//("Shader has ", uniformCount, " uniforms and ", attributeCount, " attributes.");
 		stream.writePrefixed(source);
+	}
+
+	override void assignDefaultValues(Asset asset) {
+		super.assignDefaultValues(asset);
+		if(asset.extension == "vsh" || asset.extension == "vert" || asset.extension == "glsv")
+			type = ShaderType.vertex;
+		else if(asset.extension == "fsh" || asset.extension == "frag" || asset.extension == "glslf")
+			type = ShaderType.fragment;
 	}
 
 	private void writeAttribute(OutputStream stream, ShaderAttribute attrib) {

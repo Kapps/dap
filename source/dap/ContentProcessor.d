@@ -114,6 +114,9 @@ class ContentProcessor {
 	/// Note that mixing in $(D makeProcessorMixin) will automatcally generate this method.
 	protected abstract void performSave(NodeSettings settings);
 
+	/// Assigns default values for the given asset on this processor.
+	void assignDefaultValues(Asset asset) { }
+
 	/// Gets the metadata used for this processor.
 	@Ignore(true) final @property TypeMetadata metadata() {
 		auto result = typeid(this).metadata;
@@ -121,7 +124,6 @@ class ContentProcessor {
 			throw new ReflectionException("No metadata was generated for " ~ typeid(this).text ~ ".");
 		return result;
 	}
-
 
 	/// Must be mixed in to each type deriving from ContentProcessor to handle
 	/// automatic saving and loading of fields and generates metadata.
