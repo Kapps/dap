@@ -70,6 +70,10 @@ final class NodeCollection {
 		if(!removed)
 			throw new KeyNotFoundException("This node did not contain the specified child.");
 		owner.trace("Removed " ~ node.name ~ " from " ~ this.owner.text ~ ".");
+		if(_nodes.length == 0 && cast(AssetContainer)_owner) {
+			owner.trace("Removed last node in AssetContainer; removing container.");
+			_owner.parent.children.remove(_owner);
+		}
 	}
 	
 	private string fixedKey(string input) pure {

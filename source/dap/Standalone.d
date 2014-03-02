@@ -79,33 +79,43 @@ version(Standalone) {
 		@Command(CommandFlags.allowMulti | CommandFlags.argRequired)
 		@ShortName('a')
 		string add(string arg) {
-			arg = arg.replace(nodeSeparator.text, dirSeparator);
-			string assetPath = PathTools.MakeAbsolute(buildPath(_assetStore.inputDirectory, arg));
-			if(!exists(assetPath))
-				return "The asset at " ~ assetPath ~ " did not exist.";
-			if(!isFile(assetPath))
-				return "An asset must be a file, not a directory.";
-			if(!PathTools.IsInWorkingDirectory(assetPath))
-				return "The given asset was not in the current working directory.";
-			string ext = extension(assetPath);
-			string relPath = PathTools.GetRelativePath(assetPath, _assetStore.inputDirectory);
-			string assetName = HierarchyNode.nameFromPath(relPath);
-			Asset asset = _assetStore.registerAsset(assetName, ext);
-
-			//ContentProcessor processor = ContentProcessor.createInstance();
+			string[] matches = dirEntries(_assetStore.inputDirectory, SpanMode.breadth, false)
+				.filter!(c=>c.isFile).map!(c=>cast()PathTools.GetRelativePath(c.name, _assetStore.inputDirectory))
+				.filter!(c=>globMatch(c, arg)).array;
+			if(matches.empty)
+				return "No raw assets matched the specified glob.";
+			string resultMessage;
+			foreach(assetPath; matches) {
+				if(!PathTools.IsInWorkingDirectory(assetPath))
+					return "A matched asset was not in the current working directory.";
+				string ext = extension(assetPath);
+				string relPath = PathTools.GetRelativePath(assetPath, _assetStore.inputDirectory);
+				string assetName = HierarchyNode.nameFromPath(relPath);
+				if(context.getNode(_storeName ~ ":" ~ assetName) !is null) {
+					resultMessage ~= "Skipped already existing matched asset " ~ assetName ~ ".\r\n";
+					continue;
+				}
+				Asset asset = _assetStore.registerAsset(assetName, ext);
+				resultMessage ~= "Registered asset " ~ asset.qualifiedName ~ ".\r\n" ~ getInspectString(asset) ~ "\n\n";
+			}
 			_assetStore.save();
-			return "Registered asset " ~ asset.qualifiedName ~ ".\r\n" ~ getInspectString(asset);
+			return resultMessage;
 		}
 
 		@Description("Removes the asset with the specified qualified name from the asset store.")
 		@Command(CommandFlags.allowMulti | CommandFlags.argRequired)
 		@ShortName('r')
 		string remove(string arg) {
-			auto node = getAsset(arg);
-			string qualName = node.qualifiedName;
-			node.parent.children.remove(node);
+			if(!arg.startsWith("Content:") && !arg.startsWith("*"))
+				arg = "Content:" ~ arg;
+			Asset[] matches = _assetStore.allAssets.filter!(c=>cast(Asset)c).array;
+			string result = "";
+			foreach(node; matches.filter!(c=>globMatch(c.qualifiedName, arg))) {
+				node.parent.children.remove(node);
+				result ~= "\t" ~ node.text ~ " was removed from the asset store.\n";
+			}
 			_assetStore.save();
-			return qualName ~ " was removed from the asset store.";
+			return result;
 		}
 
 		@Description("Lists all assets currently stored.")
