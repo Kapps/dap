@@ -58,9 +58,9 @@ class TextureProcessor : ContentProcessor {
 		range.Start();
 		while(range.Status == CompletionType.Incomplete)
 			yield();
-	}+/
+	}
 
-	/+private void consumeData(Untyped state, Color[] data, ProducerStatus status, ConsumerCompletionCallback callback) {
+	private void consumeData(Untyped state, Color[] data, ProducerStatus status, ConsumerCompletionCallback callback) {
 		assert(format == TextureFormat.color);
 		TextureContent content = state.get!TextureContent;
 		output.writeVal(data);
@@ -68,7 +68,9 @@ class TextureProcessor : ContentProcessor {
 		callback();
 	}+/
 
-	// Save as BMP to test with. May have bugs...
+	// Save as BMP to test with.
+	// WARNING: This has bugs, particularly if width is not a power of two.
+	// The image will appear to be skewed and offset if this is the case.
 	protected override void performProcess(Untyped untypedInput, OutputStream output) {
 		this.output = output;
 		TextureContent content = untypedInput.get!TextureContent;
@@ -125,12 +127,12 @@ class TextureProcessor : ContentProcessor {
 
 	private void consumeData(Untyped state, Color[] data, ProducerStatus status, ConsumerCompletionCallback callback) {
 		foreach(pixel; data) {
-			ubyte[] pixels = [pixel.B, pixel.G, pixel.R];
-			output.writeVal(pixels);
+			ubyte[3] pixels = [pixel.B, pixel.G, pixel.R];
+			output.writeVal(pixels[]);
 		}
 		if(status == ProducerStatus.complete) {
-			ubyte[] padding = cast(ubyte[])[0, 0, 0];
-			output.writeVal(padding);
+			ubyte[3] padding = cast(ubyte[])[0, 0, 0];
+			output.writeVal(padding[]);
 		}
 		output.flush();
 		callback();

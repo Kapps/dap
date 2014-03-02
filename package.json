@@ -1,7 +1,7 @@
 {
 	"name": "dap",
 	"targetName": "dap",
-	"description": "A content processor that can be run either stand-alone or as a library. Handles asynchronous builds, logging, and more. Not ready for use.",
+	"description": "A content pipeline that can be run either standalone or as a library. Handles asynchronous builds, logging, and more. Not ready for use.",
 	"homepage": "https://shardsoft.com",
 	"authors": ["Ognjen Ivkovic"],
 	"license": "Boost",

@@ -26,9 +26,7 @@ import std.algorithm;
 import std.container;
 
 class PngImporter : ContentImporter {
-	
-	private enum HEADER_SIZE = 8;
-	private enum MAX_BUFFER_SIZE = 256 * 1024;
+
 	// If we fail to load libpng don't prevent the entire program from being used.
 	// Instead just fail to build any png files.
 	private __gshared bool libraryLoadFailed = false;
@@ -52,8 +50,10 @@ class PngImporter : ContentImporter {
 		if(libraryLoadFailed)
 			throw libraryLoadFailException;
 		auto readContext = createReadContext(context);
-		scope(exit)
-			png_destroy_read_struct(&readContext.pngp, &readContext.infop, null);
+		// TODO: Need to manually free when the range is done.
+		// Otherwise if we don't get all data in the first read for the info (which we always do atm), we'll free too early.
+		/+png_destroy_read_struct(&readContext.pngp, &readContext.infop, null);+/
+
 		// Horrible hack. We don't care about libpngs insistence of versions; everything used is from libpng 1.2.
 		// So, we'll go ahead and try from 1.2.0 to 1.9.0 until we get a version that works.
 		// Incredibly stupid that libpng essentially prevents dynamic linking if you want to redistribute your binaries.
@@ -74,7 +74,7 @@ class PngImporter : ContentImporter {
 		png_set_progressive_read_fn(pngp, readContext, &infoCallback, &rowCallback, &endCallback);
 		// Initially we have to provide enough data to reach our info callback, as we produce data through the AsyncRange which is started later.
 		while(!readContext.infoRead) {
-			auto size = context.input.leastSize;
+			size_t size = cast(size_t)min(64 * 1024, context.input.leastSize);
 			Buffer buff = BufferPool.Global.Acquire(size);
 			context.input.read(buff.FullData[0..size]);
 			png_process_data(pngp, infop, buff.FullData.ptr, size);
@@ -103,7 +103,7 @@ class PngImporter : ContentImporter {
 				callback(ProducerStatus.complete, null);
 				return;
 			}
-			auto size = input.leastSize;
+			size_t size = cast(size_t)min(64 * 1024, input.leastSize);
 			Buffer buffer = BufferPool.Global.Acquire(size);
 			input.read(buffer.FullData[0..size]);
 			png_process_data(pngp, infop, buffer.FullData.ptr, size);
