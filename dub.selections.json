@@ -1,0 +1,17 @@
+{
+	"fileVersion": 1,
+	"versions": {
+		"memutils": "~master",
+		"shardtools": "~master",
+		"msgpack-d": "~master",
+		"tested": "~master",
+		"vibe-d": "~master",
+		"libevent": "2.0.1+2.0.16",
+		"derelict-util": "1.9.1",
+		"shardmath": "~master",
+		"openssl": "1.1.4+1.0.1g",
+		"libev": "5.0.0+4.04",
+		"libasync": "0.7.0",
+		"derelict-gl3": "1.0.12"
+	}
+}

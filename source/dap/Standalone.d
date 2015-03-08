@@ -42,7 +42,7 @@ version(Standalone) {
 			} catch (Exception e) {
 				writeln(e);
 			}
-			//exitEventLoop(true);
+			exitEventLoop(true);
 		});
 		runEventLoop();
 		taskPool.finish();
@@ -60,6 +60,17 @@ version(Standalone) {
 		@Description("The minimum severity for a message to be logged.")
 		@DisplayName("log-level")
 		MessageSeverity severity = MessageSeverity.info;
+
+		@Description("Initializes the folder structure for a dap repository using a Content subdirectory in this folder.")
+		@DisplayName("init")
+		@Command(true)
+		string init() {
+			createOpt("Content");
+			createOpt("Content", "Input");
+			createOpt("Content", "Output");
+			_assetStore.save();
+			return "Initialized folder structure for an empty dap repository.";
+		}
 
 		@Description("Displays the help string.")
 		@ShortName('h')
@@ -276,6 +287,12 @@ version(Standalone) {
 			foreach(child; node.children.allNodes.filter!(c=>cast(Asset)c is null)) {
 				appendContainer(child, indentLevel + 1, result);
 			}
+		}
+
+		private void createOpt(string[] pathParts...) {
+			auto built = buildPath(pathParts);
+			if(!exists(built))
+				mkdir(built);
 		}
 
 		@CommandInitializer(true)

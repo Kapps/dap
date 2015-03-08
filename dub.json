@@ -1,0 +1,20 @@
+{
+	"name": "dap",
+	"targetName": "dap",
+	"description": "A content pipeline that can be run either standalone or as a library. Handles asynchronous builds, logging, and more. Not ready for use.",
+	"homepage": "https://shardsoft.com",
+	"authors": ["Ognjen Ivkovic"],
+	"license": "Boost",
+	"dependencies": {
+		"shardtools": "~master",
+		"vibe-d": "~master",
+		"shardmath": "~master",
+		"derelict-util": ">=1.9.1",
+		"derelict-gl3": ">=1.0.12"
+	},
+	"libs-windows": [ "gdi32", "user32" ],
+	"lflags-osx": ["-framework", "Cocoa", "-framework", "OpenGL"],
+	"libs-linux": [ "X11" ],
+	"targetType": "executable",
+	"versions": [ "Standalone", "VibeCustomMain" ]
+}
