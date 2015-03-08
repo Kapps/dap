@@ -58,7 +58,7 @@ class AssetBuilder {
 		ptrdiff_t curr = numStarted;
 		while(numStarted > numCompleted) {
 			// Wait on all tasks to finish. Ideally we'd use a Condition or such, but eh.
-			yield();
+			vibe.core.core.yield();
 		}
 		enforce(cas(&_buildInProgress, true, false));
 		context.logger.trace("Finished building all assets (" ~ curr.text ~ "/" ~ numCompleted.text ~ ").");

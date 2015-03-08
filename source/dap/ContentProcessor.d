@@ -23,10 +23,10 @@ class ContentProcessor {
 
 	// TODO: Rename Content -> Asset for Importer|Processor.
 	// TODO: Processing should include a BuildContext.
-	
+
 	/// Registers the processor with the specified name and type.
 	/// The processor is then also registered as the default processor for all extensions given.
-	static void registerProcessor(string name, string extensions[], TypeMetadata type) {
+	static void registerProcessor(string name, string[] extensions, TypeMetadata type) {
 		_storeLock.lock();
 		scope(exit)
 			_storeLock.unlock();
@@ -34,7 +34,7 @@ class ContentProcessor {
 		foreach(string extension; extensions)
 			_storedNameByExtension[fixedKey(extension)] = name;
 	}
-	
+
 	/// Creates an instance of the ContentProcessor with the given name, loading it's
 	/// settings from the specified asset's setting store.
 	/// If no processor is registered with the given name, null is returned.
@@ -60,7 +60,7 @@ class ContentProcessor {
 			_storeLock.unlock();
 		string result = _storedNameByExtension.get(fixedKey(extension), null);
 		return result;
-	} 
+	}
 
 	/// Returns the type of the data used as input for this ContentProcessor.
 	@Ignore(true) @property abstract TypeInfo inputType();
@@ -69,7 +69,7 @@ class ContentProcessor {
 	@Ignore(true) @property final Asset asset() {
 		return _asset;
 	}
-	
+
 	/// Creates a new ContentProcessor capable of processing the specified asset,
 	/// loading any existing settings contained by the node's setting store.
 	this(Asset asset) {
@@ -190,7 +190,7 @@ class ContentProcessor {
 			}
 		}
 	}
-	
+
 	private static string propertyNameForValue(TypeMetadata metadata, string name) @safe pure {
 		return metadata.name ~ "." ~ name;
 	}

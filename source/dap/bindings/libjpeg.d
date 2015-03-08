@@ -10,8 +10,8 @@ import dap.bindings.utils;
 private {
 	import derelict.util.loader;
 	import derelict.util.system;
-	
-	static if( Derelict_OS_Windows ) 
+
+	static if( Derelict_OS_Windows )
 		enum libNames = "libjpeg8-turbo.dll, libjpeg-turbo8.dll, libjpeg-turbo.dll, libjpeg8.dll, libjpeg.dll";
 	else static if( Derelict_OS_Mac )
 		enum libNames = "libjpeg-turbo8.dylib, libjpeg8-turbo.dylib, libjpeg-turbo.dylib, libjpeg8.dylib, libjpeg.dylib";
@@ -314,7 +314,7 @@ alias JSAMPLE     *JSAMPROW;	/* ptr to one image row of pixel samples. */
 alias JSAMPROW *JSAMPARRAY;	/* ptr to some rows (a 2-D sample array) */
 alias JSAMPARRAY *JSAMPIMAGE;	/* a 3-D sample array: top index is color */
 
-alias JCOEF JBLOCK[DCTSIZE2];	/* one block of coefficients */
+alias JCOEF[DCTSIZE2] JBLOCK;	/* one block of coefficients */
 alias JBLOCK     *JBLOCKROW;	/* pointer to one row of coefficient blocks */
 alias JBLOCKROW *JBLOCKARRAY;		/* a 2-D array of coefficient blocks */
 alias JBLOCKARRAY *JBLOCKIMAGE;	/* a 3-D array of coefficient blocks */
@@ -332,7 +332,7 @@ struct JQUANT_TBL{
    * (not the zigzag order in which they are stored in a JPEG DQT marker).
    * CAUTION: IJG versions prior to v6a kept this array in zigzag order.
    */
-  UINT16 quantval[DCTSIZE2];	/* quantization step for each coefficient */
+  UINT16[DCTSIZE2] quantval;	/* quantization step for each coefficient */
   /* This field is used only during compression.  It's initialized FALSE when
    * the table is created, and set TRUE when it's been output to the file.
    * You could suppress output of a table by setting this to TRUE.
@@ -346,9 +346,9 @@ struct JQUANT_TBL{
 
 struct JHUFF_TBL {
   /* These two fields directly represent the contents of a JPEG DHT marker */
-  UINT8 bits[17];		/* bits[k] = # of symbols with codes of */
+  UINT8[17] bits;		/* bits[k] = # of symbols with codes of */
 				/* length k bits; bits[0] is unused */
-  UINT8 huffval[256];		/* The symbols, in order of incr code length */
+  UINT8[256] huffval;		/* The symbols, in order of incr code length */
   /* This field is used only during compression.  It's initialized FALSE when
    * the table is created, and set TRUE when it's been output to the file.
    * You could suppress output of a table by setting this to TRUE.
@@ -375,9 +375,9 @@ struct jpeg_component_info {
   /* The decompressor output side may not use these variables. */
   int dc_tbl_no;		/* DC entropy table selector (0..3) */
   int ac_tbl_no;		/* AC entropy table selector (0..3) */
-  
+
   /* Remaining fields should be treated as private by applications. */
-  
+
   /* These values are computed during compression or decompression startup: */
   /* Component's size in DCT blocks.
    * Any dummy blocks added to complete an MCU are not counted; therefore
@@ -435,7 +435,7 @@ static if (JPEG_LIB_VERSION >= 70){
 
 struct jpeg_scan_info{
   int comps_in_scan;		/* number of components encoded in this scan */
-  int component_index[MAX_COMPS_IN_SCAN]; /* their SOF/comp_info[] indexes */
+  int[MAX_COMPS_IN_SCAN] component_index; /* their SOF/comp_info[] indexes */
   int Ss, Se;			/* progressive JPEG spectral selection parms */
   int Ah, Al;			/* progressive JPEG successive approx. parms */
 }
@@ -507,7 +507,7 @@ enum J_DITHER_MODE{
 
 /* Common fields between JPEG compression and decompression master structs. */
 
-template jpeg_common_fields(){ 
+template jpeg_common_fields(){
   jpeg_error_mgr * err;	/* Error handler module */
   jpeg_memory_mgr * mem;	/* Memory manager module */
   jpeg_progress_mgr * progress; /* Progress monitor, or NULL if none */
@@ -582,21 +582,21 @@ static if (JPEG_LIB_VERSION >= 70){
   jpeg_component_info * comp_info;
   /* comp_info[i] describes component that appears i'th in SOF */
 
-  JQUANT_TBL * quant_tbl_ptrs[NUM_QUANT_TBLS];
+  JQUANT_TBL*[NUM_QUANT_TBLS] quant_tbl_ptrs;
 static if (JPEG_LIB_VERSION >= 70){
-  int q_scale_factor[NUM_QUANT_TBLS];
+  int[NUM_QUANT_TBLS] q_scale_factor;
 }
   /* ptrs to coefficient quantization tables, or NULL if not defined,
    * and corresponding scale factors (percentage, initialized 100).
    */
 
-  JHUFF_TBL * dc_huff_tbl_ptrs[NUM_HUFF_TBLS];
-  JHUFF_TBL * ac_huff_tbl_ptrs[NUM_HUFF_TBLS];
+  JHUFF_TBL*[NUM_HUFF_TBLS] dc_huff_tbl_ptrs;
+  JHUFF_TBL*[NUM_HUFF_TBLS] ac_huff_tbl_ptrs;
   /* ptrs to Huffman coding tables, or NULL if not defined */
 
-  UINT8 arith_dc_L[NUM_ARITH_TBLS]; /* L values for DC arith-coding tables */
-  UINT8 arith_dc_U[NUM_ARITH_TBLS]; /* U values for DC arith-coding tables */
-  UINT8 arith_ac_K[NUM_ARITH_TBLS]; /* Kx values for AC arith-coding tables */
+  UINT8[NUM_ARITH_TBLS] arith_dc_L; /* L values for DC arith-coding tables */
+  UINT8[NUM_ARITH_TBLS] arith_dc_U; /* U values for DC arith-coding tables */
+  UINT8[NUM_ARITH_TBLS] arith_ac_K; /* Kx values for AC arith-coding tables */
 
   int num_scans;		/* # of entries in scan_info array */
   const(jpeg_scan_info) * scan_info; /* script for multi-scan file, or NULL */
@@ -636,7 +636,7 @@ static if (JPEG_LIB_VERSION >= 70){
   UINT16 X_density;		/* Horizontal pixel density */
   UINT16 Y_density;		/* Vertical pixel density */
   boolean write_Adobe_marker;	/* should an Adobe marker be written? */
-  
+
   /* State variable: index of next scanline to be written to
    * jpeg_write_scanlines().  Application may use this to control its
    * processing loop, e.g., "while (next_scanline < image_height)".
@@ -666,20 +666,20 @@ static if (JPEG_LIB_VERSION >= 70){
    * There are v_samp_factor * DCTSIZE sample rows of each component in an
    * "iMCU" (interleaved MCU) row.
    */
-  
+
   /*
    * These fields are valid during any one scan.
    * They describe the components and MCUs actually appearing in the scan.
    */
   int comps_in_scan;		/* # of JPEG components in this scan */
-  jpeg_component_info * cur_comp_info[MAX_COMPS_IN_SCAN];
+  jpeg_component_info*[MAX_COMPS_IN_SCAN] cur_comp_info;
   /* *cur_comp_info[i] describes component that appears i'th in SOS */
-  
+
   JDIMENSION MCUs_per_row;	/* # of MCUs across the image */
   JDIMENSION MCU_rows_in_scan;	/* # of MCU rows in the image */
-  
+
   int blocks_in_MCU;		/* # of DCT blocks per MCU */
-  int MCU_membership[C_MAX_BLOCKS_IN_MCU];
+  int[C_MAX_BLOCKS_IN_MCU] MCU_membership;
   /* MCU_membership[i] is index in cur_comp_info of component owning */
   /* i'th block in an MCU */
 
@@ -821,11 +821,11 @@ struct jpeg_decompress_struct {
    * datastreams when processing abbreviated JPEG datastreams.
    */
 
-  JQUANT_TBL * quant_tbl_ptrs[NUM_QUANT_TBLS];
+  JQUANT_TBL*[NUM_QUANT_TBLS] quant_tbl_ptrs;
   /* ptrs to coefficient quantization tables, or NULL if not defined */
 
-  JHUFF_TBL * dc_huff_tbl_ptrs[NUM_HUFF_TBLS];
-  JHUFF_TBL * ac_huff_tbl_ptrs[NUM_HUFF_TBLS];
+  JHUFF_TBL*[NUM_HUFF_TBLS] dc_huff_tbl_ptrs;
+  JHUFF_TBL*[NUM_HUFF_TBLS] ac_huff_tbl_ptrs;
   /* ptrs to Huffman coding tables, or NULL if not defined */
 
   /* These parameters are never carried across datastreams, since they
@@ -843,9 +843,9 @@ static if (JPEG_LIB_VERSION >= 80){
   boolean progressive_mode;	/* TRUE if SOFn specifies progressive mode */
   boolean arith_code;		/* TRUE=arithmetic coding, FALSE=Huffman */
 
-  UINT8 arith_dc_L[NUM_ARITH_TBLS]; /* L values for DC arith-coding tables */
-  UINT8 arith_dc_U[NUM_ARITH_TBLS]; /* U values for DC arith-coding tables */
-  UINT8 arith_ac_K[NUM_ARITH_TBLS]; /* Kx values for AC arith-coding tables */
+  UINT8[NUM_ARITH_TBLS] arith_dc_L; /* L values for DC arith-coding tables */
+  UINT8[NUM_ARITH_TBLS] arith_dc_U; /* U values for DC arith-coding tables */
+  UINT8[NUM_ARITH_TBLS] arith_ac_K; /* Kx values for AC arith-coding tables */
 
   uint restart_interval; /* MCUs per restart interval, or 0 for no restart */
 
@@ -904,14 +904,14 @@ static if (JPEG_LIB_VERSION >= 70){
    * Note that the decompressor output side must not use these fields.
    */
   int comps_in_scan;		/* # of JPEG components in this scan */
-  jpeg_component_info * cur_comp_info[MAX_COMPS_IN_SCAN];
+  jpeg_component_info*[MAX_COMPS_IN_SCAN] cur_comp_info;
   /* *cur_comp_info[i] describes component that appears i'th in SOS */
 
   JDIMENSION MCUs_per_row;	/* # of MCUs across the image */
   JDIMENSION MCU_rows_in_scan;	/* # of MCU rows in the image */
 
   int blocks_in_MCU;		/* # of DCT blocks per MCU */
-  int MCU_membership[D_MAX_BLOCKS_IN_MCU];
+  int[D_MAX_BLOCKS_IN_MCU] MCU_membership;
   /* MCU_membership[i] is index in cur_comp_info of component owning */
   /* i'th block in an MCU */
 
@@ -970,22 +970,22 @@ struct jpeg_error_mgr {
   enum JMSG_LENGTH_MAX  = 200;	/* recommended size of format_message buffer */
   /* Reset error state variables at start of a new image */
   void function(j_common_ptr cinfo) reset_error_mgr;
-  
+
   /* The message ID code and any parameters are saved here.
    * A message can have one string parameter or up to 8 int parameters.
    */
   int msg_code;
   enum JMSG_STR_PARM_MAX  = 80;
   union msg_parm_t{
-    int i[8];
-    char s[JMSG_STR_PARM_MAX];
+    int[8] i;
+    char[JMSG_STR_PARM_MAX] s;
   }
   msg_parm_t msg_parm;
-  
+
   /* Standard state variables for error facility */
-  
+
   int trace_level;		/* max msg_level that will be displayed */
-  
+
   /* For recoverable corrupt-data errors, we emit a warning message,
    * but keep going unless emit_message chooses to abort.  emit_message
    * should count warnings in num_warnings.  The surrounding application
@@ -1141,7 +1141,7 @@ alias boolean function(j_decompress_ptr cinfo) jpeg_marker_parser_method;
  * NB: you must set up the error-manager BEFORE calling jpeg_create_xxx.
  */
 auto jpeg_create_compress(j_compress_ptr cinfo) {
-    return jpeg_CreateCompress(cinfo, JPEG_LIB_VERSION, 
+    return jpeg_CreateCompress(cinfo, JPEG_LIB_VERSION,
 			jpeg_compress_struct.sizeof);
 }
 auto jpeg_create_decompress(j_decompress_ptr cinfo) {

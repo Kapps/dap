@@ -183,16 +183,16 @@ class JpegImporter : ContentImporter {
 		// A Color!(8, 8, 8) or such would also be useful, could use that instead.
 		if(ds.output_components == 1) {
 			foreach(i, ref color; colors) {
-				color.R = color.G = color.B = dataPtr[i];
-				color.A = 255;
+				color.r = color.g = color.b = dataPtr[i];
+				color.a = 255;
 			}
 		} else if(ds.output_components == 3) {
 			foreach(i, ref color; colors) {
 				size_t byteIndex = i * 3;
-				color.R = dataPtr[byteIndex];
-				color.G = dataPtr[byteIndex + 1];
-				color.B = dataPtr[byteIndex + 2];
-				color.A = 255;
+				color.r = dataPtr[byteIndex];
+				color.g = dataPtr[byteIndex + 1];
+				color.b = dataPtr[byteIndex + 2];
+				color.a = 255;
 			}
 		} else if(ds.output_components == 4) {
 			// I don't think that 4 components is actually possible with libjpeg.

@@ -47,6 +47,11 @@ class FileStore : AssetStore {
 		return buildPath(inputDirectory, name ~ "-settings.sas");
 	}
 
+	/// Returns the path to the file that is used as the raw input file for this asset on the disk.
+	string getPathForRawAsset(Asset asset) {
+		return getAbsolutePath(this.inputDirectory, asset) ~ "." ~ asset.extension;
+	}
+
 	override InputStream createInputStream(Asset asset) {
 		auto path = getAbsolutePath(this.inputDirectory, asset) ~ "." ~ asset.extension;
 		trace("Creating input source for " ~ asset.text ~ " from " ~ getRelativePath(asset));

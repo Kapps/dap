@@ -122,12 +122,12 @@ class TextureProcessor : ContentProcessor {
 		auto range = content.createPixelRange(Untyped(content), &consumeData);
 		range.Start();
 		while(range.Status == CompletionType.Incomplete)
-			yield();
+			vibe.core.core.yield();
 	}
 
 	private void consumeData(Untyped state, Color[] data, ProducerStatus status, ConsumerCompletionCallback callback) {
 		foreach(pixel; data) {
-			ubyte[3] pixels = [pixel.B, pixel.G, pixel.R];
+			ubyte[3] pixels = [pixel.b, pixel.g, pixel.r];
 			output.writeVal(pixels[]);
 		}
 		if(status == ProducerStatus.complete) {

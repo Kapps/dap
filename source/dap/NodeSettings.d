@@ -1,7 +1,7 @@
 module dap.NodeSettings;
 public import dap.Asset;
 import ShardTools.Untyped;
-import ShardTools.MessagePack;
+import msgpack;
 import std.string;
 import dap.HierarchyNode;
 import ShardTools.Buffer;

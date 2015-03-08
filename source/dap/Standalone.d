@@ -1,5 +1,5 @@
 module dap.Standalone;
-version(Standalone) {	
+version(Standalone) {
 	import std.getopt;
 	import std.conv;
 	import std.stdio;
@@ -27,11 +27,11 @@ version(Standalone) {
 	import std.datetime;
 	import std.exception;
 	import std.variant;
-	import vibe.vibe;
+	import vibe.d;
 	import std.parallelism;
 
 	/// Provides a stand-alone wrapper that uses a FileStore to keep track of assets.
-	void main(string[] args) { 
+	void main(string[] args) {
 		// TODO: Add support for things like --help add.
 		runTask({
 			Standalone instance;
@@ -142,6 +142,24 @@ version(Standalone) {
 		string inspect(string arg) {
 			auto node = getAsset(arg);
 			return getInspectString(node);
+		}
+
+		@Description("Opens the given asset in an external editor.")
+		@Command(true)
+		@ShortName('o')
+		string open(string arg) {
+			auto node = getAsset(arg);
+			string path = _assetStore.getPathForRawAsset(node);
+			import std.process;
+			version(Windows)
+				spawnProcess([path]);
+			else version(OSX)
+				spawnProcess(["open", path]);
+			else version(linux)
+				spawnProcess(["xdg-open"], path);
+			else
+				return "Open file not implemented on this platform.";
+			return null;
 		}
 
 		@Description("Modifies a property of a processor on an asset, or the processor used to build the asset.")
@@ -270,7 +288,7 @@ version(Standalone) {
 			logger.trace("Output Path: " ~ outputFolder);
 			_assetStore.load();
 		}
-	
+
 		private BuildContext context;
 		private FileStore _assetStore;
 		private string _storeName = "Content";

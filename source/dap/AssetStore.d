@@ -6,7 +6,7 @@ public import dap.BuildContext;
 public import vibe.core.stream;
 import dap.StreamOps;
 import std.parallelism;
-import ShardTools.MessagePack;
+import msgpack;
 import ShardTools.Buffer;
 import ShardTools.BufferPool;
 import ShardTools.LinkedList;
@@ -19,6 +19,10 @@ import std.conv;
 import std.typecons;
 import std.algorithm;
 import vibe.stream.memory;
+
+// No clue why this is necessary...
+// Without it DMD complains "undefined identifier Asset, did you mean class Asset?"
+alias Asset = dap.Asset.Asset;
 
 /// Provides the implementation of any storage operations, such as loading data for an asset.
 abstract class AssetStore : HierarchyNode {
