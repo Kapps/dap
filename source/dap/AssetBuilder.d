@@ -35,7 +35,7 @@ class AssetBuilder {
 		context.logger.trace("Began build.");
 		shared size_t numStarted, numCompleted;
 		foreach(AssetStore store_; context.allStores) {
-			context.logger.trace("Starting build of store " ~ store_.name ~ ".", store_);
+			context.logger.info("Starting build of store " ~ store_.name ~ ".", store_);
 			foreach(Asset asset_; store_.allAssets) {
 				atomicOp!"+="(numStarted, 1);
 				void delegate(Asset) dg = (asset) {
@@ -45,14 +45,19 @@ class AssetBuilder {
 						context.logger.trace("Starting build of asset.", asset);
 						buildAsset(context, asset);
 						sw.stop();
-						context.logger.trace("Finished building asset in " ~ (cast(Duration)sw.peek).text ~ ".", asset);
+						context.logger.info("Finished building asset in " ~ (cast(Duration)sw.peek).text ~ ".", asset);
 					} catch (Exception e) {
 						context.logger.error("An exception occurred when building this asset. Details: " ~ e.msg, asset);
-						context.logger.info("\tException details: " ~ e.text.replace("\n", "\n\t"), asset);
+						context.logger.trace("\tException details: " ~ e.text.replace("\n", "\n\t"), asset);
 					}
 					atomicOp!"+="(numCompleted, 1);
 				};
-				runWorkerTask(&buildAssetWrapper, cast(shared)dg, cast(shared)asset_);
+				string filterDetails;
+				if(isFilteredOut(asset_, filterDetails)) {
+					context.logger.info("Skipped build of asset: " ~ filterDetails, asset_);
+					atomicOp!"+="(numCompleted, 1);
+				} else
+					runWorkerTask(&buildAssetWrapper, cast(shared)dg, cast(shared)asset_);
 			}
 		}
 		ptrdiff_t curr = numStarted;
@@ -62,6 +67,33 @@ class AssetBuilder {
 		}
 		enforce(cas(&_buildInProgress, true, false));
 		context.logger.trace("Finished building all assets (" ~ curr.text ~ "/" ~ numCompleted.text ~ ").");
+	}
+
+	/// Adds the given filter to be used when deciding whether to build an asset.
+	/// If the filter returns true, the asset is built; if any return false, it is skipped.
+	/// The out parameter is used as the details for why the asset is skipped.
+	void addFilter(AssetFilter filter) {
+		synchronized(this) {
+			_filters ~= filter;
+		}
+	}
+
+	private bool isFilteredOut(Asset asset, out string details) {
+		synchronized(this) {
+			string filterDetails;
+			bool anyMatch = false;
+			foreach(filter; _filters) {
+				string detail;
+				if(!filter(asset, detail)) {
+					assert(detail);
+					filterDetails ~= detail.replace("\n", "\n\t") ~ "\n";
+					anyMatch = true;
+				} else
+					asset.trace("Filter " ~ filter.text ~ " not filtering out " ~ asset.text);
+			}
+			details = filterDetails.strip;
+			return anyMatch;
+		}
 	}
 
 	private static void buildAssetWrapper(shared(void delegate(Asset)) runner, shared Asset asset) {
@@ -101,4 +133,9 @@ class AssetBuilder {
 
 private:
 	shared bool _buildInProgress;
+	AssetFilter[] _filters;
 }
+
+/// Represents a filter that is executed to determine whether to build each asset.
+/// If any filters return false, the asset is skipped and the out parameter used as the reason.
+alias AssetFilter = bool delegate(Asset, out string);

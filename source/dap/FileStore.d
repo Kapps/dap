@@ -19,7 +19,8 @@ import std.file;
 /// Provides a basic implementation of AssetStore used to read or write assets directly to/from a file-system.
 class FileStore : AssetStore {
 
-	private enum string COMPILED_EXTENSION = "sca";
+	/// Indicates the file extension for compiled assets.
+	public enum string COMPILED_EXTENSION = "sca";
 
 	/// Creates a new FileStore with the given settings.
 	/// Params:
@@ -52,14 +53,19 @@ class FileStore : AssetStore {
 		return getAbsolutePath(this.inputDirectory, asset) ~ "." ~ asset.extension;
 	}
 
+	/// Returns the path to the output file that results from building this asset.
+	string getPathForBuiltAsset(Asset asset) {
+		return getAbsolutePath(this.outputDirectory, asset) ~ "." ~ COMPILED_EXTENSION;
+	}
+
 	override InputStream createInputStream(Asset asset) {
-		auto path = getAbsolutePath(this.inputDirectory, asset) ~ "." ~ asset.extension;
+		auto path = getPathForRawAsset(asset);
 		trace("Creating input source for " ~ asset.text ~ " from " ~ getRelativePath(asset));
 		return openFile(path, FileMode.read);
 	}
 
 	override OutputStream createOutputStream(Asset asset) {
-		auto path = getAbsolutePath(this.outputDirectory, asset) ~ "." ~ COMPILED_EXTENSION;
+		auto path = getPathForBuiltAsset(asset);
 		trace("Creating output source for " ~ asset.text ~ " to " ~ getRelativePath(asset));
 		string dir = dirName(path);
 		if(!exists(dir)) {

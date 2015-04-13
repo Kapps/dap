@@ -97,12 +97,20 @@ else
 	sudo ln -s "$(pwd)/$completionfname" "$completiondir/$completionfnamedst"
 	sudo chmod go+x "$completiondir/$completionfnamedst"
 	echo "Created link from $completiondir/$completionfnamedst to $(pwd)/$completionfname."
-	if [[ $completionautoenable == 0 ]]; then
+	if [[ $platform == $PLATFORM_OSX ]]; then
+		echo 'If you have not already, and you are using brew, you will need to add the following to ~/.bash_profile:'
+		echo 'if [ -f $(brew --prefix)/etc/bash_completion ]; then'
+		echo '    . $(brew --prefix)/etc/bash_completion'
+		echo 'fi'
+	elif [[ $platform == $PLATFORM_WINDOWS ]]; then
 		echo "This platform does not support automatically enabling bash completion."
 		echo "Please add 'source $completiondir/$completionfnamedst' to /etc/profile."
-	else
+	elif [[ $platform == $PLATFORM_LINUX ]]; then
 		echo "This should be sufficient to enable bash completion in new instances of bash."
 		echo "If bash completion is not functional, please add 'source $completiondir/$completionfnamedst' to /etc/profile."
+	else
+		echo 'Unknown platform: internal error'
+		exit 999
 	fi
 fi
 

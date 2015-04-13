@@ -72,6 +72,21 @@ version(Standalone) {
 			return "Initialized folder structure for an empty dap repository.";
 		}
 
+		@Description("Cleans the output directory, removing all built assets.")
+		@Command(true)
+		string clean() {
+			auto ext = "*." ~ FileStore.COMPILED_EXTENSION;
+			foreach(entry; dirEntries(_assetStore.outputDirectory, ext, SpanMode.depth)) {
+				_assetStore.trace("Deleting built asset '" ~ entry ~ "'.");
+				try {
+					removeFile(entry);
+				} catch (Exception e) {
+					_assetStore.warn("Failed to delete asset at '" ~ entry ~ "': " ~ e.msg);
+				}
+			}
+			return "Cleaned output folder.";
+		}
+
 		@Description("Displays the help string.")
 		@ShortName('h')
 		@Command(CommandFlags.setDefault)
@@ -141,8 +156,18 @@ version(Standalone) {
 		@Command(true)
 		@ShortName('b')
 		string build() {
+			AssetFilter filter = (asset, out string details) {
+				auto inPath = _assetStore.getPathForRawAsset(asset);
+				auto outPath = _assetStore.getPathForBuiltAsset(asset);
+				if(timeLastModified(inPath) <= timeLastModified(outPath, SysTime.min)) {
+					details = "Asset is up to date";
+					return false;
+				}
+				return true;
+			};
 			StopWatch sw = StopWatch(AutoStart.yes);
 			auto builder = new AssetBuilder();
+			builder.addFilter(filter);
 			builder.build(context);
 			return "Build complete. Elapsed time was " ~ (cast(Duration)sw.peek).text ~ ".";
 		}
